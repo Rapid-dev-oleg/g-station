@@ -1,0 +1,65 @@
+{
+  "_комментарий": "Кейс Даша-08. Стресс схемы: береговая ПНС — 1 насос без резерва, нет коллектора, самовсасывание, спец-оборудование (донный клапан, заборный рукав, вакуумный насос).",
+  "meta": {
+    "case_id": "dasha-08",
+    "object_name": "Береговая ПНС, Кудьминская нефтебаза",
+    "customer": "ООО Кудьминская нефтебаза",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": ["опросный-лист"],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "береговая-ПНС",
+        "Q": { "value": 300, "unit": "м³/ч", "source": "extracted" },
+        "H": { "value": 50, "unit": "м", "source": "extracted" },
+        "reservation_scheme": "1/0",
+        "working_pumps": 1, "reserve_pumps": 0,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "pump_type_required": ["самовсасывающий", "центробежный"],
+        "station_enclosure": "береговой-модуль",
+        "installation_place": "на-берегу",
+        "limits": { "motor_power": { "value": 75, "unit": "кВт", "source": "extracted" } }
+      },
+      "calc": {
+        "Q_target": { "value": 300, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 50, "unit": "м", "source": "calculated" }
+      },
+      "variants": [
+        {
+          "name": "основной",
+          "equipment": {
+            "main_pump": { "brand": "отеч. серия Д", "model": "Д320-50", "qty": 1, "motor_power": { "value": 75, "unit": "кВт" } },
+            "vacuum_pump": "Vetlan SKA-A 2070 (водокольцевой)",
+            "control_cabinet": { "brand": "Шторм", "series": "ШУС-113-75к", "options": ["Вн", "PTC", "V"] },
+            "housing": { "type": "блок-бокс", "dimensions": "3000×4000×2700" },
+            "extra": [
+              { "name": "Донный клапан обратный осевой с сеткой, чугун, DN200", "spec": "DN200" },
+              { "name": "Рукав напорно-всасывающий DN200", "spec": "10 м" },
+              { "name": "Обвязка насоса (вместо коллектора)", "spec": "" }
+            ]
+          },
+          "pricing": {
+            "rows": [
+              { "position_name": "Насос Д320-50, 75 кВт", "position_group": "насосное", "price": 393000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 393000 },
+              { "position_name": "ШУ ШУС-113-75к+Вн+PTC+V", "position_group": "автоматика", "price": 542000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 542000 },
+              { "position_name": "Вакуумный насос Vetlan SKA-A 2070", "position_group": "насосное", "price": 60000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 60000 },
+              { "position_name": "Блок-бокс 3×4×2,7", "position_group": "корпус", "price": 660000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 660000 }
+            ],
+            "total_cost": 1838200
+          }
+        }
+      ],
+      "output": {
+        "selected_variant": 0,
+        "product_code": "GF-П-1-Д320-50-РПП-03-04-08",
+        "code_segments": { "series": "GF", "purpose_letter": "П", "scheme": "1", "regulation": "РПП", "options": ["03", "04", "08"] },
+        "documents": ["ТП-pdf", "смета-xlsx"]
+      }
+    }
+  ]
+}

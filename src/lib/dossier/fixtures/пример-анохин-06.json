@@ -1,0 +1,94 @@
+{
+  "_комментарий": "Пример расчётного дела по кейсу Анохин-06. Демонстрирует структуру case→stations[]→variants[] и провенанс полей. Валиден против расчётное-дело.schema.json.",
+  "meta": {
+    "case_id": "anohin-06",
+    "object_name": "Станция G-Fire, 2 исполнения",
+    "scenario": "два-исполнения",
+    "input_format": ["заметка-txt"],
+    "output_format": "только-смета",
+    "variants_requested": ["по-исполнению"]
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": { "value": 98.64, "unit": "м³/ч", "source": "extracted" },
+        "H": { "value": 60, "unit": "м", "source": "extracted" },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "плавный",
+        "reservoirs": {
+          "required": true,
+          "count": 2,
+          "volume": { "value": 128, "unit": "м³", "source": "extracted" },
+          "volume_given": true
+        }
+      },
+      "calc": {
+        "Q_target": { "value": 98.64, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 60, "unit": "м", "source": "calculated" },
+        "working_point": {
+          "Q": { "value": 98.64, "unit": "м³/ч", "source": "calculated" },
+          "H": { "value": 60, "unit": "м", "source": "calculated" }
+        },
+        "fire_reserve_volume": { "value": 128, "unit": "м³", "source": "extracted", "note": "объём задан в ТЗ, не считался" },
+        "collector_D_suction": { "value": 200, "unit": "мм", "source": "calculated" },
+        "collector_D_discharge": { "value": 125, "unit": "мм", "source": "calculated" },
+        "jockey_H_calc": { "value": 70, "unit": "м", "source": "calculated", "note": "H осн. + 10 м" }
+      },
+      "variants": [
+        {
+          "name": "Наземное — блок-бокс",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NIS100-65-200/37SWH", "qty": 2, "motor_power": { "value": 37, "unit": "кВт", "source": "calculated" } },
+            "jockey_pump": { "brand": "CNP", "model": "CDM3-13FSWPC", "motor_power": { "value": 1.5, "unit": "кВт" } },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФС-223", "rated_power": { "value": 37, "unit": "кВт" }, "options": ["АВР", "Жн1,5к", "4ПДУ", "ENS", "6ПЗ"] },
+            "collector": { "code": "200/125-2-100/65", "material": "углеродистая-сталь" },
+            "housing": { "type": "блок-бокс", "dimensions": "3200×2600×2500" },
+            "reservoirs": { "supplier": "ВАРПЛАСТ", "count": 2, "material_note": "сборный металл" }
+          },
+          "pricing": {
+            "exchange_rate": 98,
+            "rows": [
+              { "position_name": "Насос CNP NIS100-65-200/37SWH", "position_group": "насосное", "price": 5102, "currency": "USD", "qty": 2, "discount": 45, "purchase_cost": 549995.6 },
+              { "position_name": "Блок-бокс 3200×2600×2500", "position_group": "корпус", "price": 1100000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 1100000, "price_note": "грубая оценка" }
+            ],
+            "total_cost": 9117880.48
+          }
+        },
+        {
+          "name": "Подземное — стеклопластиковая ёмкость",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NIS100-65-200/37SWH", "qty": 2, "motor_power": { "value": 37, "unit": "кВт" } },
+            "jockey_pump": { "brand": "CNP", "model": "CDM3-13FSWPC", "motor_power": { "value": 1.5, "unit": "кВт" } },
+            "drainage_pump": "CNP SDS MF2.4",
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФС-223", "rated_power": { "value": 37, "unit": "кВт" }, "options": ["АВР", "Жн1,5к", "УХЛ1"] },
+            "collector": { "code": "200/125-2-100/65", "material": "нержавеющая-сталь" },
+            "housing": { "type": "стеклопластиковая ёмкость", "dimensions": "D3400×H6980" },
+            "reservoirs": { "supplier": "ВАРПЛАСТ", "count": 2, "material_note": "стеклопластик" }
+          },
+          "pricing": {
+            "exchange_rate": 98,
+            "rows": [
+              { "position_name": "Насос CNP NIS100-65-200/37SWH", "position_group": "насосное", "price": 5102, "currency": "USD", "qty": 2, "discount": 45, "purchase_cost": 549995.6 }
+            ],
+            "total_cost": 8594396.36
+          }
+        }
+      ],
+      "output": {
+        "selected_variant": 0,
+        "selection_criterion": "укладка-в-бюджет",
+        "product_code": "G-Fire GF-П-1/1-NIS100-65-200/37-РПП-02-07",
+        "code_segments": {
+          "series": "GF", "purpose_letter": "П", "scheme": "1/1", "regulation": "РПП",
+          "options": ["02", "07"], "collector_code": "200/125-2-100/65"
+        },
+        "documents": ["смета-xlsx"]
+      }
+    }
+  ]
+}

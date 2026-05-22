@@ -1,0 +1,77 @@
+{
+  "_комментарий": "Кейс Загорянский-07. Стресс схемы: веер из 3 вариантов с РАЗНЫМИ схемами резервирования (2/1 и 1/1), наценка ×1,43, цена клиенту.",
+  "meta": {
+    "case_id": "zagoryansky-07",
+    "object_name": "Складское здание, ул. Ларина, 25а",
+    "engineer": "Загорянский",
+    "scenario": "подбор-с-нуля",
+    "input_format": ["заметка-txt"],
+    "output_format": "ТКП-без-технички",
+    "variants_requested": ["по-производителю", "по-схеме"]
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": { "value": 342.11, "unit": "м³/ч", "source": "extracted" },
+        "H": { "value": 60, "unit": "м", "source": "extracted" },
+        "reservation_scheme": "2/1",
+        "working_pumps": 2, "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "плавный"
+      },
+      "calc": {
+        "Q_target": { "value": 342.11, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 60, "unit": "м", "source": "calculated" },
+        "working_point": {
+          "Q": { "value": 342.11, "unit": "м³/ч", "source": "calculated" },
+          "H": { "value": 60, "unit": "м", "source": "calculated" },
+          "reserve_margin": { "value": 10, "unit": "%", "source": "extracted" }
+        }
+      },
+      "variants": [
+        {
+          "name": "Вариант 1 — CNP NIS55, схема 2/1",
+          "reservation_scheme": "2/1",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NIS125-100-200G/55SWH", "qty": 3, "motor_power": { "value": 55, "unit": "кВт" } },
+            "jockey_pump": { "brand": "CNP", "model": "CDM3-12FSWPC" },
+            "collector": { "code": "200-3-125/100", "material": "углеродистая-сталь" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФС-323-55к", "options": ["АВР", "Жн2,2к", "33Пз", "7УУ", "1Р", "ДП"] }
+          },
+          "pricing": { "exchange_rate": 85, "rows": [], "total_cost": 3122552.25, "markup_coefficient": 1.43, "client_price": 4465249.72 }
+        },
+        {
+          "name": "Вариант 2 — CNP NIS110, схема 1/1",
+          "reservation_scheme": "1/1",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NIS200-150-400G/110SWH", "qty": 2, "motor_power": { "value": 110, "unit": "кВт" } },
+            "collector": { "code": "300/250-2-200/150", "material": "углеродистая-сталь" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФС-223-110к" }
+          },
+          "pricing": { "exchange_rate": 90, "rows": [], "total_cost": 3248104.40 }
+        },
+        {
+          "name": "Вариант 3 — CNP NES45, схема 2/1 (выбран)",
+          "reservation_scheme": "2/1",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NES100-80-260-45/2SWH", "qty": 3, "motor_power": { "value": 45, "unit": "кВт" } },
+            "jockey_pump": { "brand": "CNP", "model": "CDM3-12FSWPC" },
+            "collector": { "code": "200-3-125/100", "material": "углеродистая-сталь" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФС-323-45к" }
+          },
+          "pricing": { "exchange_rate": 85, "rows": [], "total_cost": 2578403.50, "markup_coefficient": 1.43, "client_price": 3687117.01, "final_offer_price": 3985000 }
+        }
+      ],
+      "output": {
+        "selected_variant": 2,
+        "selection_criterion": "минимальная-цена",
+        "product_code": "G-Fire GF-П-2/1-NES100-80-260-45/2SWH-РПП-02-03-07",
+        "code_segments": { "series": "GF", "purpose_letter": "П", "scheme": "2/1", "regulation": "РПП", "options": ["02", "03", "07"], "collector_code": "200-3-125/100" },
+        "documents": ["ТКП-pdf", "смета-xlsx"],
+        "validation_flags": ["опечатка-шифра"]
+      }
+    }
+  ]
+}

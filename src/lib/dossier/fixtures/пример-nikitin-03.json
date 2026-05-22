@@ -1,0 +1,59 @@
+{
+  "_комментарий": "Кейс Никитин-03. Стресс схемы: пожарная станция (ВПВ, повышение давления) БЕЗ резервуаров и БЕЗ ШУ (опция 05). Проверяет: должна ли пожарная станция без резервуаров требовать объём пож. запаса.",
+  "meta": {
+    "case_id": "nikitin-03",
+    "object_name": "НЛМК-Метиз, насосная ВПВ заводоуправления",
+    "customer": "ООО НЛМК-Метиз",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": ["опросный-лист", "формальное-ТЗ-docx"],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": { "value": 18.72, "unit": "м³/ч", "source": "extracted", "note": "5,2 л/с" },
+        "H": { "value": 10, "unit": "м", "source": "extracted" },
+        "inlet_pressure": { "value": 3.5, "unit": "бар", "source": "extracted", "note": "3–4 бар избыточное" },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1, "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "collector_material": "нержавеющая-сталь",
+        "pump_type_required": ["вертикальный"],
+        "limits": { "motor_power": { "value": 2.0, "unit": "кВт", "source": "extracted" } }
+      },
+      "calc": {
+        "Q_target": { "value": 18.72, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 10, "unit": "м", "source": "calculated" },
+        "collector_D_discharge": { "value": 80, "unit": "мм", "source": "calculated" }
+      },
+      "variants": [
+        {
+          "name": "основной",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "CDM20-1FSWPC", "qty": 2, "motor_power": { "value": 1.1, "unit": "кВт" }, "construction": "вертикальный многоступенчатый" },
+            "collector": { "code": "80-2-50", "material": "нержавеющая-сталь" },
+            "control_cabinet": { "brand": "нет" }
+          },
+          "pricing": {
+            "exchange_rate": 104,
+            "rows": [
+              { "position_name": "Насос CNP CDM20-1FSWPC", "position_group": "насосное", "price": 1166, "currency": "USD", "qty": 2, "discount": 45, "purchase_cost": 133390.4 },
+              { "position_name": "Материалы коллектора 80-2-50 (нерж)", "position_group": "гидравлика", "price": 106000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 106000 }
+            ],
+            "total_cost": 284390.4
+          }
+        }
+      ],
+      "output": {
+        "selected_variant": 0,
+        "product_code": "G-Fire GF-П-1/1-CDM20-1FSWPC",
+        "code_segments": { "series": "GF", "purpose_letter": "П", "scheme": "1/1", "regulation": "ПП", "options": ["05"] },
+        "documents": ["ТКП-pdf", "смета-xlsx"]
+      }
+    }
+  ]
+}

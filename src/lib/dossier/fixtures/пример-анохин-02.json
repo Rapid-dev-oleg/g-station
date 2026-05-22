@@ -1,0 +1,86 @@
+{
+  "_комментарий": "Кейс Анохин-02. Стресс схемы: сценарий проверки чужого подбора, Q/H выведены косвенно, принято допущение, веер из 5 вариантов насосов, курс различается по вариантам.",
+  "meta": {
+    "case_id": "anohin-02",
+    "object_name": "Общежитие",
+    "engineer": "Анохин",
+    "scenario": "проверка-чужого-подбора",
+    "input_format": ["заметка-txt"],
+    "output_format": "ТП+смета",
+    "variants_requested": ["по-производителю"]
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": { "value": 10, "unit": "м³/ч", "source": "derived", "note": "прямо в ТЗ не задан, восстановлен из ТП" },
+        "H": { "value": 43, "unit": "м", "source": "derived" },
+        "inlet_pressure": { "value": 10, "unit": "м", "source": "assumed", "note": "в проекте 45 м, принято консервативное допущение мин. 10 м" },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1, "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "assumptions": ["давление на вводе принято 10 м вместо 45 м из проекта"]
+      },
+      "calc": {
+        "Q_target": { "value": 10, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 43, "unit": "м", "source": "calculated" }
+      },
+      "variants": [
+        {
+          "name": "Вар.1 — CNP TD65-34G/2SWHCJ",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "TD65-34G/2SWHCJ", "qty": 2, "motor_power": { "value": 7.5, "unit": "кВт" } },
+            "collector": { "code": "100-2-65" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФ-223-7,5к" }
+          },
+          "pricing": { "exchange_rate": 90, "rows": [], "total_cost": 485505 }
+        },
+        {
+          "name": "Вар.2 — CNP CDM42-2-2FSWPC",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "CDM42-2-2FSWPC", "qty": 2, "motor_power": { "value": 5.5, "unit": "кВт" } },
+            "collector": { "code": "125-2-80" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФ-223-5,5к" }
+          },
+          "pricing": { "exchange_rate": 90, "rows": [], "total_cost": 572110 }
+        },
+        {
+          "name": "Вар.3 — CNP NIS80-65-160G/5.5SWH",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NIS80-65-160G/5.5SWH", "qty": 2, "motor_power": { "value": 5.5, "unit": "кВт" } },
+            "collector": { "code": "125/100-2-80/65" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФ-223-5,5к" }
+          },
+          "pricing": { "exchange_rate": 90, "rows": [], "total_cost": 532600 }
+        },
+        {
+          "name": "Вар.4 — CNP CHLFT12-30LSWPC",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "CHLFT12-30LSWPC", "qty": 2, "motor_power": { "value": 2.2, "unit": "кВт" } },
+            "collector": { "code": "65-2-40" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФ-223-2,2к" }
+          },
+          "pricing": { "exchange_rate": 83, "rows": [], "total_cost": 356498 }
+        },
+        {
+          "name": "Вар.5 — CNP CHLFT12-40LSWPC (выбран)",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "CHLFT12-40LSWPC", "qty": 2, "motor_power": { "value": 2.4, "unit": "кВт" } },
+            "collector": { "code": "65-2-40" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУФ-223-3к" }
+          },
+          "pricing": { "exchange_rate": 83, "rows": [], "total_cost": 361828 }
+        }
+      ],
+      "output": {
+        "selected_variant": 4,
+        "selection_criterion": "минимальная-цена",
+        "product_code": "G-Fire GF-П-1/1-CHLFT12-40LSWPC-ПП-02-03",
+        "code_segments": { "series": "GF", "purpose_letter": "П", "scheme": "1/1", "regulation": "ПП", "options": ["02", "03"] },
+        "documents": ["ТП-pdf", "смета-xlsx"]
+      }
+    }
+  ]
+}

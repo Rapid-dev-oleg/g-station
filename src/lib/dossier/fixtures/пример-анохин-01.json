@@ -1,0 +1,95 @@
+{
+  "_комментарий": "Кейс Анохин-01. Стресс схемы: ДВЕ независимые станции в одном кейсе, общий павильон на обе.",
+  "meta": {
+    "case_id": "anohin-01",
+    "object_name": "Логистический комплекс Софьино-Краснопахорское",
+    "customer": "ООО ВБ Инжиниринг",
+    "engineer": "Анохин",
+    "scenario": "подбор-с-нуля",
+    "input_format": ["формальное-ТЗ-docx", "ВОР", "проект-РД", "заметка-txt"],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": { "value": 754.63, "unit": "м³/ч", "source": "extracted", "note": "209,62 л/с" },
+        "H": { "value": 85, "unit": "м", "source": "extracted" },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1, "reserve_pumps": 1,
+        "jockey_required": true,
+        "jockey_Q": { "value": 14.4, "unit": "м³/ч", "source": "extracted" },
+        "jockey_H": { "value": 95, "unit": "м", "source": "extracted" },
+        "start_type": "плавный",
+        "station_enclosure": "технологический-павильон"
+      },
+      "calc": {
+        "Q_target": { "value": 755, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 85, "unit": "м", "source": "calculated" },
+        "collector_D_suction": { "value": 400, "unit": "мм", "source": "calculated" },
+        "collector_D_discharge": { "value": 300, "unit": "мм", "source": "calculated" }
+      },
+      "variants": [
+        {
+          "name": "основной",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "SMA(A)300-250-500-280/4", "qty": 2, "motor_power": { "value": 280, "unit": "кВт" } },
+            "jockey_pump": { "brand": "CNP", "model": "CDMF15-9FSWSC", "motor_power": { "value": 7.5, "unit": "кВт" } },
+            "collector": { "code": "400/300-2-300/250", "material": "углеродистая-сталь" },
+            "control_cabinet": { "brand": "Шторм", "series": "ШУ-пожарный", "options": ["АВР", "ModBus", "сухие-контакты"] }
+          },
+          "pricing": {
+            "exchange_rate": 80,
+            "rows": [
+              { "position_name": "Насос CNP SMA(A)300-250-500-280/4", "position_group": "насосное", "price": 39542, "currency": "USD", "qty": 2, "discount": 50, "purchase_cost": 3163360 },
+              { "position_name": "ШУ", "position_group": "автоматика", "price": 2000000, "currency": "RUB", "qty": 1, "discount": 0, "purchase_cost": 2000000, "price_note": "примерная цена" }
+            ],
+            "total_cost": 6808560
+          }
+        }
+      ],
+      "output": {
+        "selected_variant": 0,
+        "product_code": "G-Fire GF-П-1/1-SMA(A)300-250-500-280/4-РПП-03-07",
+        "code_segments": { "series": "GF", "purpose_letter": "П", "scheme": "1/1", "regulation": "РПП", "options": ["03", "07"], "collector_code": "400/300-2-300/250" },
+        "documents": ["ТП-pdf", "смета-xlsx"]
+      }
+    },
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": { "value": 252, "unit": "м³/ч", "source": "extracted", "note": "70 л/с" },
+        "H": { "value": 45, "unit": "м", "source": "extracted" },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1, "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "плавный",
+        "station_enclosure": "технологический-павильон"
+      },
+      "calc": {
+        "Q_target": { "value": 252, "unit": "м³/ч", "source": "calculated" },
+        "H_target": { "value": 45, "unit": "м", "source": "calculated" },
+        "collector_D_suction": { "value": 300, "unit": "мм", "source": "calculated" },
+        "collector_D_discharge": { "value": 200, "unit": "мм", "source": "calculated" }
+      },
+      "variants": [
+        {
+          "name": "основной",
+          "equipment": {
+            "main_pump": { "brand": "CNP", "model": "NIS125-100-200/55SWH", "qty": 2, "motor_power": { "value": 55, "unit": "кВт" } },
+            "jockey_pump": { "brand": "CNP", "model": "CDMF15-5FSWSC", "motor_power": { "value": 4, "unit": "кВт" } },
+            "collector": { "code": "300/200-2-125/100", "material": "углеродистая-сталь" }
+          },
+          "pricing": { "exchange_rate": 80, "rows": [], "total_cost": 1636520 }
+        }
+      ],
+      "output": {
+        "selected_variant": 0,
+        "product_code": "G-Fire GF-П-1/1-NIS125-100-200/55SWH-РПП-03-07",
+        "documents": ["ТП-pdf", "смета-xlsx"]
+      }
+    }
+  ]
+}
