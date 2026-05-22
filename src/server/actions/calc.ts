@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache';
 import type { Dossier } from '@/lib/dossier/types';
 import { allGates, type GateReport } from '@/lib/engine/gates';
 import { db } from '@/server/db';
-import { DossierValidationError, runCalculation } from '@/server/engine-runner';
+import { DossierValidationError, runCalculationWithDbCatalog } from '@/server/engine-runner';
 
 /** Достаёт цены выбранного (или первого) варианта первой станции. */
 function mirrorPrices(dossier: Dossier): { totalCost: number | null; clientPrice: number | null } {
@@ -30,8 +30,8 @@ function mirrorPrices(dossier: Dossier): { totalCost: number | null; clientPrice
  * Прогоняет расчёт системы: читает dossier, гоняет конвейер движка,
  * пишет назад dossier + зеркало цен + статус CALCULATED.
  *
- * Каталог пока не подключён (фаза 3) — движок выдаёт класс/типоразмер
- * и оценочные цены.
+ * Каталог подключён (фаза 3): расчёт использует реальные цены из БД-каталога
+ * (импортированные прайсы CNP, Wellmix). Позиции вне каталога — оценочные.
  */
 export async function runSystemCalc(systemId: string) {
   const system = await db.system.findUnique({ where: { id: systemId } });
@@ -43,7 +43,7 @@ export async function runSystemCalc(systemId: string) {
 
   let result: { dossier: Dossier; gates: GateReport[] };
   try {
-    result = runCalculation(dossier);
+    result = await runCalculationWithDbCatalog(dossier);
   } catch (e) {
     if (e instanceof DossierValidationError) {
       return { ok: false as const, errors: e.errors, stage: e.stage };

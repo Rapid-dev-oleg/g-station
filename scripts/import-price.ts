@@ -1,42 +1,76 @@
 /**
- * CLI импорта прайсов в JSON-каталог (Фаза 3).
+ * CLI импорта прайсов в БД-каталог (Фаза 3).
  *
  * Использование:
- *   npx tsx scripts/import-price.ts cnp <путь-к-csv>
+ *   tsx scripts/import-price.ts cnp <путь-к-csv>
+ *   tsx scripts/import-price.ts wellmix <путь-к-pdf>
  *
- * Парсит прайс, валидирует строки через zod, пишет `src/data/catalog/pumps.json`
- * и добавляет запись в `src/data/catalog/meta.json`. Выводит отчёт.
+ * Логика:
+ *  1. Адаптер разбирает файл прайса → `ImportResult` (строки + meta).
+ *  2. Каждая строка валидируется zod-схемой `importPriceRowSchema`.
+ *  3. В одной транзакции: создаётся `PriceList`, для каждой строки —
+ *     upsert `CatalogItem` по (manufacturerId, sku). Категория — `pumps`,
+ *     цена перезаписывается (без истории).
+ *  4. Выводится отчёт: принято / отклонено.
+ *
+ * Повторный запуск не плодит дубли — upsert по уникальному [manufacturerId, sku].
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
-import { parseCnpCsv } from '../src/lib/catalog/import/cnp-csv';
-import { catalogPumpSchema, priceMetaSchema } from '../src/lib/catalog/schema';
-import type { CatalogPump, PriceMeta } from '../src/lib/catalog/types';
+import { basename } from 'node:path';
+import { db } from '../src/server/db';
+import { importCnpCsv } from '../src/lib/catalog/import/cnp-csv';
+import { importWellmixPdf } from '../src/lib/catalog/import/wellmix-pdf';
+import { importPriceRowSchema } from '../src/lib/catalog/import/types';
+import type { ImportPriceRow, ImportResult } from '../src/lib/catalog/import/types';
 
-const DATA_DIR = join(process.cwd(), 'src/data/catalog');
-const PUMPS_FILE = join(DATA_DIR, 'pumps.json');
-const META_FILE = join(DATA_DIR, 'meta.json');
+const CATEGORY = 'pumps';
 
 function fail(msg: string): never {
   console.error(`Ошибка: ${msg}`);
   process.exit(1);
 }
 
-function importCnp(csvPath: string): void {
-  let content: string;
-  try {
-    content = readFileSync(csvPath, 'utf8');
-  } catch {
-    fail(`не удалось прочитать файл «${csvPath}»`);
+/** Разбирает файл прайса выбранным адаптером. */
+function runAdapter(adapter: string, filePath: string): ImportResult {
+  switch (adapter) {
+    case 'cnp': {
+      const { readFileSync } = require('node:fs') as typeof import('node:fs');
+      let content: string;
+      try {
+        content = readFileSync(filePath, 'utf8');
+      } catch {
+        fail(`не удалось прочитать файл «${filePath}»`);
+      }
+      return importCnpCsv(content, basename(filePath));
+    }
+    case 'wellmix':
+      try {
+        return importWellmixPdf(filePath, basename(filePath));
+      } catch (e) {
+        fail(`не удалось разобрать PDF «${filePath}»: ${e instanceof Error ? e.message : e}`);
+      }
+    // eslint-disable-next-line no-fallthrough
+    default:
+      fail(`неизвестный адаптер «${adapter}». Доступно: cnp, wellmix`);
+  }
+}
+
+async function main(): Promise<void> {
+  const [adapter, filePath] = process.argv.slice(2);
+  if (!adapter || !filePath) {
+    fail(
+      'использование: tsx scripts/import-price.ts <adapter> <path>\n' +
+        '  доступные адаптеры: cnp, wellmix',
+    );
   }
 
-  const { rows, meta, rejected } = parseCnpCsv(content, basename(csvPath));
+  const result = runAdapter(adapter, filePath);
+  const { meta, rejected } = result;
 
-  // Валидация каждой строки через zod.
-  const accepted: CatalogPump[] = [];
+  // Валидация строк через zod.
+  const accepted: ImportPriceRow[] = [];
   let zodRejected = 0;
-  for (const row of rows) {
-    const res = catalogPumpSchema.safeParse(row);
+  for (const row of result.rows) {
+    const res = importPriceRowSchema.safeParse(row);
     if (res.success) {
       accepted.push(res.data);
     } else {
@@ -46,59 +80,93 @@ function importCnp(csvPath: string): void {
     }
   }
 
-  const finalMeta: PriceMeta = { ...meta, rowCount: accepted.length };
-  const metaRes = priceMetaSchema.safeParse(finalMeta);
-  if (!metaRes.success) {
-    fail(`метаданные не прошли валидацию: ${metaRes.error.issues[0]?.message}`);
+  // Производитель должен существовать (создан сидом).
+  const manufacturer = await db.manufacturer.findUnique({ where: { name: meta.manufacturer } });
+  if (!manufacturer) {
+    fail(`производитель «${meta.manufacturer}» не найден в БД (выполните prisma db seed)`);
+  }
+  const category = await db.productCategory.findUnique({ where: { code: CATEGORY } });
+  if (!category) {
+    fail(`категория «${CATEGORY}» не найдена в БД (выполните prisma db seed)`);
   }
 
-  // Запись pumps.json (полная замена позиций бренда CNP).
-  writeFileSync(PUMPS_FILE, JSON.stringify(accepted, null, 2) + '\n', 'utf8');
+  const priceDate = new Date(meta.priceDate);
 
-  // Обновление meta.json: убираем прежнюю запись того же source, добавляем новую.
-  let existingMeta: PriceMeta[] = [];
-  try {
-    existingMeta = JSON.parse(readFileSync(META_FILE, 'utf8')) as PriceMeta[];
-  } catch {
-    existingMeta = [];
-  }
-  const nextMeta = existingMeta.filter((m) => m.source !== finalMeta.source);
-  nextMeta.push(metaRes.data);
-  writeFileSync(META_FILE, JSON.stringify(nextMeta, null, 2) + '\n', 'utf8');
+  // Транзакция: PriceList + upsert всех позиций.
+  await db.$transaction(
+    async (tx) => {
+      await tx.priceList.create({
+        data: {
+          manufacturerId: manufacturer.id,
+          title: meta.title,
+          sourceFile: meta.sourceFile,
+          currency: meta.currency,
+          priceDate,
+          rowCount: accepted.length,
+        },
+      });
 
-  // Отчёт.
-  const withPower = accepted.filter((p) => p.powerKw !== undefined).length;
+      for (const row of accepted) {
+        const attributes = {
+          series: row.series,
+          ...(row.powerKw !== undefined ? { powerKw: row.powerKw } : {}),
+        };
+        await tx.catalogItem.upsert({
+          where: { manufacturerId_sku: { manufacturerId: manufacturer.id, sku: row.sku } },
+          update: {
+            name: row.name,
+            categoryCode: CATEGORY,
+            attributes,
+            price: row.price,
+            currency: row.currency,
+            priceDate,
+            active: true,
+          },
+          create: {
+            manufacturerId: manufacturer.id,
+            categoryCode: CATEGORY,
+            sku: row.sku,
+            name: row.name,
+            attributes,
+            price: row.price,
+            currency: row.currency,
+            priceDate,
+            active: true,
+          },
+        });
+      }
+    },
+    { timeout: 120_000 },
+  );
+
+  const withPower = accepted.filter((r) => r.powerKw !== undefined).length;
+  const total = await db.catalogItem.count({ where: { manufacturerId: manufacturer.id } });
+
   console.log('');
-  console.log('=== Импорт прайса CNP ===');
-  console.log(`  Файл:              ${csvPath}`);
-  console.log(`  Строк разобрано:   ${rows.length + rejected.length}`);
-  console.log(`  Принято:           ${accepted.length}`);
-  console.log(`  Отклонено (парсер):${rejected.length}`);
-  console.log(`  Отклонено (zod):   ${zodRejected}`);
-  console.log(`  С мощностью powerKw:${withPower} (${((withPower / accepted.length) * 100).toFixed(1)}%)`);
-  console.log(`  Записано:          ${PUMPS_FILE}`);
-  console.log(`  Метаданные:        ${META_FILE}`);
+  console.log(`=== Импорт прайса ${meta.manufacturer} ===`);
+  console.log(`  Файл:                 ${filePath}`);
+  console.log(`  Строк разобрано:      ${result.rows.length + rejected.length}`);
+  console.log(`  Принято:              ${accepted.length}`);
+  console.log(`  Отклонено (парсер):   ${rejected.length}`);
+  console.log(`  Отклонено (zod):      ${zodRejected}`);
+  if (accepted.length > 0) {
+    console.log(
+      `  С мощностью powerKw:  ${withPower} (${((withPower / accepted.length) * 100).toFixed(1)}%)`,
+    );
+  }
+  console.log(`  CatalogItem (${meta.manufacturer}): ${total}`);
   if (rejected.length > 0) {
     console.log('');
     console.log('  Примеры отклонённых строк (парсер):');
-    rejected.slice(0, 10).forEach((r) => {
-      console.log(`    стр.${r.line}: ${r.reason} — [${r.raw.join(', ')}]`);
+    rejected.slice(0, 8).forEach((r) => {
+      console.log(`    стр.${r.line}: ${r.reason} — ${r.raw}`);
     });
   }
 }
 
-function main(): void {
-  const [adapter, filePath] = process.argv.slice(2);
-  if (!adapter || !filePath) {
-    fail('использование: tsx scripts/import-price.ts <adapter> <path>\n  доступные адаптеры: cnp');
-  }
-  switch (adapter) {
-    case 'cnp':
-      importCnp(filePath);
-      break;
-    default:
-      fail(`неизвестный адаптер «${adapter}». Доступно: cnp`);
-  }
-}
-
-main();
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => db.$disconnect());

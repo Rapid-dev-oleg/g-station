@@ -11,6 +11,7 @@ import { validateDossier } from '@/lib/dossier/validate';
 import { runPipeline } from '@/lib/engine';
 import { allGates, type GateReport } from '@/lib/engine/gates';
 import type { CatalogPort } from '@/lib/engine/catalog-port';
+import { createDbCatalogPort } from '@/server/catalog-port';
 
 /** Результат прогона расчёта. */
 export interface CalculationResult {
@@ -61,4 +62,19 @@ export function runCalculation(
   }
 
   return { dossier: result, gates: allGates(result) };
+}
+
+/**
+ * Прогоняет дело через движок, используя DB-каталог.
+ *
+ * Загружает реальный каталог из БД (`createDbCatalogPort`) и передаёт его
+ * движку — расчёт берёт фактические цены и типоразмеры из прайсов.
+ *
+ * @param dossier расчётное дело
+ */
+export async function runCalculationWithDbCatalog(
+  dossier: Dossier,
+): Promise<CalculationResult> {
+  const catalogPort = await createDbCatalogPort();
+  return runCalculation(dossier, catalogPort);
 }
