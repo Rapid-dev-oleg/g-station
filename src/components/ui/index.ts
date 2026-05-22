@@ -6,6 +6,7 @@ export * from './NumberInput';
 export * from './Select';
 export * from './Textarea';
 export * from './Table';
+export * from './LinkTable';
 export * from './Modal';
 export * from './EmptyState';
 export * from './Tabs';

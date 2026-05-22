@@ -1,0 +1,147 @@
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ── step rail ── */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 80px;
+}
+
+.stepBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.stepBtn:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+.stepActive {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+}
+.stepActive:hover {
+  background: var(--brand-light);
+}
+
+.stepNum {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface-alt);
+  color: var(--muted);
+}
+.stepActive .stepNum {
+  background: var(--brand);
+  color: #fff;
+}
+.stepDone .stepNum {
+  background: var(--success);
+  color: #fff;
+}
+
+/* ── content ── */
+.stepTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.stepHint {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.fieldGroup {
+  margin-bottom: 24px;
+}
+.groupTitle {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-light);
+  margin-bottom: 12px;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.saveRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.savedHint {
+  font-size: 12px;
+  color: var(--success);
+}
+.errorBox {
+  padding: 10px 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+/* ── measured field ── */
+.measured {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.measuredRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.measuredRow > :first-child {
+  flex: 1;
+}
+.sourceSelect {
+  width: 150px;
+  flex-shrink: 0;
+}
