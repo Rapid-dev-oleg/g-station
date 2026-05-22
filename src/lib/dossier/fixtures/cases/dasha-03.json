@@ -1,0 +1,62 @@
+{
+  "_комментарий": "Даша-03. Жилой дом Арзамас, спринклерное ПТ. Q=49 л/с=176,4, H=20, 1+1+жокей, без ШУ (опция 05), прямой пуск, вертикальные. Выбран вариант 3 Wellmix.",
+  "meta": {
+    "case_id": "dasha-03",
+    "object_name": "Жилой дом, Арзамас, ул. Кирова 47А",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 49,
+          "unit": "л/с",
+          "source": "extracted",
+          "note": "49 л/с"
+        },
+        "H": {
+          "value": 20,
+          "unit": "м",
+          "source": "extracted",
+          "note": "с учётом городского давления"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "pump_type_required": [
+          "вертикальный"
+        ],
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 176.4,
+        "H": 20,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 22,
+        "pump_class": "вертикальный ин-лайн Wellmix TD",
+        "collector_discharge_dn": 200,
+        "collector_code": "250-2-150",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-TD150-25/4Т-ПП-02-03-05-07",
+        "cost_rub": 802162
+      }
+    ],
+    "cost_note": "себестоимость варианта 3 (Wellmix, без ШУ — опция 05)"
+  }
+}

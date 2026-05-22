@@ -1,0 +1,60 @@
+{
+  "_комментарий": "Даша-09. ПАО Акрон, малая ПНС. Q=38, H=18, 1+1, прямой пуск. Выбран Wilo IPN 4 кВт.",
+  "meta": {
+    "case_id": "dasha-09",
+    "object_name": "ПАО Акрон, ПНС нитрата кальция",
+    "customer": "ПАО Акрон",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист",
+      "чужая-установка"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 38,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 18,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "ip_rating": "IP55",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 38,
+        "H": 18,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 4,
+        "pump_class": "вертикальный одноступенчатый Wilo IPN",
+        "collector_discharge_dn": 100,
+        "collector_code": "100-2-65",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-IPN65/140-4,0/2-ПП-02-03",
+        "cost_rub": 690362
+      }
+    ],
+    "cost_note": "себестоимость варианта 1 (Wilo)"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "_комментарий": "Даша-04. СИБУР-Юг Анапа, две станции. G-Fire: Q=172, H=50, 2/1, плавный пуск. G-Water — хоз-питьевая 2/1. ОЛ задавал Q=120, насос подобран на 172.",
+  "meta": {
+    "case_id": "dasha-04",
+    "object_name": "Реновация СИБУР-Юг, Анапа",
+    "customer": "ООО КЦО СИБУР-Юг",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист",
+      "чужая-установка"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 172,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 50,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "2/1",
+        "working_pumps": 2,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    },
+    {
+      "input": {
+        "station_type": "water",
+        "purpose": "хоз-питьевое",
+        "Q": {
+          "value": 120,
+          "unit": "м³/ч",
+          "source": "extracted",
+          "note": "хоз-питьевая ветка, CDM65"
+        },
+        "H": {
+          "value": 50,
+          "unit": "м",
+          "source": "assumed"
+        },
+        "reservation_scheme": "2/1",
+        "working_pumps": 2,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "частотный"
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 172,
+        "H": 50,
+        "scheme": "2/1",
+        "pumps": 3,
+        "motor_kw": 37,
+        "pump_class": "горизонтальный одноступенчатый Wilo IL",
+        "collector_discharge_dn": 300,
+        "collector_code": "300-3-100",
+        "start_type": "плавный",
+        "code": "GF-П-2/1-IL100/210-37/2-R-РПП-02-03-08",
+        "cost_rub": 2409728
+      },
+      {
+        "Q": 120,
+        "H": 50,
+        "scheme": "2/1",
+        "pumps": 3,
+        "motor_kw": 15,
+        "pump_class": "вертикальный многоступенчатый CNP CDM",
+        "collector_discharge_dn": 200,
+        "collector_code": "200-3-100",
+        "start_type": "частотный",
+        "code": "GW-2/1",
+        "cost_rub": 1262143
+      }
+    ],
+    "cost_note": "себестоимость двух станций; H хоз-питьевой ветки в кейсе явно не задан"
+  }
+}

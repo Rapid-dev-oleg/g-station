@@ -1,0 +1,73 @@
+{
+  "_комментарий": "Даша-06. Склад Химки. Q=545, H=85, 2/1, жокей, плавный пуск, бюджет 4-4,5 млн. Выбран Masdaf 90 кВт.",
+  "meta": {
+    "case_id": "dasha-06",
+    "object_name": "Складской комплекс Химки",
+    "customer": "КТР",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета",
+    "budget_cap": {
+      "sale": 4000000,
+      "limit": 4500000
+    }
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 545,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 85,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "2/1",
+        "working_pumps": 2,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "jockey_Q": {
+          "value": 5,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "jockey_H": {
+          "value": 90,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "start_type": "плавный",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 545,
+        "H": 85,
+        "scheme": "2/1",
+        "pumps": 3,
+        "motor_kw": 90,
+        "pump_class": "горизонтальный одноступенчатый Masdaf NM",
+        "collector_suction_dn": 350,
+        "collector_discharge_dn": 300,
+        "collector_code": "350/300-3-250",
+        "start_type": "плавный",
+        "code": "GF-П-2/1-NM100-250/258-90-РПП-02-03-07",
+        "cost_rub": 3826086
+      }
+    ],
+    "cost_note": "себестоимость варианта 1 (Masdaf 90 кВт), укладка в бюджет"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "_комментарий": "Даша-01. Северсталь, аналог ANTARUS. Q=9,4, H=35, 1+1, прямой пуск. Веер Wellmix/CNP, выбран Wellmix.",
+  "meta": {
+    "case_id": "dasha-01",
+    "object_name": "Лаборатория чугуна, Череповец",
+    "customer": "ПАО Северсталь",
+    "engineer": "Даша",
+    "scenario": "подбор-на-аналог",
+    "input_format": [
+      "заметка-txt",
+      "проект-РД"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 9.4,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 35,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 9.4,
+        "H": 35,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 2.2,
+        "pump_class": "вертикальный многоступенчатый Wellmix CV",
+        "collector_discharge_dn": 65,
+        "collector_code": "65-2-40",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-CV10-5(IE3)-ПП-02-03",
+        "cost_rub": 387138
+      }
+    ],
+    "cost_note": "себестоимость варианта Wellmix"
+  }
+}

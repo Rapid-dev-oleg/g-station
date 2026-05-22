@@ -1,0 +1,77 @@
+{
+  "_комментарий": "Никитин-01. ВПВ Нижнекамскнефтехим. Q=18,72 (5,2 л/с), H=10, вход 15 м, 1+1, вертикальный, прямой пуск. ШУ Рутек.",
+  "meta": {
+    "case_id": "nikitin-01",
+    "object_name": "Объединённые операторные НКНХ",
+    "customer": "ПАО Нижнекамскнефтехим",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 18.72,
+          "unit": "м³/ч",
+          "source": "extracted",
+          "note": "5,2 л/с"
+        },
+        "H": {
+          "value": 10,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "inlet_pressure": {
+          "value": 15,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "pump_type_required": [
+          "вертикальный"
+        ],
+        "climate_execution": "УХЛ4",
+        "power_supply": {
+          "category": "II",
+          "avr": true
+        },
+        "limits": {
+          "dimensions": "1700×600×1700",
+          "weight": {
+            "value": 300,
+            "unit": "кг"
+          }
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 18.72,
+        "H": 10,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 1.5,
+        "pump_class": "вертикальный одноступенчатый Wilo IL",
+        "collector_suction_dn": 65,
+        "collector_discharge_dn": 65,
+        "collector_code": "65-2-50",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-IL50/110-1,5/2-R-ПП-02-04",
+        "cost_rub": 567241
+      }
+    ],
+    "cost_note": "себестоимость; ШУ Рутек 253000 ₽"
+  }
+}

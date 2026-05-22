@@ -1,0 +1,61 @@
+{
+  "_комментарий": "Анохин-04. Подбор на аналог FireStart MV 4. Q=20, H=35, схема 2/2 (4 насоса), прямой пуск, нержавейка.",
+  "meta": {
+    "case_id": "anohin-04",
+    "object_name": "Насосная пожаротушения Коломна",
+    "customer": "ООО ЛАБ Индастриз",
+    "engineer": "Анохин",
+    "scenario": "подбор-на-аналог",
+    "input_format": [
+      "заметка-txt",
+      "проект-РД",
+      "ТКП-конкурента"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 20,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 35,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "2/2",
+        "working_pumps": 2,
+        "reserve_pumps": 2,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "collector_material": "нержавеющая-сталь",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 20,
+        "H": 35,
+        "scheme": "2/2",
+        "pumps": 4,
+        "motor_kw": 2.2,
+        "pump_class": "горизонтальный многоступенчатый Wellmix CUC",
+        "collector_discharge_dn": 65,
+        "collector_code": "60-4-40",
+        "start_type": "прямой",
+        "code": "GF-П-2/2-CUC12-25T-ПП-02-03",
+        "cost_rub": 537200
+      }
+    ],
+    "cost_note": "себестоимость по xlsx, валюта — юань"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "_комментарий": "Анохин-03. Типовой подбор по опросному листу. Q=13, H=40, 1+1, прямой пуск, 2 эл.задвижки, АВР, павильон.",
+  "meta": {
+    "case_id": "anohin-03",
+    "object_name": "ПСК Химполимер",
+    "customer": "ООО Приволжский ЭЦБ",
+    "engineer": "Анохин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 12.96,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 40,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "station_enclosure": "технологический-павильон",
+        "power_supply": {
+          "inputs": 2,
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 13,
+        "H": 40,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 5.5,
+        "pump_class": "вертикальный многоступенчатый Wilo MVL",
+        "collector_discharge_dn": 80,
+        "collector_code": "80-2-50",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-MVL1605-…-ПП-03",
+        "cost_rub": 551928
+      }
+    ],
+    "cost_note": "себестоимость по варианту CNP, в ТП — Wilo; павильон не посчитан"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "_комментарий": "Никитин-05. ФОСАГРО Перевоз, наружное ПТ. Q=90, H=25, 1+1, подземное (стеклопластиковый колодец G-Drum), резервуар 70 м³.",
+  "meta": {
+    "case_id": "nikitin-05",
+    "object_name": "ФОСАГРО Перевоз, наружное ПТ",
+    "customer": "ФОСАГРО",
+    "engineer": "Никитин",
+    "scenario": "замена-конкурента",
+    "input_format": [
+      "проект-РД",
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": {
+          "value": 90,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 25,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "station_enclosure": "стеклопластиковый-колодец",
+        "installation_place": "заглублённая",
+        "reservoirs": {
+          "required": true,
+          "count": 1,
+          "volume": {
+            "value": 70,
+            "unit": "м³"
+          },
+          "volume_given": true
+        },
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 90,
+        "H": 25,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 11,
+        "pump_class": "горизонтальный одноступенчатый CNP NES",
+        "collector_suction_dn": 150,
+        "collector_discharge_dn": 125,
+        "collector_code": "150/125-2-80/65",
+        "reservoir_volume": 70,
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NES80-65-160-11/2SWH-ПП-02-04",
+        "cost_rub": 2348289
+      }
+    ],
+    "cost_note": "ИТОГО; колодец G-Drum 1,75 млн вписан вручную, резервуар выпал из суммы"
+  }
+}

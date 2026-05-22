@@ -1,0 +1,58 @@
+{
+  "_комментарий": "Загорянский-06. ЖК Октябрьская-Менделеева, АПТ. Q=150, H=20, 1+1+жокей, прямой пуск. ВНИМАНИЕ: дубль кейса zagoryansky-08 (файлы побайтно идентичны).",
+  "meta": {
+    "case_id": "zagoryansky-06",
+    "object_name": "ЖК Октябрьская-Менделеева",
+    "engineer": "Загорянский",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТКП-без-технички"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 150,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 20,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 150,
+        "H": 20,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 15,
+        "pump_class": "горизонтальный одноступенчатый Wellmix NBW",
+        "collector_suction_dn": 150,
+        "collector_discharge_dn": 150,
+        "collector_code": "150-2-100/80",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NBW100-80-160-15.0/2-380-G-BQQE-ПП-02-03-07",
+        "cost_rub": 658350
+      }
+    ],
+    "cost_note": "себестоимость; строки наценки нет; дубль zag-08"
+  }
+}

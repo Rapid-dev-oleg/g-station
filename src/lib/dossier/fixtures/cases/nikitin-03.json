@@ -1,0 +1,73 @@
+{
+  "_комментарий": "Никитин-03. ВПВ НЛМК-Метиз. Q=18,72, H=10, вход 3,5 бар, 1+1, без ШУ (опция 05), нержавейка, лимит двигателя 2 кВт.",
+  "meta": {
+    "case_id": "nikitin-03",
+    "object_name": "НЛМК-Метиз, насосная ВПВ заводоуправления",
+    "customer": "ООО НЛМК-Метиз",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист",
+      "формальное-ТЗ-docx"
+    ],
+    "output_format": "ТКП-без-технички"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 18.72,
+          "unit": "м³/ч",
+          "source": "extracted",
+          "note": "5,2 л/с"
+        },
+        "H": {
+          "value": 10,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "inlet_pressure": {
+          "value": 3.5,
+          "unit": "бар",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "collector_material": "нержавеющая-сталь",
+        "pump_type_required": [
+          "вертикальный"
+        ],
+        "limits": {
+          "motor_power": {
+            "value": 2.0,
+            "unit": "кВт",
+            "source": "extracted"
+          }
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 18.72,
+        "H": 10,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 1.1,
+        "pump_class": "вертикальный многоступенчатый CNP CDM",
+        "collector_discharge_dn": 80,
+        "collector_code": "80-2-50",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-CDM20-1FSWPC (опция 05 — без ШУ)",
+        "cost_rub": 284390
+      }
+    ],
+    "cost_note": "себестоимость без ШУ (опция 05)"
+  }
+}

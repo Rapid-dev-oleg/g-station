@@ -1,0 +1,57 @@
+{
+  "_комментарий": "Никитин-02. Замена ANTARUS 2. Q=37, H=94,93, 1+1, прямой пуск, многоступенчатый высоконапорный.",
+  "meta": {
+    "case_id": "nikitin-02",
+    "object_name": "Установка взамен ANTARUS 2",
+    "engineer": "Никитин",
+    "scenario": "замена-конкурента",
+    "input_format": [
+      "ТКП-конкурента"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 37,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 94.93,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 37,
+        "H": 94.93,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 18.5,
+        "pump_class": "вертикальный многоступенчатый CNP CDM",
+        "collector_discharge_dn": 125,
+        "collector_code": "125-2-80",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-CDM42-5-2FSWPC-ПП-02-03",
+        "cost_rub": 997792
+      }
+    ],
+    "cost_note": "себестоимость по xlsx"
+  }
+}

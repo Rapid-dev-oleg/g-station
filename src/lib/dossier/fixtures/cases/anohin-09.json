@@ -1,0 +1,63 @@
+{
+  "_комментарий": "Анохин-09. Q=100, H=27, 1+1, подземное (стеклопластик), плавный пуск. ТКП 2 варианта корпуса. Берём вариант 1 (свой стеклопластик).",
+  "meta": {
+    "case_id": "anohin-09",
+    "object_name": "Подстанция Васильев, ПНС",
+    "customer": "Мехколонна",
+    "engineer": "Анохин",
+    "scenario": "два-исполнения",
+    "input_format": [
+      "заметка-txt",
+      "опросный-лист",
+      "проект-РД"
+    ],
+    "output_format": "только-смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 100,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 27,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "station_enclosure": "подземное-стеклопластик",
+        "installation_place": "заглублённая",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 100,
+        "H": 27,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 11,
+        "pump_class": "вертикальный многоступенчатый CNP CDM",
+        "collector_suction_dn": 150,
+        "collector_discharge_dn": 150,
+        "collector_code": "150-2-100",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-CDM95-2-2FSWSC-РПП-02-03",
+        "cost_rub": 2305307
+      }
+    ],
+    "cost_note": "себестоимость варианта 1 (стеклопластик); наценка клиенту ×1,3"
+  }
+}

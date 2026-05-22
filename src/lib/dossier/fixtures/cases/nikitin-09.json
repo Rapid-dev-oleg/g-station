@@ -1,0 +1,60 @@
+{
+  "_комментарий": "Никитин-09. ЖИЛВЕНТСЕРВИС/Заря, ВПВ. Q=49,68 (реконстр.), H=38,81 (Hтреб 70,81 − ввод 32), 1+1, прямой пуск.",
+  "meta": {
+    "case_id": "nikitin-09",
+    "object_name": "ДЗХО Заря, насосная ВПВ корп.68",
+    "customer": "АО ДЗХО Заря",
+    "engineer": "Никитин",
+    "scenario": "замена-конкурента",
+    "input_format": [
+      "проект-РД"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 49.68,
+          "unit": "м³/ч",
+          "source": "derived",
+          "note": "4,6 л/с × 4 = 13,8 л/с"
+        },
+        "H": {
+          "value": 38.81,
+          "unit": "м",
+          "source": "derived",
+          "note": "70,81 − 32 (гарантир. ввод)"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 49.68,
+        "H": 38.81,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 15,
+        "pump_class": "вертикальный одноступенчатый CNP TD",
+        "collector_discharge_dn": 100,
+        "collector_code": "~100-2-65 (в xlsx не указан)",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-TD65-41G/2SWHCJ-ПП-02-04",
+        "cost_rub": 533700
+      }
+    ],
+    "cost_note": "себестоимость; шифр коллектора в xlsx не приведён, материалы 95000 ₽"
+  }
+}

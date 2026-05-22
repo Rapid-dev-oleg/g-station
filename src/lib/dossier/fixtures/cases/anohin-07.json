@@ -1,0 +1,72 @@
+{
+  "_комментарий": "Анохин-07. Q=30 л/с=108 м³/ч, H=60, 1+1+жокей, подземное стеклопластик, резервуары 2×170 м³, ТКП.",
+  "meta": {
+    "case_id": "anohin-07",
+    "object_name": "Подземная ПНС в стеклопластике",
+    "engineer": "Анохин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt",
+      "скан-без-текста"
+    ],
+    "output_format": "только-смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 30,
+          "unit": "л/с",
+          "source": "extracted",
+          "note": "30 л/с"
+        },
+        "H": {
+          "value": 60,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "station_enclosure": "подземное-стеклопластик",
+        "installation_place": "заглублённая",
+        "reservoirs": {
+          "required": true,
+          "count": 2,
+          "volume": {
+            "value": 170,
+            "unit": "м³"
+          },
+          "volume_given": true
+        },
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 108,
+        "H": 60,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 37,
+        "pump_class": "горизонтальный моноблочный CNP NIS",
+        "collector_suction_dn": 200,
+        "collector_discharge_dn": 125,
+        "collector_code": "200/125-2-100/65",
+        "reservoir_volume": 170,
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NIS100-65-200/37-ПП-02-04-07",
+        "cost_rub": 9855227
+      }
+    ],
+    "cost_note": "ИТОГО; резервуары 5,8 млн + корпус 2,5 млн доминируют"
+  }
+}

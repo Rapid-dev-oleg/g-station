@@ -1,0 +1,68 @@
+{
+  "_комментарий": "Никитин-10. Дарс АУПТ+НС, 3 варианта под 3 разных исходных. На вход берём вариант №4 (CNP, самый напорный): Q=91,48, H=84,3, 1+1+жокей. Курс в xlsx утрачен (#REF!), себестоимость невосстановима.",
+  "meta": {
+    "case_id": "nikitin-10",
+    "object_name": "Дарс, АУПТ + насосная станция",
+    "customer": "Дарс",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "скан-без-текста"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 91.48,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 84.3,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "jockey_Q": {
+          "value": 3,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "jockey_H": {
+          "value": 89.3,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "start_type": "плавный",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 91.48,
+        "H": 84.3,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 45,
+        "pump_class": "горизонтальный одноступенчатый CNP NES",
+        "collector_discharge_dn": 150,
+        "collector_code": "150-2-80/65",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-NES80-65-260-45/2SWH-РПП-02-03-07",
+        "cost_rub": null
+      }
+    ],
+    "cost_note": "себестоимость невосстановима — курс USD в xlsx = #REF!"
+  }
+}

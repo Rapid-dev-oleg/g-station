@@ -1,0 +1,70 @@
+{
+  "_комментарий": "Никитин-07. Дивеево школа, наружное ПТ. Q=28, H=55, 1+1, под заливом, блок-контейнер, резервуары 2×120 м³ (веер поставщиков).",
+  "meta": {
+    "case_id": "nikitin-07",
+    "object_name": "Елизарьевская ООШ, наружное ПТ",
+    "customer": "Администрация Дивеевского района",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "проект-РД"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": {
+          "value": 28,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 55,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "station_enclosure": "блок-бокс",
+        "installation_place": "под-заливом",
+        "reservoirs": {
+          "required": true,
+          "count": 2,
+          "volume": {
+            "value": 120,
+            "unit": "м³"
+          },
+          "volume_given": true
+        },
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 28,
+        "H": 55,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 5.5,
+        "pump_class": "вертикальный одноступенчатый CNP TD",
+        "collector_discharge_dn": 150,
+        "collector_code": "150-2-100",
+        "reservoir_volume": 120,
+        "start_type": "прямой",
+        "code": "GF-П-1/1-TD100-17G/2SWHCJ-ПП-02-03",
+        "cost_rub": 2266462
+      }
+    ],
+    "cost_note": "ИТОГО НС+блок-бокс+резервуар ПНС (АКО); с пож.резервуарами 5,3 млн"
+  }
+}

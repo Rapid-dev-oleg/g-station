@@ -1,0 +1,61 @@
+{
+  "_комментарий": "Никитин-06. Ярмарка, ВПВ. Q=39,6, H=34, 1+1, вертикальный, нержавейка, прямой пуск.",
+  "meta": {
+    "case_id": "nikitin-06",
+    "object_name": "Ярмарка, станция ВПВ",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 39.6,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 34,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "collector_material": "нержавеющая-сталь",
+        "pump_type_required": [
+          "вертикальный"
+        ],
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 39.6,
+        "H": 34,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 7.5,
+        "pump_class": "вертикальный одноступенчатый Wilo IPN",
+        "collector_discharge_dn": 100,
+        "collector_code": "100-2-65",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-IPN65/170-7,5/2-ПП-02-03",
+        "cost_rub": 600066
+      }
+    ],
+    "cost_note": "себестоимость; ШУ 200000 ₽, монтаж строкой 20000 ₽"
+  }
+}

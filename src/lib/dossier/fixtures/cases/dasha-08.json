@@ -1,0 +1,63 @@
+{
+  "_комментарий": "Даша-08. Береговая ПНС, Кудьминская нефтебаза. Q=300, H=50, 1 насос без резерва (схема 1/0), самовсасывающий, плавный пуск, блок-бокс.",
+  "meta": {
+    "case_id": "dasha-08",
+    "object_name": "Береговая ПНС, Кудьминская нефтебаза",
+    "customer": "ООО Кудьминская нефтебаза",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "береговая-ПНС",
+        "Q": {
+          "value": 300,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 50,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/0",
+        "working_pumps": 1,
+        "reserve_pumps": 0,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "station_enclosure": "блок-бокс",
+        "installation_place": "на-берегу",
+        "limits": {
+          "motor_power": {
+            "value": 75,
+            "unit": "кВт",
+            "source": "extracted"
+          }
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 300,
+        "H": 50,
+        "scheme": "1/0",
+        "pumps": 1,
+        "motor_kw": 75,
+        "pump_class": "центробежный самовсасывающий Д320-50",
+        "collector_code": "нет (одиночный насос, обвязка)",
+        "start_type": "плавный",
+        "code": "GF-П-1-Д320-50-РПП-03-04-08",
+        "cost_rub": 1838200
+      }
+    ],
+    "cost_note": "себестоимость; блок-бокс 660000, ШУ ШУС-113 542000"
+  }
+}

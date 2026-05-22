@@ -1,0 +1,70 @@
+{
+  "_комментарий": "Анохин-06. Q=98,64, H=60, 1+1+жокей, РЧВ 2×128 м³, два исполнения. Здесь берём подземное (стеклопластик). Резервуары и корпус — отдельные крупные статьи.",
+  "meta": {
+    "case_id": "anohin-06",
+    "object_name": "Станция G-Fire с резервуарами",
+    "engineer": "Анохин",
+    "scenario": "два-исполнения",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 98.64,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 60,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "плавный",
+        "station_enclosure": "подземное-стеклопластик",
+        "installation_place": "заглублённая",
+        "reservoirs": {
+          "required": true,
+          "count": 2,
+          "volume": {
+            "value": 128,
+            "unit": "м³"
+          },
+          "volume_given": true
+        },
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 98.64,
+        "H": 60,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 37,
+        "pump_class": "горизонтальный моноблочный CNP NIS",
+        "collector_suction_dn": 200,
+        "collector_discharge_dn": 125,
+        "collector_code": "200/125-2-100/65",
+        "reservoir_volume": 128,
+        "start_type": "плавный",
+        "code": "GF-П-1/1-NIS100-65-200/37-РПП-02-04-07",
+        "cost_rub": 8594396
+      }
+    ],
+    "cost_note": "ИТОГО подземного варианта; включает РЧВ 4,2 млн и корпус 2,7 млн"
+  }
+}

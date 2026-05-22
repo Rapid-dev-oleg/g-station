@@ -1,0 +1,57 @@
+{
+  "_комментарий": "Даша-07. Аналог ТКП Waterflow. Q=144,705, H=83,886, схема 2/1 (выбрана), прямой пуск, управление эл.задвижкой (06).",
+  "meta": {
+    "case_id": "dasha-07",
+    "object_name": "АУПТ на насосах VJ (аналог Waterflow)",
+    "engineer": "Даша",
+    "scenario": "подбор-на-аналог",
+    "input_format": [
+      "ТКП-конкурента"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 144.705,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 83.886,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "2/1",
+        "working_pumps": 2,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 144.705,
+        "H": 83.886,
+        "scheme": "2/1",
+        "pumps": 3,
+        "motor_kw": 30,
+        "pump_class": "вертикальный многоступенчатый CRV",
+        "collector_discharge_dn": 200,
+        "collector_code": "200-3-100",
+        "start_type": "прямой",
+        "code": "GF-П-2/1-CRV90-4C-ПП-02-03-06",
+        "cost_rub": 1969492
+      }
+    ],
+    "cost_note": "себестоимость варианта 2 (2/1, CRV 90-4C)"
+  }
+}

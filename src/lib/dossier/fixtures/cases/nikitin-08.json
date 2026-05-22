@@ -1,0 +1,62 @@
+{
+  "_комментарий": "Никитин-08. Крупная G-Fire BIG, Дорогобуж/Акрон. Q=500, H=90, 1+1+жокей, плавный пуск. ШУ в смете = 0.",
+  "meta": {
+    "case_id": "nikitin-08",
+    "object_name": "Дорогобуж, насосная пожаротушения BIG",
+    "customer": "ПАО Акрон",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 500,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 90,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "плавный",
+        "power_supply": {
+          "category": "I",
+          "inputs": 2,
+          "avr": true
+        },
+        "ip_rating": "IP55"
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 500,
+        "H": 90,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 200,
+        "pump_class": "горизонтальный одноступенчатый CNP SMM",
+        "collector_suction_dn": 350,
+        "collector_discharge_dn": 300,
+        "collector_code": "350/300-2-250/200",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-SMM250-200-500-200/4-РПП-02-03-04-07",
+        "cost_rub": 3647820
+      }
+    ],
+    "cost_note": "ИТОГО без ШУ (ШУ=0) — себестоимость занижена"
+  }
+}

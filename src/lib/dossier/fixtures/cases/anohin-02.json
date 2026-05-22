@@ -1,0 +1,57 @@
+{
+  "_комментарий": "Анохин-02. Проверка чужого подбора, веер из 5 вариантов. Рабочая точка восстановлена: Q=10, H=43 (допущение ввод 10 м). Выбран CHLFT12-40, 2,4 кВт.",
+  "meta": {
+    "case_id": "anohin-02",
+    "object_name": "Общежитие",
+    "engineer": "Анохин",
+    "scenario": "проверка-чужого-подбора",
+    "input_format": [
+      "чужая-установка",
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 10,
+          "unit": "м³/ч",
+          "source": "derived",
+          "note": "восстановлено из ТП"
+        },
+        "H": {
+          "value": 43,
+          "unit": "м",
+          "source": "derived",
+          "note": "допущение ввод 10 м"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой"
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 10,
+        "H": 43,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 2.4,
+        "pump_class": "вертикальный многоступенчатый CNP CHLFT",
+        "collector_discharge_dn": 65,
+        "collector_code": "65-2-40",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-CHLFT12-40LSWPC-ПП-02-03",
+        "cost_rub": 361828
+      }
+    ],
+    "cost_note": "себестоимость выбранного варианта 5"
+  }
+}

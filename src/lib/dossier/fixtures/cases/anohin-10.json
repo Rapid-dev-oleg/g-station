@@ -1,0 +1,99 @@
+{
+  "_комментарий": "Анохин-10. Две станции: ВНС G-Water 30/45 3+1 частотный; ПНС G-Fire 110/45 1+1 плавный. Переторжка наценкой.",
+  "meta": {
+    "case_id": "anohin-10",
+    "object_name": "Склад Воскресенск: ВНС №7 + ПНС №5",
+    "customer": "ООО СК АВАЛОН",
+    "engineer": "Анохин",
+    "scenario": "переторжка",
+    "input_format": [
+      "заметка-txt",
+      "проект-РД"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "water",
+        "purpose": "хоз-питьевое",
+        "Q": {
+          "value": 30,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 45,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "3/1",
+        "working_pumps": 3,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "частотный",
+        "inlet_pressure": {
+          "value": 10,
+          "unit": "м",
+          "source": "extracted"
+        }
+      }
+    },
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 110,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 45,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 30,
+        "H": 45,
+        "scheme": "3/1",
+        "pumps": 4,
+        "motor_kw": 2.2,
+        "pump_class": "вертикальный многоступенчатый CNP CDM",
+        "collector_discharge_dn": 150,
+        "collector_code": "150-4-40",
+        "start_type": "частотный",
+        "code": "GW-В-3/1-CDM10-6FSWPC-РЧП-03",
+        "cost_rub": 586602
+      },
+      {
+        "Q": 110,
+        "H": 45,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 30,
+        "pump_class": "горизонтальный моноблочный CNP NIS",
+        "collector_suction_dn": 250,
+        "collector_discharge_dn": 200,
+        "collector_code": "250/200-2-100/65",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-NIS100-65-200/30SWH-РПП-02-03",
+        "cost_rub": 1057756
+      }
+    ],
+    "cost_note": "себестоимость; ВНС наценка +35%, ПНС в переторжке +45%"
+  }
+}

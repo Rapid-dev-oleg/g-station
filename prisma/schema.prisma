@@ -122,6 +122,8 @@ model Settings {
   defaultRateUsd Float?
   defaultRateCny Float?
   defaultMarkup  Float?
+  aiModel        String? // выбранная модель OpenRouter для парсинга документов
+  openrouterKey  String? // ключ OpenRouter API
   updatedAt      DateTime @updatedAt
 }
 

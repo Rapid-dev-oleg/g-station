@@ -1,0 +1,59 @@
+{
+  "_комментарий": "Загорянский-05. Склад Чаадаева. Q=110,88, H=30, 1+1+жокей, под заливом, прямой пуск. Веер 5 вариантов, выбран CNP NIS (не дешёвый — ходовая серия).",
+  "meta": {
+    "case_id": "zagoryansky-05",
+    "object_name": "Производственно-складской комплекс, ул. Чаадаева",
+    "engineer": "Загорянский",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 110.88,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 30,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "installation_place": "под-заливом",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 110.88,
+        "H": 30,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 18.5,
+        "pump_class": "горизонтальный CNP NIS",
+        "collector_suction_dn": 150,
+        "collector_discharge_dn": 150,
+        "collector_code": "150-2-100/80",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NIS100-80-160/18.5SWH-ПП-02-03-07-08",
+        "cost_rub": 767988
+      }
+    ],
+    "cost_note": "себестоимость варианта 1 (CNP NIS); строки наценки нет"
+  }
+}

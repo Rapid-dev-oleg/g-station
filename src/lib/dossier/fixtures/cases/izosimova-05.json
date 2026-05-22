@@ -1,0 +1,74 @@
+{
+  "_комментарий": "Изосимова-05. ПТК ТКО Кемерово. Вход (раздел ПД) задаёт Q=90/H=30 2+1; выход (ТП) — Q=162,72/H=45 1+1. Крупное расхождение вход↔выход. На вход берём ТП-точку.",
+  "meta": {
+    "case_id": "izosimova-05",
+    "object_name": "ПТК ТКО Кемерово",
+    "customer": "ООО РИИР Кемерово",
+    "engineer": "Изосимова",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "проект-РД"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 162.72,
+          "unit": "м³/ч",
+          "source": "extracted",
+          "note": "по ТП; в разделе ПД 90 м³/ч — расхождение"
+        },
+        "H": {
+          "value": 45,
+          "unit": "м",
+          "source": "extracted",
+          "note": "по ТП; в разделе ПД 30 м"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "station_enclosure": "подземное-стеклопластик",
+        "installation_place": "заглублённая",
+        "collector_material": "нержавеющая-сталь",
+        "reservoirs": {
+          "required": true,
+          "count": 2,
+          "volume": {
+            "value": 250,
+            "unit": "м³"
+          },
+          "volume_given": true
+        },
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 162.72,
+        "H": 45,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 37,
+        "pump_class": "горизонтальный одноступенчатый aikon NES",
+        "collector_suction_dn": 200,
+        "collector_discharge_dn": 150,
+        "collector_code": "200/150-2-100/80",
+        "reservoir_volume": 250,
+        "start_type": "плавный",
+        "code": "GF-П-1/1-NES100-80-200-37/2-РПП-02-04-08",
+        "cost_rub": 1002581
+      }
+    ],
+    "cost_note": "ИТОГО — только насосный блок; корпус и резервуары не посчитаны"
+  }
+}

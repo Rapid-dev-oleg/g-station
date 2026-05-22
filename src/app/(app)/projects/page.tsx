@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button, IconPlus } from '@/components/ui';
+import { Button, IconPlus, IconSparkles } from '@/components/ui';
 import {
   ProjectsList,
   type ProjectListRow,
@@ -26,9 +26,16 @@ export default async function ProjectsPage() {
         title="Проекты"
         subtitle="Все технико-коммерческие предложения и активные расчёты"
         actions={
-          <Link href="/projects/new" style={{ display: 'inline-flex' }}>
-            <Button leftIcon={<IconPlus />}>Новый проект</Button>
-          </Link>
+          <>
+            <Link href="/intake" style={{ display: 'inline-flex' }}>
+              <Button variant="secondary" leftIcon={<IconSparkles />}>
+                Расчёт из ТЗ
+              </Button>
+            </Link>
+            <Link href="/projects/new" style={{ display: 'inline-flex' }}>
+              <Button leftIcon={<IconPlus />}>Новый проект</Button>
+            </Link>
+          </>
         }
       />
       <ProjectsList projects={rows} />

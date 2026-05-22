@@ -1,0 +1,120 @@
+{
+  "_комментарий": "Анохин-01. ДВЕ независимые станции в одном павильоне. Станция A — АУПТ 755/85; станция B — наружное ПТ 252/45. Оба с жокеем, плавный пуск.",
+  "meta": {
+    "case_id": "anohin-01",
+    "object_name": "Логистический комплекс Софьино-Краснопахорское",
+    "customer": "ООО ВБ Инжиниринг",
+    "engineer": "Анохин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "формальное-ТЗ-docx",
+      "ВОР",
+      "проект-РД",
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 754.63,
+          "unit": "м³/ч",
+          "source": "extracted",
+          "note": "209,62 л/с"
+        },
+        "H": {
+          "value": 85,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "jockey_Q": {
+          "value": 14.4,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "jockey_H": {
+          "value": 95,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "start_type": "плавный",
+        "station_enclosure": "технологический-павильон",
+        "climate_execution": "У-1"
+      }
+    },
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": {
+          "value": 252,
+          "unit": "м³/ч",
+          "source": "extracted",
+          "note": "70 л/с"
+        },
+        "H": {
+          "value": 45,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "jockey_Q": {
+          "value": 14.4,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "jockey_H": {
+          "value": 55,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "start_type": "плавный",
+        "station_enclosure": "технологический-павильон",
+        "climate_execution": "У-1"
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 755,
+        "H": 85,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 280,
+        "pump_class": "горизонтальный одноступенчатый CNP SMA(A)",
+        "collector_suction_dn": 400,
+        "collector_discharge_dn": 300,
+        "collector_code": "400/300-2-300/250",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-…-РПП-03-07",
+        "cost_rub": 6808560
+      },
+      {
+        "Q": 252,
+        "H": 45,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 55,
+        "pump_class": "горизонтальный одноступенчатый CNP NIS",
+        "collector_suction_dn": 300,
+        "collector_discharge_dn": 200,
+        "collector_code": "300/200-2-125/100",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-…-РПП-03-07",
+        "cost_rub": 1636520
+      }
+    ],
+    "cost_note": "себестоимость из xlsx, павильон не посчитан"
+  }
+}

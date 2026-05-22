@@ -1,0 +1,58 @@
+{
+  "_комментарий": "Загорянский-01. Гостиница Нестерова, ВПВ. ТЗ Q=133,74, H=12,98; ТП округлил до 147/15,5. 1+1+жокей, прямой пуск.",
+  "meta": {
+    "case_id": "zagoryansky-01",
+    "object_name": "Гостиница, ул. Нестерова 39А",
+    "engineer": "Загорянский",
+    "scenario": "пересчёт-под-новый-СП",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 133.74,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 12.98,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 133.74,
+        "H": 12.98,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 11,
+        "pump_class": "горизонтальный моноблочный CNP NIS",
+        "collector_suction_dn": 200,
+        "collector_discharge_dn": 150,
+        "collector_code": "200/150-2-125/100",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NIS125-100-200/11SWH-ПП-02-03-07-08",
+        "cost_rub": 726350
+      }
+    ],
+    "cost_note": "себестоимость; цена клиенту ×1,7 = 1234795 ₽"
+  }
+}

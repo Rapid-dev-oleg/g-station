@@ -1,0 +1,58 @@
+{
+  "_комментарий": "Загорянский-04. Парковка Кстово, АУПТ. Q=155,22, H=9,19 (очень низкий напор), 1+1+жокей, прямой пуск.",
+  "meta": {
+    "case_id": "zagoryansky-04",
+    "object_name": "Парковка, г. Кстово",
+    "engineer": "Загорянский",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета+чертёж-DWG"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 155.22,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 9.19,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 155.22,
+        "H": 9.19,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 7.5,
+        "pump_class": "горизонтальный моноблочный CNP NIS",
+        "collector_suction_dn": 200,
+        "collector_discharge_dn": 200,
+        "collector_code": "200-2-150/125",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NIS150-125-200G/7.5SWH-ПП-02-03-07",
+        "cost_rub": 1308275
+      }
+    ],
+    "cost_note": "себестоимость; цена клиенту ×1,7 = 2224067 ₽"
+  }
+}

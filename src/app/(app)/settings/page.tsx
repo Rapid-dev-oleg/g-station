@@ -1,6 +1,7 @@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui';
 import { getSettings } from '@/server/services/settings';
+import { AiSettings } from '@/components/settings/AiSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,8 +71,15 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
+      <div style={{ marginTop: 16, maxWidth: 520 }}>
+        <AiSettings
+          initialKey={settings?.openrouterKey ?? ''}
+          initialModel={settings?.aiModel ?? ''}
+        />
+      </div>
+
       <p style={{ marginTop: 16, fontSize: 13, color: 'var(--muted)' }}>
-        Редактирование настроек выполняется администратором базы данных.
+        Реквизиты компании и курсы пока редактируются администратором базы данных.
       </p>
     </>
   );

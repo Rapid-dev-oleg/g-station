@@ -1,0 +1,59 @@
+{
+  "_комментарий": "Изосимова-03. ТЦ Пассаж, АУПТ. Q=47,371, H=21,845, 1+1+жокей, прямой пуск. Веер CNP/aikon vs Wilo. Берём вариант CNP/aikon.",
+  "meta": {
+    "case_id": "izosimova-03",
+    "object_name": "ТЦ Пассаж Новочебоксарск",
+    "engineer": "Изосимова",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "проект-РД",
+      "ТКП-конкурента"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 47.371,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 21.845,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 47.371,
+        "H": 21.845,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 7.5,
+        "pump_class": "горизонтальный одноступенчатый aikon NES",
+        "collector_suction_dn": 125,
+        "collector_discharge_dn": 100,
+        "collector_code": "125/100-2-65/50",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NES65-50-160-7.5/2-ПП-02-04-07",
+        "cost_rub": 585973
+      }
+    ],
+    "cost_note": "себестоимость варианта CNP/aikon"
+  }
+}

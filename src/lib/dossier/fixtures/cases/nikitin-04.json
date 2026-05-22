@@ -1,0 +1,59 @@
+{
+  "_комментарий": "Никитин-04. ВКК Талицкий. Q=39, H=32,5, 1+1, нержавейка, прямой пуск. ШУ в смете = 0.",
+  "meta": {
+    "case_id": "nikitin-04",
+    "object_name": "ВКК Талицкий, флотофабрика",
+    "customer": "АО ВКК",
+    "engineer": "Никитин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 39,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 32.5,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "collector_material": "нержавеющая-сталь",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 39,
+        "H": 32.5,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 5.5,
+        "pump_class": "вертикальный многоступенчатый Wellmix CV",
+        "collector_discharge_dn": 125,
+        "collector_code": "125-2-80",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-CV45-2-2(IE3)-ПП-02-03",
+        "cost_rub": 376900
+      }
+    ],
+    "cost_note": "ИТОГО без ШУ (ШУ=0 в смете) — себестоимость неполная"
+  }
+}

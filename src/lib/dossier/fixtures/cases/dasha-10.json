@@ -1,0 +1,71 @@
+{
+  "_комментарий": "Даша-10. ПАО Акрон, Дом Музыки Валдай, АУПТ. Q=22,38 л/с=80,568, H=51,65, ввод 10 м, 1+1+жокей, прямой пуск. ШУ в смете отсутствует.",
+  "meta": {
+    "case_id": "dasha-10",
+    "object_name": "Дом Музыки Валдай, ПАО Акрон",
+    "customer": "ПАО Акрон",
+    "engineer": "Даша",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 22.38,
+          "unit": "л/с",
+          "source": "extracted",
+          "note": "22,38 л/с"
+        },
+        "H": {
+          "value": 51.65,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "inlet_pressure": {
+          "value": 10,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "jockey_H": {
+          "value": 60,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "start_type": "прямой",
+        "power_supply": {
+          "category": "I",
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 80.568,
+        "H": 51.65,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 22,
+        "pump_class": "горизонтальный одноступенчатый Wellmix NBW",
+        "collector_suction_dn": 200,
+        "collector_discharge_dn": 150,
+        "collector_code": "200/150-2-80/65",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NBW80-65-200-22.0/2-G-ПП-02-03-07",
+        "cost_rub": 557652
+      }
+    ],
+    "cost_note": "себестоимость БЕЗ ШУ — в смете строки ШУ нет"
+  }
+}

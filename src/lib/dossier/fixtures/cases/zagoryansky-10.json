@@ -1,0 +1,58 @@
+{
+  "_комментарий": "Загорянский-10. Нижегородский хлеб, ВПВ. ТЗ Q=18,72, H=28; ТП 18,72/32. 1+1, без жокея, прямой пуск, управление эл.задвижкой.",
+  "meta": {
+    "case_id": "zagoryansky-10",
+    "object_name": "Нижегородский хлеб, насосная ВПВ",
+    "engineer": "Загорянский",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 18.72,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 28,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 18.72,
+        "H": 28,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 4,
+        "pump_class": "вертикальный ин-лайн CNP TD",
+        "collector_suction_dn": 65,
+        "collector_discharge_dn": 65,
+        "collector_code": "65-2-40",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-TD40-30G/2SWHCJ-ПП-02-04-08",
+        "cost_rub": 879334
+      }
+    ],
+    "cost_note": "себестоимость; ШУ ШУФ-213 647000 ₽ доминирует; строки наценки нет"
+  }
+}

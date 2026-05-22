@@ -8,14 +8,15 @@ import {
   IconBuilding,
   IconFolder,
   IconHome,
-  IconLogo,
   IconPackage,
   IconSettings,
+  IconSparkles,
 } from '@/components/ui';
 import styles from './Sidebar.module.css';
 
 const NAV = [
   { href: '/', label: 'Дашборд', icon: <IconHome /> },
+  { href: '/intake', label: 'Новый расчёт из ТЗ', icon: <IconSparkles /> },
   { href: '/clients', label: 'Клиенты', icon: <IconBuilding /> },
   { href: '/projects', label: 'Проекты', icon: <IconFolder /> },
   { href: '/catalog', label: 'Каталог', icon: <IconPackage /> },
@@ -30,11 +31,12 @@ export function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
-        <IconLogo />
-        <div className={styles.brandText}>
-          <span className={styles.brandTitle}>Гидрострой-НН</span>
-          <span className={styles.brandSubtitle}>G-Station</span>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.svg"
+          alt="Гидрострой-НН"
+          style={{ width: '100%', height: 'auto', maxHeight: 44 }}
+        />
       </div>
       <nav className={styles.nav}>
         <div className={styles.navGroup}>Рабочий стол</div>

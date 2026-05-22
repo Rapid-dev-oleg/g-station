@@ -1,0 +1,60 @@
+{
+  "_комментарий": "Анохин-05. ПНС котельной, Q=30, H=40, 1+1, плавный пуск (УПП), блок-модуль/павильон, водоразбор из резервуара. Резервуары отдельно — не в смете.",
+  "meta": {
+    "case_id": "anohin-05",
+    "object_name": "Котельная 80-летия Победы",
+    "customer": "АО ГК ЕКС",
+    "engineer": "Анохин",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "опросный-лист"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 30,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 40,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "плавный",
+        "station_enclosure": "технологический-павильон",
+        "ip_rating": "IP65",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 30,
+        "H": 40,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 7.5,
+        "pump_class": "вертикальный одноступенчатый CNP TD",
+        "collector_discharge_dn": 100,
+        "collector_code": "100-2-50",
+        "start_type": "плавный",
+        "code": "GF-П-1/1-TD50-40G/2SWHCJ-РПП-02",
+        "cost_rub": 749742
+      }
+    ],
+    "cost_note": "себестоимость по xlsx; павильон не посчитан"
+  }
+}

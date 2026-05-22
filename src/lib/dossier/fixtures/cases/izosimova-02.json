@@ -1,0 +1,72 @@
+{
+  "_комментарий": "Изосимова-02. Q=182, H=35, схема 2/1 (3 насоса), под заливом, прямой пуск. Двигатель по ТхС 18,5 кВт, по ТКП 15 кВт.",
+  "meta": {
+    "case_id": "izosimova-02",
+    "object_name": "Волковский ГОК, очистные карьерных вод",
+    "customer": "АО Святогор",
+    "engineer": "Изосимова",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "проект-РД"
+    ],
+    "output_format": "только-смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "пожаротушение-общее",
+        "Q": {
+          "value": 182,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 35,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "2/1",
+        "working_pumps": 2,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "installation_place": "под-заливом",
+        "pump_type_required": [
+          "вертикальный",
+          "многоступенчатый"
+        ],
+        "power_supply": {
+          "category": "I",
+          "avr": true
+        },
+        "limits": {
+          "motor_power": {
+            "value": 18.5,
+            "unit": "кВт",
+            "source": "extracted"
+          }
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 182,
+        "H": 35,
+        "scheme": "2/1",
+        "pumps": 3,
+        "motor_kw": 15,
+        "pump_class": "вертикальный многоступенчатый Wellmix CV",
+        "collector_suction_dn": 150,
+        "collector_discharge_dn": 150,
+        "collector_code": "150-3-100",
+        "start_type": "прямой",
+        "code": "GF-П-2/1-CV90-2(IE3)-ПП-02",
+        "cost_rub": 1411390
+      }
+    ],
+    "cost_note": "себестоимость; ШУ посчитан 546890 ₽"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "_комментарий": "Изосимова-04. Дуган СПб, наружное ПТ. Q=10 л/с=36 м³/ч, H=18,5, 1+1, подземное стеклопластик, резервуары 2×60 м³.",
+  "meta": {
+    "case_id": "izosimova-04",
+    "object_name": "Корпус Дуган СПб",
+    "engineer": "Изосимова",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "проект-РД"
+    ],
+    "output_format": "только-смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": {
+          "value": 10,
+          "unit": "л/с",
+          "source": "extracted",
+          "note": "10 л/с"
+        },
+        "H": {
+          "value": 18.5,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "station_enclosure": "подземное-стеклопластик",
+        "installation_place": "заглублённая",
+        "reservoirs": {
+          "required": true,
+          "count": 2,
+          "volume": {
+            "value": 60,
+            "unit": "м³"
+          },
+          "volume_given": true
+        },
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 36,
+        "H": 18.5,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 4,
+        "pump_class": "горизонтальный одноступенчатый aikon NES",
+        "collector_suction_dn": 100,
+        "collector_discharge_dn": 80,
+        "collector_code": "100/80-2-65/50",
+        "reservoir_volume": 60,
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NES65-50-130-4/2-ПП-02-04-08",
+        "cost_rub": 459833
+      }
+    ],
+    "cost_note": "ИТОГО — только насосный блок; корпус и резервуары не посчитаны"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "_комментарий": "Загорянский-03. НИИТОП Главный корпус, ВПВ. ТЗ Q=9,36, H=11 +10%; ТП 12/16. 1+1+жокей, прямой пуск.",
+  "meta": {
+    "case_id": "zagoryansky-03",
+    "object_name": "НИИТОП, Главный корпус",
+    "engineer": "Загорянский",
+    "scenario": "подбор-с-нуля",
+    "input_format": [
+      "заметка-txt"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": {
+          "value": 9.36,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 11,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": true,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        }
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 9.36,
+        "H": 11,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 1.1,
+        "pump_class": "вертикальный ин-лайн CNP TD",
+        "collector_suction_dn": 65,
+        "collector_discharge_dn": 65,
+        "collector_code": "65-2-40",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-TD40-16G/2SWHCJ-ПП-02-03-07",
+        "cost_rub": 416720
+      }
+    ],
+    "cost_note": "себестоимость; цена клиенту ×1,7 = 708424 ₽"
+  }
+}

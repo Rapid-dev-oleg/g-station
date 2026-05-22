@@ -1,0 +1,61 @@
+{
+  "_комментарий": "Даша-02. ЗАО Муром, воздушная АУПТ. Q=170, H=35, 1+1, компрессор (опция 08). Веер 4-5 вариантов, выбран Wellmix NBW, прямой пуск.",
+  "meta": {
+    "case_id": "dasha-02",
+    "object_name": "Корпус сушки шпона, ЗАО Муром",
+    "customer": "ЗАО Муром",
+    "engineer": "Даша",
+    "scenario": "подбор-на-аналог",
+    "input_format": [
+      "проект-РД"
+    ],
+    "output_format": "ТП+смета"
+  },
+  "stations": [
+    {
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": {
+          "value": 170,
+          "unit": "м³/ч",
+          "source": "extracted"
+        },
+        "H": {
+          "value": 35,
+          "unit": "м",
+          "source": "extracted"
+        },
+        "reservation_scheme": "1/1",
+        "working_pumps": 1,
+        "reserve_pumps": 1,
+        "jockey_required": false,
+        "start_type": "прямой",
+        "power_supply": {
+          "avr": true
+        },
+        "special_requirements": [
+          "воздушная спринклерно-дренчерная АУПТ — узел подачи воздуха"
+        ]
+      }
+    }
+  ],
+  "_expected": {
+    "stations": [
+      {
+        "Q": 170,
+        "H": 35,
+        "scheme": "1/1",
+        "pumps": 2,
+        "motor_kw": 30,
+        "pump_class": "горизонтальный одноступенчатый Wellmix NBW",
+        "collector_discharge_dn": 200,
+        "collector_code": "200-2-125/100",
+        "start_type": "прямой",
+        "code": "GF-П-1/1-NBW125-100-200-30.0/2-G-ПП-02-03-08",
+        "cost_rub": 1154008
+      }
+    ],
+    "cost_note": "себестоимость варианта 2 (Wellmix NBW); компрессор отдельно"
+  }
+}
