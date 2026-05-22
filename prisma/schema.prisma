@@ -1,0 +1,189 @@
+// Схема БД приложения g-station — расчёт пожарных насосных станций.
+// «Расчётное дело» хранится JSONB-полем System.dossier (валидируется ajv).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ENGINEER
+  ADMIN
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  READY
+  SENT
+  WON
+  LOST
+}
+
+enum SystemTypeStatus {
+  READY
+  PLANNED
+}
+
+enum SystemStatus {
+  INPUT
+  CALCULATED
+  REVIEWED
+  FINALIZED
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String
+  passwordHash String
+  role         Role        @default(ENGINEER)
+  createdAt    DateTime    @default(now())
+  projects     Project[]
+  systems      System[]    @relation("SystemEngineer")
+  priceLists   PriceList[]
+}
+
+model Client {
+  id          String    @id @default(cuid())
+  shortName   String
+  fullName    String?
+  inn         String?
+  contactName String?
+  phone       String?
+  email       String?
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  projects    Project[]
+
+  @@index([shortName])
+}
+
+model Project {
+  id         String        @id @default(cuid())
+  name       String
+  objectName String
+  status     ProjectStatus @default(DRAFT)
+  deadline   DateTime?
+  client     Client        @relation(fields: [clientId], references: [id])
+  clientId   String
+  owner      User          @relation(fields: [ownerId], references: [id])
+  ownerId    String
+  systems    System[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+}
+
+// Тип системы — справочник; логика типа в коде-модуле (контракт типа).
+model SystemType {
+  code        String           @id // 'fire' | 'water' | 'power'
+  name        String
+  description String?
+  status      SystemTypeStatus @default(PLANNED)
+  systems     System[]
+}
+
+// Система = одна насосная станция. dossier — расчётное дело целиком (JSONB).
+model System {
+  id          String       @id @default(cuid())
+  name        String
+  type        SystemType   @relation(fields: [typeCode], references: [code])
+  typeCode    String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  engineer    User?        @relation("SystemEngineer", fields: [engineerId], references: [id])
+  engineerId  String?
+  status      SystemStatus @default(INPUT)
+  dossier     Json // расчётное дело (Dossier), валидируется JSON Schema
+  totalCost   Float? // зеркало dossier для списков
+  clientPrice Float?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([projectId])
+}
+
+// Глобальные настройки (одна запись).
+model Settings {
+  id             String   @id @default("singleton")
+  companyName    String?
+  companyInn     String?
+  companyAddress String?
+  companyPhone   String?
+  companyEmail   String?
+  defaultRateUsd Float?
+  defaultRateCny Float?
+  defaultMarkup  Float?
+  updatedAt      DateTime @updatedAt
+}
+
+// ── Каталог ──────────────────────────────────────────────────────────
+
+model Manufacturer {
+  id         String        @id @default(cuid())
+  name       String        @unique
+  note       String?
+  items      CatalogItem[]
+  priceLists PriceList[]
+}
+
+// Категория продукции — справочник, расширяемый данными.
+model ProductCategory {
+  code  String        @id // 'pumps' | 'panels' | 'collectors' | 'reservoirs' | 'works' | ...
+  name  String
+  items CatalogItem[]
+}
+
+// Запись об импорте прайса производителя.
+model PriceList {
+  id             String       @id @default(cuid())
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id])
+  manufacturerId String
+  title          String
+  sourceFile     String
+  currency       String
+  priceDate      DateTime
+  rowCount       Int
+  importedAt     DateTime     @default(now())
+  importedBy     User?        @relation(fields: [importedById], references: [id])
+  importedById   String?
+}
+
+// Позиция каталога. Цена актуальная (без истории) — перезаписывается при импорте.
+model CatalogItem {
+  id             String          @id @default(cuid())
+  manufacturer   Manufacturer    @relation(fields: [manufacturerId], references: [id])
+  manufacturerId String
+  category       ProductCategory @relation(fields: [categoryCode], references: [code])
+  categoryCode   String
+  sku            String
+  name           String
+  attributes     Json? // атрибуты под категорию (мощность/Q/H, шифр, объём…)
+  price          Float?
+  currency       String?
+  priceDate      DateTime?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([manufacturerId, sku])
+  @@index([categoryCode])
+}
+
+// Справочник нормативов (СП/ГОСТ).
+model Norm {
+  id       String  @id @default(cuid())
+  code     String  @unique
+  title    String
+  category String
+  summary  String?
+  url      String?
+}

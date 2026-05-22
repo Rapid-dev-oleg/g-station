@@ -1,0 +1,85 @@
+/**
+ * Сид БД: ADMIN-пользователь, типы систем, категории каталога,
+ * производители, нормативы, настройки.
+ * Запуск: npx prisma db seed
+ */
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const db = new PrismaClient();
+
+async function main() {
+  // ── ADMIN ──
+  await db.user.upsert({
+    where: { email: 'admin@gidrostroy.local' },
+    update: {},
+    create: {
+      email: 'admin@gidrostroy.local',
+      name: 'Администратор',
+      passwordHash: bcrypt.hashSync('admin123', 10),
+      role: 'ADMIN',
+    },
+  });
+
+  // ── Типы систем ──
+  const types = [
+    { code: 'fire', name: 'Пожарная система', status: 'READY' as const,
+      description: 'Насосные станции пожаротушения (G-Fire): ВПВ, АУПТ, наружное ПТ.' },
+    { code: 'water', name: 'Водоснабжение', status: 'PLANNED' as const,
+      description: 'Хоз-питьевое водоснабжение, повышение давления.' },
+    { code: 'power', name: 'Прочие', status: 'PLANNED' as const, description: null },
+  ];
+  for (const t of types) {
+    await db.systemType.upsert({ where: { code: t.code }, update: { name: t.name, status: t.status }, create: t });
+  }
+
+  // ── Категории каталога ──
+  const categories = [
+    { code: 'pumps', name: 'Насосы' },
+    { code: 'panels', name: 'Шкафы управления' },
+    { code: 'collectors', name: 'Коллекторы' },
+    { code: 'reservoirs', name: 'Резервуары' },
+    { code: 'works', name: 'Работы' },
+    { code: 'accessories', name: 'Аксессуары' },
+    { code: 'vfd', name: 'Частотные преобразователи' },
+  ];
+  for (const c of categories) {
+    await db.productCategory.upsert({ where: { code: c.code }, update: { name: c.name }, create: c });
+  }
+
+  // ── Производители ──
+  for (const name of ['CNP', 'Wilo', 'Wellmix', 'Шторм', 'Омега', 'ВАРПЛАСТ', 'Гидрострой-НН']) {
+    await db.manufacturer.upsert({ where: { name }, update: {}, create: { name } });
+  }
+
+  // ── Нормативы ──
+  const norms = [
+    { code: 'СП 10.13130.2020', title: 'Внутренний противопожарный водопровод', category: 'пожаротушение' },
+    { code: 'СП 8.13130.2020', title: 'Наружное противопожарное водоснабжение', category: 'пожаротушение' },
+    { code: 'СП 485.1311500.2020', title: 'Установки пожаротушения автоматические', category: 'пожаротушение' },
+    { code: 'СП 31.13330.2021', title: 'Водоснабжение. Наружные сети и сооружения', category: 'гидравлика' },
+    { code: 'ГОСТ 17376', title: 'Тройники стальные бесшовные', category: 'трубопроводы' },
+  ];
+  for (const n of norms) {
+    await db.norm.upsert({ where: { code: n.code }, update: { title: n.title }, create: n });
+  }
+
+  // ── Настройки ──
+  await db.settings.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: {
+      id: 'singleton',
+      companyName: 'ООО «Гидрострой-НН»',
+      defaultRateUsd: 90,
+      defaultRateCny: 13,
+      defaultMarkup: 1.7,
+    },
+  });
+
+  console.log('Сид выполнен: admin, типы систем, категории, производители, нормы, настройки.');
+}
+
+main()
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => db.$disconnect());
