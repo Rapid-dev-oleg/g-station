@@ -1,0 +1,326 @@
+/* ТКП — печатная вёрстка. Адаптировано из прототипа rusgidrostroy. */
+
+.toolbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.toolbarTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.toolbarSub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.a4 {
+  max-width: 794px;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 0 0 1px var(--border), 0 4px 18px rgba(15, 23, 42, 0.06);
+  padding: 56px 64px;
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media print {
+  .toolbar {
+    display: none !important;
+  }
+  .a4 {
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    max-width: none;
+  }
+}
+
+.docHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #0f8dc2;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+}
+
+.brandBig {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f8dc2;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.brandContacts {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.docNumber {
+  text-align: right;
+}
+
+.docTitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.docId {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.docDate {
+  font-size: 11px;
+  color: #475569;
+}
+
+.section {
+  margin-bottom: 28px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0f8dc2;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.party {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.partyName {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.partyMeta {
+  color: #475569;
+}
+
+.objectLine {
+  font-size: 13px;
+}
+.objectMeta {
+  color: #475569;
+}
+.objectSub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.systemBlock {
+  margin-bottom: 32px;
+  page-break-inside: avoid;
+}
+
+.systemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.systemTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.systemBadge {
+  display: inline-flex;
+  height: 22px;
+  padding: 0 10px;
+  align-items: center;
+  border-radius: 999px;
+  background: #e6f4fb;
+  color: #0a6f9c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.systemCode {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.specRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin-bottom: 12px;
+  color: #475569;
+}
+
+.specRow strong {
+  color: #0f172a;
+}
+
+.bomTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.bomTable th {
+  background: #f1f5f9;
+  text-align: left;
+  padding: 6px 8px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bomTable td {
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.alignRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.alignCenter {
+  text-align: center;
+}
+
+.groupCell {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.systemSum {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.emptyPricing {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #b45309;
+}
+
+.totals {
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.totalRow.grand {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 8px;
+  padding-top: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  color: #0f8dc2;
+}
+
+.standardsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.standardsList li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.standardCode {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 600;
+  color: #0a6f9c;
+  white-space: nowrap;
+}
+
+.signature {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  font-size: 12px;
+}
+
+.sigBlock {
+  position: relative;
+}
+
+.sigCaption {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.sigName {
+  margin-top: 6px;
+}
+
+.sigLine {
+  border-top: 1px solid #94a3b8;
+  margin-top: 60px;
+  padding-top: 4px;
+}
+
+.sigMp {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}

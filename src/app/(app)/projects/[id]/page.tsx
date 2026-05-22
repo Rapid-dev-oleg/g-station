@@ -9,6 +9,7 @@ import {
   IconArrowLeft,
   IconArrowRight,
   IconEdit,
+  IconFile,
   IconFlame,
   IconFolder,
   IconPlus,
@@ -56,6 +57,16 @@ export default async function ProjectCardPage({
                 К проектам
               </Button>
             </Link>
+            {project.systems.length > 0 && (
+              <Link
+                href={`/projects/${project.id}/proposal`}
+                style={{ display: 'inline-flex' }}
+              >
+                <Button variant="secondary" leftIcon={<IconFile />}>
+                  ТКП
+                </Button>
+              </Link>
+            )}
             <Link
               href={`/projects/${project.id}/systems/new`}
               style={{ display: 'inline-flex' }}
