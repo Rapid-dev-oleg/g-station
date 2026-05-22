@@ -1,0 +1,131 @@
+/* ============ Design tokens ============ */
+:root {
+  --brand: #0F8DC2;
+  --brand-dark: #0a6f9c;
+  --brand-light: #E6F4FB;
+
+  --bg: #F7F9FC;
+  --surface: #FFFFFF;
+  --surface-alt: #F1F5F9;
+  --text: #0F172A;
+  --muted: #64748B;
+  --muted-light: #94A3B8;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  --success: #16A34A;
+  --success-bg: #DCFCE7;
+  --warning: #EAB308;
+  --warning-bg: #FEF9C3;
+  --danger: #DC2626;
+  --danger-bg: #FEE2E2;
+  --info: #0F8DC2;
+  --info-bg: #E6F4FB;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 4px 6px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.08);
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --sidebar-width: 240px;
+  --header-height: 60px;
+}
+
+/* ============ Reset ============ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 28px; line-height: 1.25; }
+h2 { font-size: 22px; line-height: 1.3; }
+h3 { font-size: 18px; line-height: 1.4; }
+h4 { font-size: 16px; line-height: 1.4; }
+
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+a:hover { color: var(--brand-dark); }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button { cursor: pointer; }
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-light);
+}
+
+/* ============ Utility ============ */
+.text-muted { color: var(--muted); }
+.text-small { font-size: 13px; }
+.text-mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+
+/* ============ Print ============ */
+@media print {
+  body { background: white; }
+  aside,
+  header,
+  .no-print { display: none !important; }
+  main, body > div > div { margin-left: 0 !important; }
+  @page { margin: 12mm; }
+}
+
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }

@@ -1,0 +1,32 @@
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+}
+
+.filter {
+  min-width: 180px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cellTitle {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.numCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}

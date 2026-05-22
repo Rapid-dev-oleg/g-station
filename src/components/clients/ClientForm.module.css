@@ -1,0 +1,66 @@
+.formCard {
+  display: grid;
+  gap: 24px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.row3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.fullRow {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .row, .row3 { grid-template-columns: 1fr; }
+}
+
+.warn {
+  background: var(--warning-bg);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #92400E;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.tagPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagBtn {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.tagBtn:hover {
+  background: var(--surface-alt);
+}
+.tagBtnActive {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  border-color: var(--brand);
+}

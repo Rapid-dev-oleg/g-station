@@ -1,0 +1,75 @@
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+}
+
+.filterSelect {
+  min-width: 180px;
+}
+
+.statusCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cellTitle {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.cellInn {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.numCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.sortBtn:hover {
+  color: var(--brand);
+}
+
+.sortHint {
+  font-size: 11px;
+  color: var(--muted-light);
+  opacity: 0.6;
+}
+
+.sortActive {
+  font-size: 11px;
+  color: var(--brand);
+  font-weight: 600;
+}

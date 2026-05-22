@@ -1,0 +1,35 @@
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.iconBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bordered {
+  border-color: var(--border-strong);
+}
+
+.sm { width: 26px; height: 26px; }
+.lg { width: 40px; height: 40px; }
+
+.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+  color: var(--danger);
+}

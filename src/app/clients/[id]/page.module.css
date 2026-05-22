@@ -1,0 +1,67 @@
+.twoCol {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .twoCol { grid-template-columns: 1fr; }
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px 16px;
+  font-size: 14px;
+}
+
+.detail dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.detail dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.contactBlock {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.contactBlock:last-child {
+  border-bottom: none;
+}
+
+.contactName {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.contactMeta {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tagRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 24px 0 12px;
+}
