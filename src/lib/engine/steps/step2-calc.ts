@@ -29,6 +29,15 @@ function workingPumps(scheme: string): number {
   return Number(scheme.split('/')[0]) || 1;
 }
 
+/** Перевод давления в метры водяного столба по единице измерения. */
+function toMeters(value: number, unit?: string): number {
+  if (!value) return 0;
+  const u = (unit ?? '').toLowerCase();
+  if (u.includes('бар') || u === 'bar') return value * 10;
+  if (u.includes('мпа') || u === 'mpa') return value * 100;
+  return value; // м, м.вод.ст. или единица не указана
+}
+
 /**
  * Шаг 2 для одной станции. Заполняет `calc` и при необходимости `variants`.
  * Мутирует переданный (клонированный) объект.
@@ -39,7 +48,8 @@ export function processStation2(station: Station, module: TypeModule): void {
 
   const qTz = input.Q?.value ?? 0;
   const hTz = input.H?.value ?? 0;
-  const inletH = input.inlet_pressure?.value ?? 0;
+  // Давление на вводе нормализуем в метры: 1 бар ≈ 10 м, 1 МПа ≈ 100 м.
+  const inletH = toMeters(input.inlet_pressure?.value ?? 0, input.inlet_pressure?.unit);
 
   // 2.1. Рабочая точка.
   calc.Q_target = measured(qTz, 'м³/ч', 'calculated', 'расход станции из ТЗ');
