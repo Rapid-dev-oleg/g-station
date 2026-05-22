@@ -1,0 +1,44 @@
+[
+  {
+    "sku": "WORK-WELD-COLLECTOR-DN65",
+    "name": "Сварка коллектора DN65",
+    "priceRub": 20000,
+    "estimate": true,
+    "source": "коллекторы-цены.md"
+  },
+  {
+    "sku": "WORK-WELD-COLLECTOR-DN100",
+    "name": "Сварка коллектора DN100-125",
+    "priceRub": 27000,
+    "estimate": true,
+    "source": "коллекторы-цены.md"
+  },
+  {
+    "sku": "WORK-WELD-COLLECTOR-DN150",
+    "name": "Сварка коллектора DN150",
+    "priceRub": 30000,
+    "estimate": true,
+    "source": "коллекторы-цены.md"
+  },
+  {
+    "sku": "WORK-WELD-COLLECTOR-DN200",
+    "name": "Сварка коллектора DN200",
+    "priceRub": 46000,
+    "estimate": true,
+    "source": "коллекторы-цены.md"
+  },
+  {
+    "sku": "WORK-WELD-FRAME",
+    "name": "Сварка рамы насосной станции",
+    "priceRub": 29000,
+    "estimate": true,
+    "source": "ориентир по кейсам"
+  },
+  {
+    "sku": "WORK-WIRING",
+    "name": "Расключение станции (электромонтаж)",
+    "priceRub": 17000,
+    "estimate": true,
+    "source": "ориентир по кейсам"
+  }
+]

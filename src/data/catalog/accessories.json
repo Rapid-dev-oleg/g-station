@@ -1,0 +1,30 @@
+[
+  {
+    "sku": "ACC-KOF-DN100",
+    "name": "Комплект ответных фланцев КОФ DN100",
+    "priceRub": 12000,
+    "estimate": true,
+    "source": "ориентир по кейсам"
+  },
+  {
+    "sku": "ACC-COMPENSATOR-DN100",
+    "name": "Компенсатор резиновый антивибрационный DN100",
+    "priceRub": 8500,
+    "estimate": true,
+    "source": "ориентир по кейсам"
+  },
+  {
+    "sku": "ACC-PRESSURE-SENSOR",
+    "name": "Датчик давления 0-16 бар, 4-20 мА",
+    "priceRub": 6500,
+    "estimate": true,
+    "source": "ориентир по кейсам"
+  },
+  {
+    "sku": "ACC-FRAME-2PUMP",
+    "name": "Рама насосной станции под 2 насоса",
+    "priceRub": 45000,
+    "estimate": true,
+    "source": "ориентир по кейсам"
+  }
+]
