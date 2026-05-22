@@ -1,0 +1,22 @@
+# Postgres для разработки. Продакшн-деплой — этим же compose + сервис app.
+services:
+  db:
+    image: postgres:16
+    container_name: gstation-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gstation
+      POSTGRES_PASSWORD: gstation
+      POSTGRES_DB: gstation
+    ports:
+      - "5433:5432"
+    volumes:
+      - gstation-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gstation -d gstation"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  gstation-db-data:
