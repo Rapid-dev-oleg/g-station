@@ -9,8 +9,8 @@
 import type { Equipment, Station, Variant } from '@/lib/dossier/types';
 import { measured } from '@/lib/dossier/factory';
 import type { TypeModule } from '../types';
+import type { EngineContext } from '../catalog-port';
 import { motorForStation } from './step2-calc';
-import { findPumpsByPower } from '@/lib/catalog/query';
 
 /** Число насосов по схеме. */
 function pumpCount(scheme: string): number {
@@ -72,6 +72,7 @@ export function processVariant3(
   station: Station,
   variant: Variant,
   module: TypeModule,
+  ctx: EngineContext = {},
 ): void {
   const { input, calc } = station;
   if (!calc) return;
@@ -86,12 +87,17 @@ export function processVariant3(
   // ── 3.1. Основной насос — класс/типоразмер/мощность, не артикул ──────
   const motor = motorForStation(station);
   const cls = pumpClass(hWp, qWp, input.pump_type_required);
-  // проверка существования типоразмера в каталоге по мощности
-  const catalogMatches = findPumpsByPower(motor.motorKw, 0.6);
-  const stockNote =
-    catalogMatches.length > 0
-      ? `в каталоге есть ${catalogMatches.length} позиц. ~${motor.motorKw} кВт`
-      : 'типоразмер уточнить — в каталоге нет позиции на эту мощность';
+  // проверка существования типоразмера в каталоге по мощности (если порт есть)
+  let stockNote: string;
+  if (ctx.catalog) {
+    const catalogMatches = ctx.catalog.findPumpsByPower(motor.motorKw, 0.6);
+    stockNote =
+      catalogMatches.length > 0
+        ? `в каталоге есть ${catalogMatches.length} позиц. ~${motor.motorKw} кВт`
+        : 'типоразмер уточнить — в каталоге нет позиции на эту мощность';
+  } else {
+    stockNote = 'каталог не подключён — типоразмер уточнить по прайсу';
+  }
 
   equipment.main_pump = {
     ...(equipment.main_pump ?? {}),

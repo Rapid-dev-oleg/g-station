@@ -6,6 +6,14 @@
  */
 
 export type { TypeModule, MatchScore } from './types';
+export type {
+  CatalogPort,
+  CatalogPortPump,
+  CatalogPortCollector,
+  CatalogPortPanel,
+  CatalogPortWork,
+  EngineContext,
+} from './catalog-port';
 export { TYPE_MODULES, dispatchType, moduleById } from './registry';
 export { fireModule } from './types/fire';
 

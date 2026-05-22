@@ -1,13 +1,18 @@
 /**
  * Оркестратор конвейера расчётного движка — 5 шагов.
  *
- * Каждый шаг — чистая функция `(dossier) => dossier` (иммутабельность через
- * cloneDossier). Шаги 1, 5 — на уровне станции; 2–4 — цикл по variants[].
- * Тип станции определяется диспетчером на шаге 1 и используется дальше.
+ * Каждый шаг — чистая функция `(dossier, ctx?) => dossier` (иммутабельность
+ * через cloneDossier). Шаги 1, 5 — на уровне станции; 2–4 — цикл по
+ * variants[]. Тип станции определяется диспетчером на шаге 1.
+ *
+ * Контекст `EngineContext` опционален и несёт реализацию `CatalogPort`.
+ * Без каталога движок выдаёт подбор класса/типоразмера и оценочные цены —
+ * это «граница автоматизации», движок остаётся чистым TypeScript.
  */
 
 import type { Dossier } from '@/lib/dossier/types';
 import { cloneDossier } from '@/lib/dossier/factory';
+import type { EngineContext } from './catalog-port';
 import { dispatchType } from './registry';
 import { processStation1 } from './steps/step1-input';
 import { processStation2 } from './steps/step2-calc';
@@ -35,7 +40,7 @@ export function runStep2(dossier: Dossier): Dossier {
 }
 
 /** Шаг 3 — подбор оборудования. Цикл по вариантам. */
-export function runStep3(dossier: Dossier): Dossier {
+export function runStep3(dossier: Dossier, ctx: EngineContext = {}): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
     const module = dispatchType(station.input);
@@ -43,18 +48,18 @@ export function runStep3(dossier: Dossier): Dossier {
       station.variants = [{ name: 'основной', reservation_scheme: station.input.reservation_scheme }];
     }
     for (const variant of station.variants) {
-      processVariant3(station, variant, module);
+      processVariant3(station, variant, module, ctx);
     }
   }
   return next;
 }
 
 /** Шаг 4 — ценообразование. Цикл по вариантам. */
-export function runStep4(dossier: Dossier): Dossier {
+export function runStep4(dossier: Dossier, ctx: EngineContext = {}): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
     for (const variant of station.variants ?? []) {
-      processVariant4(station, variant);
+      processVariant4(station, variant, ctx);
     }
   }
   return next;
@@ -71,11 +76,11 @@ export function runStep5(dossier: Dossier): Dossier {
 }
 
 /** Полный прогон конвейера: шаги 1→5. */
-export function runPipeline(dossier: Dossier): Dossier {
+export function runPipeline(dossier: Dossier, ctx: EngineContext = {}): Dossier {
   let d = runStep1(dossier);
   d = runStep2(d);
-  d = runStep3(d);
-  d = runStep4(d);
+  d = runStep3(d, ctx);
+  d = runStep4(d, ctx);
   d = runStep5(d);
   return d;
 }

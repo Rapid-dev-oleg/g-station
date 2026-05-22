@@ -16,13 +16,7 @@ import type {
   Station,
   Variant,
 } from '@/lib/dossier/types';
-import { loadCatalog } from '@/lib/catalog/load';
-import {
-  findCollectorByCode,
-  findCollectorsByDiameter,
-  findPumpBySku,
-  findPumpsByPower,
-} from '@/lib/catalog/query';
+import type { CatalogPort, EngineContext } from '../catalog-port';
 
 /** Дефолтный курс USD — ориентир, подтверждает инженер (гейт 2). */
 export const DEFAULT_USD_RATE = 95;
@@ -42,29 +36,44 @@ function purchaseCost(row: PricingRow, rate: number): number {
   return Math.round(gross * (1 - disc / 100) * 100) / 100;
 }
 
-/** Подбирает цену насоса из каталога по модели или мощности. */
+/** Оценочные цены-ориентиры, когда каталог не подключён. */
+const ESTIMATE_PUMP_USD = 1800;
+const ESTIMATE_COLLECTOR_RUB = 120_000;
+const ESTIMATE_PANEL_RUB = 250_000;
+const ESTIMATE_WELD_RUB = 60_000;
+const ESTIMATE_WIRING_RUB = 40_000;
+
+/**
+ * Подбирает цену насоса по модели или мощности.
+ * Без каталога — оценочная цена-ориентир (решение инженера, гейт 2).
+ */
 function priceMainPump(
   model: string | undefined,
   motorKw: number | null,
+  catalog: CatalogPort | undefined,
 ): { price: number; currency: Currency; note?: string } {
+  if (!catalog) {
+    return {
+      price: ESTIMATE_PUMP_USD,
+      currency: 'USD',
+      note: 'грубая оценка — каталог не подключён, цену уточнить по прайсу',
+    };
+  }
   // точное совпадение по артикулу
   if (model) {
-    const exact = findPumpBySku(model);
+    const exact = catalog.findPumpBySku(model);
     if (exact) {
-      return {
-        price: exact.priceUsd ?? exact.priceRub ?? 0,
-        currency: exact.currency,
-      };
+      return { price: exact.price, currency: exact.currency };
     }
   }
   // ближайший типоразмер по мощности
   if (motorKw != null) {
     for (const tol of [0.3, 0.6, 1.5, 4]) {
-      const matches = findPumpsByPower(motorKw, tol);
+      const matches = catalog.findPumpsByPower(motorKw, tol);
       if (matches.length > 0) {
         // медианная цена среди совпадений
         const prices = matches
-          .map((p) => p.priceUsd ?? p.priceRub ?? 0)
+          .map((p) => p.price)
           .filter((v) => v > 0)
           .sort((a, b) => a - b);
         if (prices.length > 0) {
@@ -82,9 +91,18 @@ function priceMainPump(
 }
 
 /** Подбирает цену коллектора по шифру / диаметру. */
-function priceCollector(code: string | undefined): { price: number; note?: string } {
+function priceCollector(
+  code: string | undefined,
+  catalog: CatalogPort | undefined,
+): { price: number; note?: string } {
   if (!code) return { price: 0 };
-  const exact = findCollectorByCode(code);
+  if (!catalog) {
+    return {
+      price: ESTIMATE_COLLECTOR_RUB,
+      note: 'грубая оценка — каталог не подключён, цену коллектора уточнить',
+    };
+  }
+  const exact = catalog.findCollectorByCode(code);
   if (exact) {
     return {
       price: exact.priceRub,
@@ -94,7 +112,7 @@ function priceCollector(code: string | undefined): { price: number; note?: strin
   // по диаметру (первое число шифра)
   const m = code.match(/^(\d+)/);
   if (m) {
-    const byDn = findCollectorsByDiameter(Number(m[1]));
+    const byDn = catalog.findCollectorsByDiameter(Number(m[1]));
     if (byDn.length > 0) {
       const prices = byDn.map((c) => c.priceRub).sort((a, b) => a - b);
       return {
@@ -107,10 +125,19 @@ function priceCollector(code: string | undefined): { price: number; note?: strin
 }
 
 /** Подбирает цену ШУ по мощности из каталога панелей. */
-function pricePanel(ratedKw: number | null): { price: number; note?: string } {
-  const panels = loadCatalog().panels;
+function pricePanel(
+  ratedKw: number | null,
+  catalog: CatalogPort | undefined,
+): { price: number; note?: string } {
+  if (!catalog) {
+    return {
+      price: ESTIMATE_PANEL_RUB,
+      note: 'грубая оценка — каталог не подключён, цену ШУ уточнить',
+    };
+  }
+  const panels = catalog.listPanels();
   if (panels.length === 0 || ratedKw == null) {
-    return { price: 0, note: 'грубая оценка — прайс ШУ неполный' };
+    return { price: ESTIMATE_PANEL_RUB, note: 'грубая оценка — прайс ШУ неполный' };
   }
   // выбрать панель с мощностью ≥ номинала (по числу в названии)
   const parsed = panels
@@ -127,9 +154,14 @@ function pricePanel(ratedKw: number | null): { price: number; note?: string } {
  * Шаг 4 для одного варианта. Заполняет `variant.pricing`.
  * Мутирует переданный (клонированный) объект.
  */
-export function processVariant4(station: Station, variant: Variant): void {
+export function processVariant4(
+  station: Station,
+  variant: Variant,
+  ctx: EngineContext = {},
+): void {
   const eq = variant.equipment;
   if (!eq) return;
+  const catalog = ctx.catalog;
 
   const pricing: Pricing = { ...(variant.pricing ?? {}) };
   const rate = pricing.exchange_rate ?? DEFAULT_USD_RATE;
@@ -141,7 +173,7 @@ export function processVariant4(station: Station, variant: Variant): void {
   // ── Насосное ─────────────────────────────────────────────────────────
   if (eq.main_pump) {
     const motorKw = eq.main_pump.motor_power?.value ?? null;
-    const pp = priceMainPump(eq.main_pump.model, motorKw);
+    const pp = priceMainPump(eq.main_pump.model, motorKw, catalog);
     rows.push({
       position_name: `Основной насос ${eq.main_pump.model ?? eq.main_pump.construction ?? ''} ${
         motorKw ?? '?'
@@ -155,7 +187,11 @@ export function processVariant4(station: Station, variant: Variant): void {
     });
   }
   if (eq.jockey_pump) {
-    const jp = priceMainPump(eq.jockey_pump.model, eq.jockey_pump.motor_power?.value ?? null);
+    const jp = priceMainPump(
+      eq.jockey_pump.model,
+      eq.jockey_pump.motor_power?.value ?? null,
+      catalog,
+    );
     rows.push({
       position_name: `Жокей-насос ${eq.jockey_pump.model ?? ''}`.trim(),
       position_group: 'насосное',
@@ -180,7 +216,7 @@ export function processVariant4(station: Station, variant: Variant): void {
 
   // ── Гидравлика — коллектор, клапаны ──────────────────────────────────
   if (eq.collector?.code) {
-    const pc = priceCollector(eq.collector.code);
+    const pc = priceCollector(eq.collector.code, catalog);
     rows.push({
       position_name: `Коллектор ${eq.collector.code} (${eq.collector.material ?? ''})`.trim(),
       position_group: 'гидравлика',
@@ -204,7 +240,7 @@ export function processVariant4(station: Station, variant: Variant): void {
 
   // ── Автоматика — ШУ ──────────────────────────────────────────────────
   if (eq.control_cabinet && eq.control_cabinet.brand !== 'нет') {
-    const pcab = pricePanel(eq.control_cabinet.rated_power?.value ?? null);
+    const pcab = pricePanel(eq.control_cabinet.rated_power?.value ?? null, catalog);
     rows.push({
       position_name: `ШУ ${eq.control_cabinet.brand ?? ''} ${eq.control_cabinet.series ?? ''}`.trim(),
       position_group: 'автоматика',
@@ -244,31 +280,37 @@ export function processVariant4(station: Station, variant: Variant): void {
   }
 
   // ── Работа — сварка коллектора и рамы, расключение ───────────────────
-  const works = loadCatalog().works;
+  const works = catalog?.listWorks() ?? [];
   const weld = works.find((w) => /рам/i.test(w.name));
   const wiring = works.find((w) => /расключ/i.test(w.name));
-  if (weld) {
-    rows.push({
-      position_name: weld.name,
-      position_group: 'работа',
-      price: weld.priceRub,
-      currency: 'RUB',
-      qty: 1,
-      discount: 0,
-      price_note: weld.estimate ? 'грубая оценка' : undefined,
-    });
-  }
-  if (wiring) {
-    rows.push({
-      position_name: wiring.name,
-      position_group: 'работа',
-      price: wiring.priceRub,
-      currency: 'RUB',
-      qty: 1,
-      discount: 0,
-      price_note: wiring.estimate ? 'грубая оценка' : undefined,
-    });
-  }
+  rows.push({
+    position_name: weld?.name ?? 'Сварка рамы и коллектора',
+    position_group: 'работа',
+    price: weld?.priceRub ?? ESTIMATE_WELD_RUB,
+    currency: 'RUB',
+    qty: 1,
+    discount: 0,
+    price_note:
+      weld == null
+        ? 'грубая оценка — каталог не подключён'
+        : weld.estimate
+          ? 'грубая оценка'
+          : undefined,
+  });
+  rows.push({
+    position_name: wiring?.name ?? 'Расключение ШУ',
+    position_group: 'работа',
+    price: wiring?.priceRub ?? ESTIMATE_WIRING_RUB,
+    currency: 'RUB',
+    qty: 1,
+    discount: 0,
+    price_note:
+      wiring == null
+        ? 'грубая оценка — каталог не подключён'
+        : wiring.estimate
+          ? 'грубая оценка'
+          : undefined,
+  });
 
   // ── Итоги ────────────────────────────────────────────────────────────
   for (const row of rows) {
