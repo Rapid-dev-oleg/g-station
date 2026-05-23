@@ -1,8 +1,6 @@
 /**
- * Чтение каталога оборудования для Server Components (Фаза 3).
- *
- * UI-страницы каталога — фаза 5; здесь — только сервисные функции запросов
- * к моделям `CatalogItem`, `Manufacturer`, `ProductCategory`, `PriceList`.
+ * Чтение каталога оборудования для Server Components.
+ * Запросы к `CatalogItem`, `Manufacturer`, `ProductCategory`, `PriceList`.
  */
 
 import type { Prisma } from '@prisma/client';
@@ -18,15 +16,15 @@ export type CatalogQuery = {
   search?: string;
   /** Только активные позиции (по умолчанию — да). */
   activeOnly?: boolean;
+  /** Сколько позиций вернуть (пагинация). */
+  take?: number;
+  /** Сколько пропустить (пагинация). */
+  skip?: number;
 };
 
-/**
- * Возвращает позиции каталога по фильтру.
- * Сортировка — по производителю, затем по артикулу.
- */
-export function queryItems(query: CatalogQuery = {}) {
+/** Условие WHERE для выборки/подсчёта позиций каталога. */
+function buildWhere(query: CatalogQuery): Prisma.CatalogItemWhereInput {
   const { categoryCode, manufacturerId, search, activeOnly = true } = query;
-
   const where: Prisma.CatalogItemWhereInput = {};
   if (categoryCode) where.categoryCode = categoryCode;
   if (manufacturerId) where.manufacturerId = manufacturerId;
@@ -38,12 +36,23 @@ export function queryItems(query: CatalogQuery = {}) {
       { name: { contains: q, mode: 'insensitive' } },
     ];
   }
+  return where;
+}
 
+/** Позиции каталога по фильтру (с пагинацией). Сортировка — производитель, артикул. */
+export function queryItems(query: CatalogQuery = {}) {
   return db.catalogItem.findMany({
-    where,
+    where: buildWhere(query),
     include: { manufacturer: true, category: true },
     orderBy: [{ manufacturerId: 'asc' }, { sku: 'asc' }],
+    take: query.take,
+    skip: query.skip,
   });
+}
+
+/** Число позиций каталога по фильтру (для пагинации). */
+export function countItems(query: CatalogQuery = {}) {
+  return db.catalogItem.count({ where: buildWhere(query) });
 }
 
 /** Все производители (с числом позиций каталога). */

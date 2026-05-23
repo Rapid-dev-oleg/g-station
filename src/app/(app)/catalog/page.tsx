@@ -6,13 +6,27 @@ import {
   type CatalogItemRow,
   type CategoryTab,
 } from '@/components/catalog/CatalogBrowser';
-import { getCategories, queryItems } from '@/server/services/catalog';
+import { getCategories, queryItems, countItems } from '@/server/services/catalog';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CatalogPage() {
-  const [items, categories] = await Promise.all([
-    queryItems({ activeOnly: false }),
+const PAGE_SIZE = 50;
+
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; category?: string; search?: string }>;
+}) {
+  const sp = await searchParams;
+  const page = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1);
+  const category = sp.category && sp.category !== 'ALL' ? sp.category : undefined;
+  const search = sp.search?.trim() || undefined;
+
+  const filter = { activeOnly: false, categoryCode: category, search };
+
+  const [items, total, categories] = await Promise.all([
+    queryItems({ ...filter, take: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE }),
+    countItems(filter),
     getCategories(),
   ]);
 
@@ -47,7 +61,15 @@ export default async function CatalogPage() {
           </Link>
         }
       />
-      <CatalogBrowser items={rows} categories={catTabs} />
+      <CatalogBrowser
+        items={rows}
+        categories={catTabs}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        activeCategory={sp.category ?? 'ALL'}
+        search={sp.search ?? ''}
+      />
     </>
   );
 }
