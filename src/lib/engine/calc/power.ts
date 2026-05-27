@@ -33,13 +33,15 @@ export function estimateEfficiency(shaftKwGuess: number): number {
 }
 
 /**
- * Коэффициент запаса мощности двигателя по мощности на валу (§3.3).
+ * Коэффициент запаса мощности двигателя по мощности на валу.
+ * Современные моторы с FCD: 1.3 / 1.2 / 1.1 / 1.05 (откалибровано
+ * по корпусу 49 кейсов). Старая норма 1.5/1.4/1.2/1.1 даёт +1 ступень.
  */
 export function reserveCoefficient(shaftKw: number): number {
-  if (shaftKw < 2) return 1.5;
-  if (shaftKw <= 5) return 1.4;
-  if (shaftKw <= 50) return 1.2;
-  return 1.1;
+  if (shaftKw < 2) return 1.3;
+  if (shaftKw <= 5) return 1.2;
+  if (shaftKw <= 50) return 1.1;
+  return 1.05;
 }
 
 /** Округление вверх до ближайшего стандартного номинала кВт. */
