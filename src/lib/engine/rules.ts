@@ -87,6 +87,54 @@ export interface CollectorFloorRule {
   manyPumpsSteps: number;
 }
 
+// ── Правило 3.9-A v2 — класс насоса по матрице Q × H × площадка ─────────
+
+/** Категория площадки для модификатора матрицы (правило 3.9 v2). */
+export type Footprint = 'tight' | 'spacious' | 'any';
+
+/** Класс конструкции насоса (выход матрицы). */
+export type PumpClassCode = 'SPLIT_CASE' | 'END_SUCTION' | 'MULTISTAGE' | 'IN_LINE';
+
+/** Одна зона матрицы 3.9-A. Первая сработавшая зона побеждает. */
+export interface PumpClassZone {
+  /** Идентификатор для трассировки. */
+  id: string;
+  /** Минимум Q_per_pump (м³/ч), включительно. По умолчанию −∞. */
+  qppMin?: number;
+  /** Максимум Q_per_pump (м³/ч), исключительно. По умолчанию +∞. */
+  qppMax?: number;
+  /** Минимум H_target (м), включительно. По умолчанию −∞. */
+  hMin?: number;
+  /** Максимум H_target (м), исключительно. По умолчанию +∞. */
+  hMax?: number;
+  /** Зона срабатывает только для перечисленных площадок (если задано). */
+  footprintIn?: Footprint[];
+  /** Зона срабатывает только при флаге «требуется вертикальная компоновка» (если задано). */
+  requiresVertical?: boolean;
+  /** Результат: класс. */
+  classCode: PumpClassCode;
+  /** Текст конструктива (для note). */
+  construction: string;
+  /** Подсказка серии для note. */
+  seriesHint: string;
+  /** Обороты (1450 / 2900) — для note. */
+  rpm?: number;
+}
+
+/** Правило 3.9-A v2 — матрица зон Q × H с модификатором по площадке. */
+export interface PumpClassRule {
+  ruleId: '3.9-A-pump-class';
+  version: string;
+  /** Зоны в порядке приоритета — первая сработавшая выигрывает. */
+  zones: PumpClassZone[];
+  /** Дефолт, если ни одна зона не сработала (защитный). */
+  defaultZone: {
+    classCode: PumpClassCode;
+    construction: string;
+    seriesHint: string;
+  };
+}
+
 // ── Все правила, которые движок умеет принимать ──────────────────────────
 
 /** Набор правил, передаваемый в `runPipeline(..., rules)`. */
@@ -97,7 +145,9 @@ export interface Rules {
   collectorDnByFlow?: CollectorDnByFlowRule;
   /** Правило 5.3 v3 — floor по патрубку и запас по числу насосов. */
   collectorFloor?: CollectorFloorRule;
-  // Сюда же позже: pumpClass (3.9-A), brandMap (3.10), margin (2.5), markup (B1).
+  /** Правило 3.9-A v2 — матрица класса насоса по Q × H × площадка. */
+  pumpClass?: PumpClassRule;
+  // Сюда же позже: brandMap (3.10), margin (2.5), markup (B1).
 }
 
 // ── Evaluator-ы ──────────────────────────────────────────────────────────

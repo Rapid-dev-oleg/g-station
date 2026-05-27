@@ -10,6 +10,7 @@ import type {
   CollectorDnByFlowRule,
   CollectorFloorRule,
   MaterialRuleV1,
+  PumpClassRule,
   Rules,
 } from '@/lib/engine/rules';
 import { db } from '@/server/db';
@@ -52,6 +53,12 @@ export async function loadRules(): Promise<{ rules: Rules; snapshot: RulesSnapsh
   if (floor) {
     rules.collectorFloor = floor.payload as unknown as CollectorFloorRule;
     versions['5.3-collector-floor'] = floor.version;
+  }
+
+  const pumpClass = latest.get('3.9-A-pump-class');
+  if (pumpClass) {
+    rules.pumpClass = pumpClass.payload as unknown as PumpClassRule;
+    versions['3.9-A-pump-class'] = pumpClass.version;
   }
 
   return { rules, snapshot: { versions } };

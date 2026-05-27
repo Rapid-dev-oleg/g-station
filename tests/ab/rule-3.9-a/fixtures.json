@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "id": "split-case-large-flow",
+      "_description": "Q_pp=450 → SPLIT_CASE поверх всего",
+      "input": { "qPerPump": 450, "hTarget": 50, "footprint": "any", "vertical": false },
+      "expected": { "classCode": "SPLIT_CASE" }
+    },
+    {
+      "id": "high-head-large-q",
+      "_description": "H=120, Q_pp=250 → END_SUCTION",
+      "input": { "qPerPump": 250, "hTarget": 120, "footprint": "any", "vertical": false },
+      "expected": { "classCode": "END_SUCTION" }
+    },
+    {
+      "id": "high-head-mid-q",
+      "_description": "H=120, Q_pp=80 → MULTISTAGE",
+      "input": { "qPerPump": 80, "hTarget": 120, "footprint": "any", "vertical": false },
+      "expected": { "classCode": "MULTISTAGE" }
+    },
+    {
+      "id": "h-85-large-q-no-vert",
+      "_description": "H=85, Q_pp=100, vertical=false → END_SUCTION (Никитин-10 №4)",
+      "input": { "qPerPump": 100, "hTarget": 85, "footprint": "any", "vertical": false },
+      "expected": { "classCode": "END_SUCTION" }
+    },
+    {
+      "id": "h-85-large-q-vert",
+      "_description": "H=85, Q_pp=100, vertical=true → MULTISTAGE",
+      "input": { "qPerPump": 100, "hTarget": 85, "footprint": "any", "vertical": true },
+      "expected": { "classCode": "MULTISTAGE" }
+    },
+    {
+      "id": "h-60-small-q",
+      "_description": "H=60, Q_pp=50 → MULTISTAGE",
+      "input": { "qPerPump": 50, "hTarget": 60, "footprint": "any", "vertical": false },
+      "expected": { "classCode": "MULTISTAGE" }
+    },
+    {
+      "id": "h-40-q-70-tight-compromise",
+      "_description": "H=40, Q_pp=70, footprint=tight → IN_LINE (компромисс)",
+      "input": { "qPerPump": 70, "hTarget": 40, "footprint": "tight", "vertical": false },
+      "expected": { "classCode": "IN_LINE" }
+    },
+    {
+      "id": "h-40-q-70-vert-trigger",
+      "_description": "H=40, Q_pp=70, vertical=true → MULTISTAGE (Wilo MVL)",
+      "input": { "qPerPump": 70, "hTarget": 40, "footprint": "any", "vertical": true },
+      "expected": { "classCode": "MULTISTAGE" }
+    },
+    {
+      "id": "grey-zone-h-40-q-30-tight",
+      "_description": "серая зона H=40, Q_pp=30, footprint=tight → MULTISTAGE",
+      "input": { "qPerPump": 30, "hTarget": 40, "footprint": "tight", "vertical": false },
+      "expected": { "classCode": "MULTISTAGE" }
+    },
+    {
+      "id": "grey-zone-h-40-q-30-spacious",
+      "_description": "серая зона H=40, Q_pp=30, footprint=spacious → IN_LINE",
+      "input": { "qPerPump": 30, "hTarget": 40, "footprint": "spacious", "vertical": false },
+      "expected": { "classCode": "IN_LINE" }
+    },
+    {
+      "id": "h-25-small-q",
+      "_description": "H=25, Q_pp=30 → IN_LINE",
+      "input": { "qPerPump": 30, "hTarget": 25, "footprint": "any", "vertical": false },
+      "expected": { "classCode": "IN_LINE" }
+    },
+    {
+      "id": "h-low-q-low-tight-izosimova-04",
+      "_description": "H=15, Q_pp=20, footprint=tight → END_SUCTION (фикс Изосимова-04)",
+      "input": { "qPerPump": 20, "hTarget": 15, "footprint": "tight", "vertical": false },
+      "expected": { "classCode": "END_SUCTION" }
+    }
+  ]
+}

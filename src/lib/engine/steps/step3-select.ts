@@ -12,6 +12,7 @@ import { fireModule } from '../types/fire';
 import type { Catalog } from '../catalog';
 import type { Rules } from '../rules';
 import { motorForStation } from './step2-calc';
+import { evalPumpClass } from '../calc/pump-class';
 
 /** Число насосов по схеме. */
 function pumpCount(scheme: string): number {
@@ -31,38 +32,9 @@ function pumpCount(scheme: string): number {
   }
 }
 
-/**
- * Класс / конструктив основного насоса по рабочей точке и требованиям ТЗ.
- * Возвращает серию-ориентир и описание конструктива.
- */
-function pumpClass(
-  hM: number,
-  qM3h: number,
-  required?: string[],
-): { construction: string; seriesHint: string } {
-  const req = (required ?? []).join(' ').toLowerCase();
-  if (req.includes('вертикал') || req.includes('многоступ')) {
-    return {
-      construction: 'вертикальный многоступенчатый',
-      seriesHint: 'CNP CDLF / TD',
-    };
-  }
-  // высокий напор при умеренном расходе → многоступенчатый
-  if (hM > 80 && qM3h < 80) {
-    return {
-      construction: 'вертикальный многоступенчатый (высокий напор)',
-      seriesHint: 'CNP CDLF / TD',
-    };
-  }
-  // крупный расход → горизонтальный одноступенчатый / ин-лайн
-  if (qM3h > 120) {
-    return {
-      construction: 'горизонтальный одноступенчатый (крупный расход)',
-      seriesHint: 'CNP NIS / SMM',
-    };
-  }
-  // типовой случай — консольно-моноблочный ин-лайн NIS
-  return { construction: 'консольный моноблочный (ин-лайн)', seriesHint: 'CNP NIS' };
+/** Рабочих насосов по схеме (для Q_per_pump). */
+function workingPumps(scheme: string): number {
+  return Number(scheme.split('/')[0]) || 1;
 }
 
 /**
@@ -87,7 +59,17 @@ export function processVariant3(
 
   // ── 3.1. Основной насос — класс/типоразмер/мощность, не артикул ──────
   const motor = motorForStation(station);
-  const cls = pumpClass(hWp, qWp, input.pump_type_required);
+  const qPerPump = qWp / workingPumps(scheme);
+  const cls = evalPumpClass(
+    {
+      qPerPump,
+      hTarget: hWp,
+      stationEnclosure: input.station_enclosure,
+      installationPlace: input.installation_place,
+      required: input.pump_type_required,
+    },
+    rules,
+  );
   // проверка существования типоразмера в каталоге по мощности (если он есть)
   let stockNote: string;
   if (catalog) {
@@ -114,7 +96,7 @@ export function processVariant3(
       `P_вал≈${motor.shaftKw.toFixed(1)} кВт (η=${motor.efficiency}), запас k=${motor.reserveK}`,
     ),
     construction: cls.construction,
-    in_stock: `класс-ориентир: ${cls.seriesHint}; ${stockNote}; точная модель/бренд — решение инженера`,
+    in_stock: `класс ${cls.classCode} (${cls.triggerId}); серия-ориентир: ${cls.seriesHint}; ${stockNote}; точная модель/бренд — решение инженера`,
   };
 
   // ── 3.2. Жокей-насос ─────────────────────────────────────────────────
