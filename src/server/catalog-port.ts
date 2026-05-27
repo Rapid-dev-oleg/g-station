@@ -1,22 +1,22 @@
 /**
- * DB-реализация `CatalogPort` поверх Prisma-модели `CatalogItem` (Фаза 3).
+ * DB-реализация `Catalog` поверх Prisma-модели `CatalogItem`.
  *
- * Порт движка синхронный (`src/lib/engine/catalog-port.ts`): движок не умеет
+ * Каталог движка синхронный (`src/lib/engine/catalog.ts`): движок не умеет
  * `await`. Поэтому реализация предзагружает позиции каталога из БД в память
- * (фабрика `createDbCatalogPort` асинхронная), а сам объект порта отвечает
- * на запросы синхронно по загруженному снимку.
+ * (фабрика `createDbCatalogPort` асинхронная), а сам объект отвечает на
+ * запросы синхронно по загруженному снимку.
  *
  * Категории каталога: 'pumps' (насосы), 'collectors' (коллекторы),
  * 'panels' (шкафы управления), 'works' (работы). Атрибуты позиции лежат
  * в JSONB-поле `attributes` (series, powerKw, code, …).
  */
 import type {
-  CatalogPort,
-  CatalogPortCollector,
-  CatalogPortPanel,
-  CatalogPortPump,
-  CatalogPortWork,
-} from '@/lib/engine/catalog-port';
+  Catalog,
+  CatalogCollector,
+  CatalogPanel,
+  CatalogPump,
+  CatalogWork,
+} from '@/lib/engine/catalog';
 import type { Currency } from '@/lib/dossier/types';
 import { db } from '@/server/db';
 
@@ -54,14 +54,14 @@ function toCurrency(c: string | null): Currency {
 }
 
 /**
- * Строит синхронный `CatalogPort` поверх загруженного снимка позиций.
+ * Строит синхронный `Catalog` поверх загруженного снимка позиций.
  * @internal экспортируется для тестов; в приложении — `createDbCatalogPort`.
  */
-export function buildCatalogPort(items: ItemRow[]): CatalogPort {
-  const pumps: CatalogPortPump[] = [];
-  const collectors: CatalogPortCollector[] = [];
-  const panels: CatalogPortPanel[] = [];
-  const works: CatalogPortWork[] = [];
+export function buildCatalogPort(items: ItemRow[]): Catalog {
+  const pumps: CatalogPump[] = [];
+  const collectors: CatalogCollector[] = [];
+  const panels: CatalogPanel[] = [];
+  const works: CatalogWork[] = [];
 
   for (const it of items) {
     if (it.price == null || it.price <= 0) continue;
@@ -119,10 +119,10 @@ export function buildCatalogPort(items: ItemRow[]): CatalogPort {
 }
 
 /**
- * Создаёт DB-реализацию порта каталога: загружает активные позиции
- * каталога из БД и строит синхронный `CatalogPort`.
+ * Создаёт DB-реализацию каталога: загружает активные позиции из БД и
+ * строит синхронный `Catalog`.
  */
-export async function createDbCatalogPort(): Promise<CatalogPort> {
+export async function createDbCatalogPort(): Promise<Catalog> {
   const items = await db.catalogItem.findMany({
     where: { active: true },
     select: { sku: true, name: true, categoryCode: true, attributes: true, price: true, currency: true },

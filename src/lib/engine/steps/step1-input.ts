@@ -9,7 +9,7 @@
 
 import type { Station, StationInput } from '@/lib/dossier/types';
 import { measured } from '@/lib/dossier/factory';
-import { dispatchType } from '../registry';
+import { fireModule } from '../types/fire';
 import { ayptFlowLs } from '../calc/norms';
 
 /** Перевод л/с → м³/ч. */
@@ -134,13 +134,12 @@ export function processStation1(station: Station): void {
     }
   }
 
-  // 5. Диспетчер типа — фиксируем station_type по триггерам.
-  const module = dispatchType(input);
-  if (input.station_type !== module.id) {
+  // 5. Тип станции — пока единственный (fire); проставляем по умолчанию.
+  if (input.station_type !== fireModule.id) {
     assumptions.push(
-      `Тип станции переопределён диспетчером: ${input.station_type} → ${module.id} (${module.label})`,
+      `Тип станции переопределён: ${input.station_type} → ${fireModule.id} (${fireModule.label})`,
     );
-    input.station_type = module.id;
+    input.station_type = fireModule.id;
   }
 
   if (assumptions.length > 0) input.assumptions = assumptions;

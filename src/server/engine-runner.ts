@@ -2,15 +2,15 @@
  * Раннер расчётного движка для серверного слоя.
  *
  * Оборачивает чистый движок (`@/lib/engine`) валидацией дела по JSON Schema
- * на входе и на выходе. Каталог передаётся опциональным портом `CatalogPort`
- * (фаза 3); без него движок выдаёт класс/типоразмер и оценочные цены.
+ * на входе и на выходе. Каталог передаётся опциональным объектом `Catalog`;
+ * без него движок выдаёт класс/типоразмер и оценочные цены.
  */
 
 import type { Dossier } from '@/lib/dossier/types';
 import { validateDossier } from '@/lib/dossier/validate';
 import { runPipeline } from '@/lib/engine';
 import { allGates, type GateReport } from '@/lib/engine/gates';
-import type { CatalogPort } from '@/lib/engine/catalog-port';
+import type { Catalog } from '@/lib/engine/catalog';
 import { createDbCatalogPort } from '@/server/catalog-port';
 
 /** Результат прогона расчёта. */
@@ -42,19 +42,19 @@ export class DossierValidationError extends Error {
  * 3. Валидирует выход.
  * 4. Возвращает дело + отчёты по гейтам.
  *
- * @param dossier      расчётное дело
- * @param catalogPort  опциональная реализация каталога (фаза 3)
+ * @param dossier  расчётное дело
+ * @param catalog  опциональная реализация каталога
  */
 export function runCalculation(
   dossier: Dossier,
-  catalogPort?: CatalogPort,
+  catalog?: Catalog,
 ): CalculationResult {
   const inputCheck = validateDossier(dossier);
   if (!inputCheck.valid) {
     throw new DossierValidationError('input', inputCheck.errors);
   }
 
-  const result = runPipeline(dossier, { catalog: catalogPort });
+  const result = runPipeline(dossier, catalog);
 
   const outputCheck = validateDossier(result);
   if (!outputCheck.valid) {
@@ -75,6 +75,6 @@ export function runCalculation(
 export async function runCalculationWithDbCatalog(
   dossier: Dossier,
 ): Promise<CalculationResult> {
-  const catalogPort = await createDbCatalogPort();
-  return runCalculation(dossier, catalogPort);
+  const catalog = await createDbCatalogPort();
+  return runCalculation(dossier, catalog);
 }

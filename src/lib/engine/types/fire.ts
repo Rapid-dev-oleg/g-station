@@ -1,6 +1,7 @@
 /**
  * Модуль типа FIRE (G-Fire) — пожарные насосные станции.
- * Реализует контракт `TypeModule` по `типы/пожарные.md` (6 разделов).
+ * Один из шести разделов методики `типы/пожарные.md`: норматив, опросный
+ * лист, нормативный расчёт, особенности подбора, особенности оформления.
  */
 
 import type {
@@ -12,18 +13,8 @@ import type {
   Variant,
 } from '@/lib/dossier/types';
 import { measured } from '@/lib/dossier/factory';
-import type { TypeModule } from '../types';
 import { ayptFlowLs, fireDurationHours, fireReserveVolume } from '../calc/norms';
 import { regulationCode } from '../calc/start-type';
-
-/** Назначения, относящиеся к пожарному типу. */
-const FIRE_PURPOSES = new Set([
-  'наружное-ПТ',
-  'ВПВ',
-  'АУПТ',
-  'пожаротушение-общее',
-  'береговая-ПНС',
-]);
 
 /** Число насосов по схеме резервирования. */
 function pumpCount(scheme: string): number {
@@ -43,35 +34,20 @@ function pumpCount(scheme: string): number {
   }
 }
 
-/** Рабочих насосов по схеме. */
-function workingCount(scheme: string): number {
-  return Number(scheme.split('/')[0]) || 1;
-}
+/** Применимые своды правил / ГОСТ для пожарной станции. */
+const FIRE_NORMS = [
+  'СП 10.13130.2020',
+  'СП 8.13130.2020',
+  'СП 485.1311500.2020',
+  'СП 31.13330.2021',
+  'ГОСТ 17376-2001',
+  'ГОСТ 10704-91',
+];
 
-export const fireModule: TypeModule = {
-  id: 'fire',
+export const fireModule = {
+  id: 'fire' as const,
   label: 'G-Fire — пожаротушение',
-
-  // ─── Раздел 1 — Идентификация ─────────────────────────────────────────
-  matchTriggers(input: StationInput): number {
-    let score = 0;
-    if (input.station_type === 'fire') score += 5;
-    if (FIRE_PURPOSES.has(input.purpose)) score += 3;
-    if (input.fire_params) score += 2;
-    if (input.reservoirs?.required) score += 1;
-    if (input.purpose === 'хоз-питьевое' || input.purpose === 'повышение-давления') score -= 5;
-    return score;
-  },
-
-  // ─── Раздел 2 — Нормативная база ──────────────────────────────────────
-  norms: [
-    'СП 10.13130.2020',
-    'СП 8.13130.2020',
-    'СП 485.1311500.2020',
-    'СП 31.13330.2021',
-    'ГОСТ 17376-2001',
-    'ГОСТ 10704-91',
-  ],
+  norms: FIRE_NORMS,
 
   // ─── Раздел 3 — Опросный лист ─────────────────────────────────────────
   requiredFields(input: StationInput): string[] {
@@ -152,7 +128,7 @@ export const fireModule: TypeModule = {
       }
     }
 
-    out.applicable_norms = this.norms;
+    out.applicable_norms = FIRE_NORMS;
     return out;
   },
 
@@ -244,19 +220,6 @@ export const fireModule: TypeModule = {
   },
 
   // ─── Раздел 6 — Особенности оформления ────────────────────────────────
-  documentSpec(): { sections: string[] } {
-    return {
-      sections: [
-        'Характеристики станции',
-        'Комплектация',
-        'Пожарная гидравлическая схема (реле сухого хода, пусковые реле, манометры)',
-        'Габаритный чертёж',
-        'Техлист на насос',
-        'Маркировка изделия',
-      ],
-    };
-  },
-
   codeSegments(station: Station, variant: Variant): NonNullable<Output['code_segments']> {
     const { input } = station;
     const scheme = variant.reservation_scheme ?? input.reservation_scheme;
@@ -280,8 +243,6 @@ export const fireModule: TypeModule = {
     if (input.jockey_required) options.push('07');
     // 08 прочее — компрессор / вакуумный насос
     if (variant.equipment?.compressor || variant.equipment?.vacuum_pump) options.push('08');
-
-    void workingCount; // схема используется как строка целиком
 
     return {
       series: 'GF',

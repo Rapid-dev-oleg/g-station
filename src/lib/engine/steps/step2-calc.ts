@@ -8,7 +8,7 @@
 
 import type { Station, StationCalc, Variant } from '@/lib/dossier/types';
 import { measured } from '@/lib/dossier/factory';
-import type { TypeModule } from '../types';
+import { fireModule } from '../types/fire';
 import { estimateMotor } from '../calc/power';
 import {
   collectorLosses,
@@ -42,7 +42,7 @@ function toMeters(value: number, unit?: string): number {
  * Шаг 2 для одной станции. Заполняет `calc` и при необходимости `variants`.
  * Мутирует переданный (клонированный) объект.
  */
-export function processStation2(station: Station, module: TypeModule): void {
+export function processStation2(station: Station): void {
   const { input } = station;
   const calc: StationCalc = { ...(station.calc ?? {}) };
 
@@ -73,7 +73,7 @@ export function processStation2(station: Station, module: TypeModule): void {
   };
 
   // 2.2. Нормативный расчёт типа (объём пожарного запаса и т.п.).
-  const normCalc = module.computeNormative(station);
+  const normCalc = fireModule.computeNormative(station);
   Object.assign(calc, normCalc);
 
   // 2.3. Схема резервирования — берётся из input; число рабочих.

@@ -8,8 +8,8 @@
 
 import type { Equipment, Station, Variant } from '@/lib/dossier/types';
 import { measured } from '@/lib/dossier/factory';
-import type { TypeModule } from '../types';
-import type { EngineContext } from '../catalog-port';
+import { fireModule } from '../types/fire';
+import type { Catalog } from '../catalog';
 import { motorForStation } from './step2-calc';
 
 /** Число насосов по схеме. */
@@ -71,8 +71,7 @@ function pumpClass(
 export function processVariant3(
   station: Station,
   variant: Variant,
-  module: TypeModule,
-  ctx: EngineContext = {},
+  catalog?: Catalog,
 ): void {
   const { input, calc } = station;
   if (!calc) return;
@@ -87,10 +86,10 @@ export function processVariant3(
   // ── 3.1. Основной насос — класс/типоразмер/мощность, не артикул ──────
   const motor = motorForStation(station);
   const cls = pumpClass(hWp, qWp, input.pump_type_required);
-  // проверка существования типоразмера в каталоге по мощности (если порт есть)
+  // проверка существования типоразмера в каталоге по мощности (если он есть)
   let stockNote: string;
-  if (ctx.catalog) {
-    const catalogMatches = ctx.catalog.findPumpsByPower(motor.motorKw, 0.6);
+  if (catalog) {
+    const catalogMatches = catalog.findPumpsByPower(motor.motorKw, 0.6);
     stockNote =
       catalogMatches.length > 0
         ? `в каталоге есть ${catalogMatches.length} позиц. ~${motor.motorKw} кВт`
@@ -195,5 +194,5 @@ export function processVariant3(
 
   // ── 3.4 + спец-часть типа — делегируется модулю ──────────────────────
   variant.equipment = equipment;
-  variant.equipment = module.selectEquipment(variant, calc, input);
+  variant.equipment = fireModule.selectEquipment(variant, calc, input);
 }

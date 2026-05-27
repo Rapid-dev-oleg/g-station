@@ -1,19 +1,17 @@
 /**
  * Оркестратор конвейера расчётного движка — 5 шагов.
  *
- * Каждый шаг — чистая функция `(dossier, ctx?) => dossier` (иммутабельность
+ * Каждый шаг — чистая функция `(dossier, catalog?) => dossier` (иммутабельность
  * через cloneDossier). Шаги 1, 5 — на уровне станции; 2–4 — цикл по
- * variants[]. Тип станции определяется диспетчером на шаге 1.
+ * variants[]. Сейчас реализован один тип станции — пожарный (`fireModule`).
  *
- * Контекст `EngineContext` опционален и несёт реализацию `CatalogPort`.
- * Без каталога движок выдаёт подбор класса/типоразмера и оценочные цены —
- * это «граница автоматизации», движок остаётся чистым TypeScript.
+ * Каталог опционален: без него движок выдаёт класс/типоразмер и оценочные
+ * цены — это «граница автоматизации».
  */
 
 import type { Dossier } from '@/lib/dossier/types';
 import { cloneDossier } from '@/lib/dossier/factory';
-import type { EngineContext } from './catalog-port';
-import { dispatchType } from './registry';
+import type { Catalog } from './catalog';
 import { processStation1 } from './steps/step1-input';
 import { processStation2 } from './steps/step2-calc';
 import { processVariant3 } from './steps/step3-select';
@@ -33,33 +31,31 @@ export function runStep1(dossier: Dossier): Dossier {
 export function runStep2(dossier: Dossier): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
-    const module = dispatchType(station.input);
-    processStation2(station, module);
+    processStation2(station);
   }
   return next;
 }
 
 /** Шаг 3 — подбор оборудования. Цикл по вариантам. */
-export function runStep3(dossier: Dossier, ctx: EngineContext = {}): Dossier {
+export function runStep3(dossier: Dossier, catalog?: Catalog): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
-    const module = dispatchType(station.input);
     if (!station.variants || station.variants.length === 0) {
       station.variants = [{ name: 'основной', reservation_scheme: station.input.reservation_scheme }];
     }
     for (const variant of station.variants) {
-      processVariant3(station, variant, module, ctx);
+      processVariant3(station, variant, catalog);
     }
   }
   return next;
 }
 
 /** Шаг 4 — ценообразование. Цикл по вариантам. */
-export function runStep4(dossier: Dossier, ctx: EngineContext = {}): Dossier {
+export function runStep4(dossier: Dossier, catalog?: Catalog): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
     for (const variant of station.variants ?? []) {
-      processVariant4(station, variant, ctx);
+      processVariant4(station, variant, catalog);
     }
   }
   return next;
@@ -69,18 +65,17 @@ export function runStep4(dossier: Dossier, ctx: EngineContext = {}): Dossier {
 export function runStep5(dossier: Dossier): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
-    const module = dispatchType(station.input);
-    processStation5(station, module, next.meta.output_format);
+    processStation5(station, next.meta.output_format);
   }
   return next;
 }
 
 /** Полный прогон конвейера: шаги 1→5. */
-export function runPipeline(dossier: Dossier, ctx: EngineContext = {}): Dossier {
+export function runPipeline(dossier: Dossier, catalog?: Catalog): Dossier {
   let d = runStep1(dossier);
   d = runStep2(d);
-  d = runStep3(d, ctx);
-  d = runStep4(d, ctx);
+  d = runStep3(d, catalog);
+  d = runStep4(d, catalog);
   d = runStep5(d);
   return d;
 }

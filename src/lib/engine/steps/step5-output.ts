@@ -10,7 +10,7 @@ import type {
   Station,
   ValidationFlag,
 } from '@/lib/dossier/types';
-import type { TypeModule } from '../types';
+import { fireModule } from '../types/fire';
 
 /** Допустимые значения output.documents по схеме дела. */
 type DocumentFile =
@@ -22,11 +22,7 @@ type DocumentFile =
   | 'чертёж-DWG'
   | 'техлист-насоса';
 
-/**
- * Список выпускаемых файлов документации по формату выхода кейса.
- * Отличается от ТП-разделов (`TypeModule.documentSpec`), которые остаются
- * методическим ориентиром, а не схемным полем.
- */
+/** Список выпускаемых файлов документации по формату выхода кейса. */
 function outputDocuments(station: Station, outputFormat?: string): DocumentFile[] {
   const docs: DocumentFile[] = [];
   const wantsTp = !outputFormat || outputFormat.includes('ТП');
@@ -104,7 +100,6 @@ function validateStation(station: Station): ValidationFlag[] {
  */
 export function processStation5(
   station: Station,
-  module: TypeModule,
   outputFormat?: string,
 ): void {
   const output: Output = { ...(station.output ?? {}) };
@@ -124,16 +119,14 @@ export function processStation5(
     output.selected_variant = bestIdx;
     output.selection_criterion = 'минимальная-цена';
 
-    // 5.1. Шифр изделия — по выбранному варианту, через модуль типа.
+    // 5.1. Шифр изделия — по выбранному варианту.
     const selected = variants[bestIdx];
-    const segments = module.codeSegments(station, selected);
+    const segments = fireModule.codeSegments(station, selected);
     output.code_segments = segments;
     output.product_code = buildProductCode(segments, selected.equipment?.main_pump?.model);
   }
 
   // 5.3. Выпускаемые файлы документации (по формату выхода кейса).
-  // Состав РАЗДЕЛОВ ТП даёт module.documentSpec() — методический ориентир,
-  // не схемное поле дела.
   output.documents = outputDocuments(station, outputFormat);
 
   // 5.4. Валидация.

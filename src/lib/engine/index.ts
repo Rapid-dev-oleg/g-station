@@ -1,20 +1,17 @@
 /**
- * Расчётный движок g-station — публичный API (Фаза 2).
+ * Расчётный движок g-station — публичный API.
  *
  * Код-воплощение скила `pump-station-calc`: конвейер из 5 шагов,
- * 3 гейта инженера, модули типов станций.
+ * 3 гейта инженера, модуль пожарного типа.
  */
 
-export type { TypeModule, MatchScore } from './types';
 export type {
-  CatalogPort,
-  CatalogPortPump,
-  CatalogPortCollector,
-  CatalogPortPanel,
-  CatalogPortWork,
-  EngineContext,
-} from './catalog-port';
-export { TYPE_MODULES, dispatchType, moduleById } from './registry';
+  Catalog,
+  CatalogPump,
+  CatalogCollector,
+  CatalogPanel,
+  CatalogWork,
+} from './catalog';
 export { fireModule } from './types/fire';
 
 export { runStep1, runStep2, runStep3, runStep4, runStep5, runPipeline } from './pipeline';

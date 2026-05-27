@@ -16,7 +16,7 @@ import type {
   Station,
   Variant,
 } from '@/lib/dossier/types';
-import type { CatalogPort, EngineContext } from '../catalog-port';
+import type { Catalog } from '../catalog';
 
 /** Дефолтный курс USD — ориентир, подтверждает инженер (гейт 2). */
 export const DEFAULT_USD_RATE = 95;
@@ -50,7 +50,7 @@ const ESTIMATE_WIRING_RUB = 40_000;
 function priceMainPump(
   model: string | undefined,
   motorKw: number | null,
-  catalog: CatalogPort | undefined,
+  catalog: Catalog | undefined,
 ): { price: number; currency: Currency; note?: string } {
   if (!catalog) {
     return {
@@ -93,7 +93,7 @@ function priceMainPump(
 /** Подбирает цену коллектора по шифру / диаметру. */
 function priceCollector(
   code: string | undefined,
-  catalog: CatalogPort | undefined,
+  catalog: Catalog | undefined,
 ): { price: number; note?: string } {
   if (!code) return { price: 0 };
   if (!catalog) {
@@ -127,7 +127,7 @@ function priceCollector(
 /** Подбирает цену ШУ по мощности из каталога панелей. */
 function pricePanel(
   ratedKw: number | null,
-  catalog: CatalogPort | undefined,
+  catalog: Catalog | undefined,
 ): { price: number; note?: string } {
   if (!catalog) {
     return {
@@ -157,11 +157,10 @@ function pricePanel(
 export function processVariant4(
   station: Station,
   variant: Variant,
-  ctx: EngineContext = {},
+  catalog?: Catalog,
 ): void {
   const eq = variant.equipment;
   if (!eq) return;
-  const catalog = ctx.catalog;
 
   const pricing: Pricing = { ...(variant.pricing ?? {}) };
   const rate = pricing.exchange_rate ?? DEFAULT_USD_RATE;

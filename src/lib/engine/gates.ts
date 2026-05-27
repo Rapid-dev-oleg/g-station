@@ -9,7 +9,7 @@
  */
 
 import type { Dossier, Measured, Station } from '@/lib/dossier/types';
-import { dispatchType } from './registry';
+import { fireModule } from './types/fire';
 
 /** Один пункт, требующий решения инженера. */
 export interface GateItem {
@@ -58,14 +58,13 @@ function isEmpty(v: unknown): boolean {
 export function gate1(dossier: Dossier, stationIndex: number): GateReport {
   const station = dossier.stations[stationIndex];
   const { input } = station;
-  const module = dispatchType(input);
   const items: GateItem[] = [];
 
   // Поля с source='assumed' — рекурсивный обход input.
   collectAssumed(input, '', items);
 
   // Пустые обязательные поля типа.
-  for (const path of module.requiredFields(input)) {
+  for (const path of fireModule.requiredFields(input)) {
     const v = getByPath(input, path);
     if (isEmpty(v)) {
       items.push({ field: path, issue: 'обязательное поле не заполнено' });
@@ -75,7 +74,7 @@ export function gate1(dossier: Dossier, stationIndex: number): GateReport {
   // Тип станции и сценарий — на подтверждение.
   items.push({
     field: 'station_type',
-    issue: `тип станции определён как «${module.label}» — подтвердить`,
+    issue: `тип станции определён как «${fireModule.label}» — подтвердить`,
     current: input.station_type,
   });
   items.push({
