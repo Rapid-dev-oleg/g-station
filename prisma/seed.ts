@@ -78,14 +78,15 @@ async function main() {
   });
 
   // ── Правила (RuleConfig) ──
-  // 5.7 v1 — материал коллектора. Эквивалент текущему fallback в fire.ts.
+  // 5.7 v1 — материал коллектора. Эквивалент fallback в fire.ts.
   await db.ruleConfig.upsert({
     where: { ruleId_version: { ruleId: '5.7-material', version: 'v1' } },
-    update: {},
+    update: { active: false }, // деактивируем v1: latest active = v2
     create: {
       ruleId: '5.7-material',
       version: 'v1',
-      notes: 'Материал коллектора: углеродистая по умолчанию; нержавейка при подземном (HARD-a).',
+      active: false,
+      notes: 'Материал коллектора: углеродистая по умолчанию; нержавейка при подземном (HARD-a). Заменён v2.',
       payload: {
         ruleId: '5.7-material',
         version: 'v1',
@@ -108,6 +109,67 @@ async function main() {
             then: {
               material: 'нержавеющая-сталь',
               pipeSpec: 'нержавеющая сталь AISI 304',
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  // 5.7 v2 — расширенные триггеры: a (подземное), b (ТЗ-нерж), c (питьевая среда).
+  await db.ruleConfig.upsert({
+    where: { ruleId_version: { ruleId: '5.7-material', version: 'v2' } },
+    update: {},
+    create: {
+      ruleId: '5.7-material',
+      version: 'v2',
+      notes:
+        'Триггеры HARD: a (подземное), b (ТЗ-нерж явно), c (питьевая среда). Иначе — углеродистая.',
+      payload: {
+        ruleId: '5.7-material',
+        version: 'v2',
+        defaults: {
+          material: 'углеродистая-сталь',
+          pipeSpec: 'углеродистая сталь Ст.20 (ГОСТ 10704-91)',
+        },
+        triggers: [
+          {
+            id: 'hard-b-tz-required',
+            when: {
+              anyOf: [{ field: 'collector_material', equals: 'нержавеющая-сталь' }],
+            },
+            then: {
+              material: 'нержавеющая-сталь',
+              pipeSpec: 'нержавеющая сталь AISI 304 (требование ТЗ)',
+            },
+          },
+          {
+            id: 'hard-a-underground',
+            when: {
+              anyOf: [
+                {
+                  field: 'station_enclosure',
+                  in: ['подземное-стеклопластик', 'стеклопластиковый-колодец'],
+                },
+                { field: 'installation_place', equals: 'заглублённая' },
+              ],
+            },
+            then: {
+              material: 'нержавеющая-сталь',
+              pipeSpec: 'нержавеющая сталь AISI 304',
+            },
+          },
+          {
+            id: 'hard-c-potable',
+            when: {
+              anyOf: [
+                { field: 'purpose', equals: 'хоз-питьевое' },
+                { field: 'pumping_medium.medium', equals: 'питьевая' },
+              ],
+            },
+            then: {
+              material: 'нержавеющая-сталь',
+              pipeSpec: 'нержавеющая сталь AISI 304 (питьевая среда)',
             },
           },
         ],

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "verify": "tsx scripts/verify-cases.ts",
     "validate:schema": "tsx scripts/validate-schema.ts",
-    "import:price": "tsx scripts/import-price.ts"
+    "import:price": "tsx scripts/import-price.ts",
+    "ab:5.7": "tsx scripts/ab-rule-5.7.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",

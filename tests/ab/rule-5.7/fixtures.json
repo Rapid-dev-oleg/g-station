@@ -1,0 +1,122 @@
+{
+  "_comment": "Тестовые входы для правила 5.7 v2 — материал коллектора. Каждый кейс покрывает один триггер или default.",
+  "cases": [
+    {
+      "id": "default-1",
+      "_description": "Типовая надземная пожарная станция в павильоне — углеродистая сталь.",
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": { "value": 100, "unit": "м³/ч" },
+        "H": { "value": 60, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "station_enclosure": "технологический-павильон",
+        "installation_place": "в-помещении"
+      },
+      "expected": {
+        "material": "углеродистая-сталь",
+        "triggerId": null
+      }
+    },
+    {
+      "id": "default-2",
+      "_description": "Моноблок на раме, ВПВ. Никаких триггеров.",
+      "input": {
+        "station_type": "fire",
+        "purpose": "ВПВ",
+        "Q": { "value": 18, "unit": "м³/ч" },
+        "H": { "value": 35, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "station_enclosure": "моноблок-на-раме",
+        "installation_place": "в-помещении"
+      },
+      "expected": {
+        "material": "углеродистая-сталь",
+        "triggerId": null
+      }
+    },
+    {
+      "id": "hard-a-underground-enclosure",
+      "_description": "Подземное стеклопластиковое исполнение — HARD-a.",
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": { "value": 250, "unit": "м³/ч" },
+        "H": { "value": 90, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "station_enclosure": "подземное-стеклопластик"
+      },
+      "expected": {
+        "material": "нержавеющая-сталь",
+        "triggerId": "hard-a-underground"
+      }
+    },
+    {
+      "id": "hard-a-buried-place",
+      "_description": "Колодец → заглублённая установка — HARD-a через installation_place.",
+      "input": {
+        "station_type": "fire",
+        "purpose": "наружное-ПТ",
+        "Q": { "value": 180, "unit": "м³/ч" },
+        "H": { "value": 70, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "station_enclosure": "стеклопластиковый-колодец",
+        "installation_place": "заглублённая"
+      },
+      "expected": {
+        "material": "нержавеющая-сталь",
+        "triggerId": "hard-a-underground"
+      }
+    },
+    {
+      "id": "hard-b-tz-required",
+      "_description": "ТЗ явно требует нерж, надземное исполнение — HARD-b.",
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": { "value": 80, "unit": "м³/ч" },
+        "H": { "value": 50, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "collector_material": "нержавеющая-сталь",
+        "station_enclosure": "блок-бокс"
+      },
+      "expected": {
+        "material": "нержавеющая-сталь",
+        "triggerId": "hard-b-tz-required"
+      }
+    },
+    {
+      "id": "hard-c-potable-purpose",
+      "_description": "Назначение — хоз-питьевое (water-станция, но триггер общий).",
+      "input": {
+        "station_type": "fire",
+        "purpose": "хоз-питьевое",
+        "Q": { "value": 30, "unit": "м³/ч" },
+        "H": { "value": 40, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "station_enclosure": "моноблок-на-раме"
+      },
+      "expected": {
+        "material": "нержавеющая-сталь",
+        "triggerId": "hard-c-potable"
+      }
+    },
+    {
+      "id": "hard-c-potable-medium",
+      "_description": "Среда явно — питьевая вода.",
+      "input": {
+        "station_type": "fire",
+        "purpose": "АУПТ",
+        "Q": { "value": 50, "unit": "м³/ч" },
+        "H": { "value": 45, "unit": "м" },
+        "reservation_scheme": "1/1",
+        "station_enclosure": "технологический-павильон",
+        "pumping_medium": { "medium": "питьевая" }
+      },
+      "expected": {
+        "material": "нержавеющая-сталь",
+        "triggerId": "hard-c-potable"
+      }
+    }
+  ]
+}
