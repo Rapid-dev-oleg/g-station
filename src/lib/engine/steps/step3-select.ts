@@ -112,6 +112,8 @@ export function processVariant3(
       `P_вал≈${motor.shaftKw.toFixed(1)} кВт (η=${motor.efficiency}), запас k=${motor.reserveK}`,
     ),
     construction: cls.construction,
+    class_code: cls.classCode,
+    series_hint: cls.seriesHint,
     in_stock: `класс ${cls.classCode} (${cls.triggerId}); серия-ориентир: ${cls.seriesHint}; ${stockNote}; точная модель/бренд — решение инженера`,
   };
 

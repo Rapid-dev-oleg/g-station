@@ -192,6 +192,10 @@ export interface Equipment {
     motor_power?: Measured;
     energy_class?: 'IE2' | 'IE3';
     construction?: string;
+    /** Класс конструкции (правило 3.9-A v2 / 3.10): SPLIT_CASE / END_SUCTION / MULTISTAGE / IN_LINE. */
+    class_code?: 'SPLIT_CASE' | 'END_SUCTION' | 'MULTISTAGE' | 'IN_LINE';
+    /** CNP-серия-ориентир (например «CNP NIS / NES»). */
+    series_hint?: string;
     nozzle_suction?: Measured;
     nozzle_discharge?: Measured;
     in_stock?: string;

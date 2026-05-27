@@ -47,6 +47,34 @@ function dnIndex(value: number): number {
 
 const mv = (m?: Measured | null): number | null => (m && m.value != null ? m.value : null);
 
+/**
+ * Парсит класс насоса (3.9-A v2) из шифра + текстового описания эталона.
+ * Сначала пытается по подстрокам в шифре (точнее), потом по описанию.
+ */
+type FactClass = 'SPLIT_CASE' | 'END_SUCTION' | 'MULTISTAGE' | 'IN_LINE';
+
+function parseFactClass(code?: string | null, pumpClass?: string | null): FactClass | null {
+  const cd = (code ?? '').toUpperCase();
+  // SPLIT_CASE — узнаваемые серии раньше END_SUCTION, чтобы не пересекаться.
+  if (/\b(SMM|SMA|SCP|LS-HSC|Д320|D320)/.test(cd)) return 'SPLIT_CASE';
+  // MULTISTAGE — все «многоступенчатые» серии (CDM, CHL и т.п.).
+  if (/\b(CDM|CDMF|CHL|CHLF|CHLFT|CRV|CR\d|MVL|MVI|MVC|CUC|ECH|CV\d)/.test(cd)) return 'MULTISTAGE';
+  // IN_LINE — вертикальный ин-лайн.
+  if (/\b(TD|IL|IPN|TP)\d/.test(cd)) return 'IN_LINE';
+  // END_SUCTION — горизонтальный одноступенчатый.
+  if (/\b(NIS|NES|NM|NBW|NKW|BL|NK|NL)\d/.test(cd)) return 'END_SUCTION';
+
+  // Fallback — по тексту описания.
+  const pc = (pumpClass ?? '').toLowerCase();
+  if (pc.includes('сплит') || pc.includes('двустор')) return 'SPLIT_CASE';
+  if (pc.includes('многоступ')) return 'MULTISTAGE';
+  if (pc.includes('вертикальный одноступ') || pc.includes('ин-лайн')) return 'IN_LINE';
+  if (pc.includes('одноступенчат') || pc.includes('моноблоч') || pc.includes('end-suction')) {
+    return 'END_SUCTION';
+  }
+  return null;
+}
+
 /** Совпадение чисел с относительным допуском. */
 function numClose(a: number | null, b: number | null, rel = 0.05): boolean {
   if (a == null || b == null) return a === b;
@@ -109,6 +137,10 @@ interface StationCompare {
   reservoirCalc: number | null;
   reservoirExp: number | null;
   reservoirOk: boolean | null;
+  // класс насоса (3.9-A / 3.10)
+  classCalc: FactClass | null;
+  classExp: FactClass | null;
+  classOk: boolean | null;
   // тип пуска
   startCalc: string | null;
   startExp: string | null;
@@ -181,6 +213,12 @@ function compareStation(
     reservoirOk = reservoirCalc != null && numClose(reservoirCalc, reservoirExp, 0.05);
   }
 
+  // класс насоса (3.9-A / 3.10)
+  const classCalc =
+    (calc.variants?.[0]?.equipment?.main_pump?.class_code as FactClass | undefined) ?? null;
+  const classExp = parseFactClass(exp.code, exp.pump_class);
+  const classOk = classExp == null ? null : classCalc === classExp;
+
   // тип пуска
   const startCalc = calc.input.start_type ?? null;
   const startExp = exp.start_type ?? null;
@@ -228,6 +266,9 @@ function compareStation(
     reservoirCalc,
     reservoirExp,
     reservoirOk,
+    classCalc,
+    classExp,
+    classOk,
     startCalc,
     startExp,
     startOk,
@@ -282,7 +323,8 @@ function verifyCase(file: string): CaseResult {
       s.pumpsOk &&
       (s.motorOk ?? true) &&
       (s.collectorOk ?? true) &&
-      (s.startOk ?? true),
+      (s.startOk ?? true) &&
+      (s.classOk ?? true),
   );
 
   return { file, caseId: raw.meta.case_id, stations, valid, validErrors: errors, skeletonOk };
@@ -364,6 +406,7 @@ const pumpsS = pctOf((s) => s.pumpsOk, (s) => s.pumpsExp != null);
 const motorS = pctOf((s) => s.motorOk === true, (s) => s.motorOk != null);
 const collS = pctOf((s) => s.collectorOk === true, (s) => s.collectorOk != null);
 const reservS = pctOf((s) => s.reservoirOk === true, (s) => s.reservoirOk != null);
+const classS = pctOf((s) => s.classOk === true, (s) => s.classOk != null);
 const startS = pctOf((s) => s.startOk === true, (s) => s.startOk != null);
 const codeS = pctOf((s) => s.codeStructOk);
 console.log(`  рабочая точка Q:       ${qS.hit}/${qS.total}  (${qS.pct}%)`);
@@ -373,11 +416,20 @@ console.log(`  число насосов:         ${pumpsS.hit}/${pumpsS.total} 
 console.log(`  мощность двигателя:    ${motorS.hit}/${motorS.total}  (${motorS.pct}%)  [±1 ступень]`);
 console.log(`  диаметр коллектора:    ${collS.hit}/${collS.total}  (${collS.pct}%)  [±1 типоразмер]`);
 console.log(`  объём резервуара:      ${reservS.hit}/${reservS.total}  (${reservS.pct}%)`);
+console.log(`  класс насоса (3.9-A):  ${classS.hit}/${classS.total}  (${classS.pct}%)  [SPLIT/END/MULTI/IN-LINE]`);
 console.log(`  тип пуска:             ${startS.hit}/${startS.total}  (${startS.pct}%)`);
 console.log(`  структура шифра:       ${codeS.hit}/${codeS.total}  (${codeS.pct}%)`);
 
 const skeletonPass = allStations.filter(
-  (s) => s.qOk && s.hOk && s.schemeOk && s.pumpsOk && (s.motorOk ?? true) && (s.collectorOk ?? true) && (s.startOk ?? true),
+  (s) =>
+    s.qOk &&
+    s.hOk &&
+    s.schemeOk &&
+    s.pumpsOk &&
+    (s.motorOk ?? true) &&
+    (s.collectorOk ?? true) &&
+    (s.startOk ?? true) &&
+    (s.classOk ?? true),
 ).length;
 console.log(`  скелет целиком совпал: ${skeletonPass}/${N}  (${Math.round((skeletonPass / N) * 100)}%)`);
 
@@ -402,6 +454,7 @@ for (const s of allStations) {
     issues.push(`коллектор ${s.collectorDnCalc}≠${s.collectorDnExp} (Δвсас=${s.collectorDeltaSuc}, Δнап=${s.collectorDeltaDis})`);
   if (s.reservoirOk === false)
     issues.push(`резервуар ${fmtNum(s.reservoirCalc)}≠${fmtNum(s.reservoirExp)}`);
+  if (s.classOk === false) issues.push(`класс ${s.classCalc ?? '—'}≠${s.classExp ?? '—'}`);
   if (s.startOk === false) issues.push(`пуск ${s.startCalc}≠${s.startExp}`);
   if (!s.codeStructOk) issues.push(`шифр-структура «${s.codeCalc}»≠«${s.codeExp}»`);
   if (issues.length > 0) console.log(`  ${pad(tag, 16)} ${issues.join('; ')}`);

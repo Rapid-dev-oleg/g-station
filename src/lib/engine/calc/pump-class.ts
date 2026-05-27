@@ -293,16 +293,17 @@ export const DEFAULT_PUMP_CLASS_RULE: PumpClassRule = {
       seriesHint: 'CNP TD',
       rpm: 2900,
     },
-    // 5g. H 30-50, Q_pp < 50, площадка не задана → IN_LINE (типовой выбор для серой зоны).
+    // 5g. H 30-50, Q_pp < 50, площадка не задана → MULTISTAGE (типовой выбор инженера
+    //     для пожарной серой зоны; уточнено по корпусу verify: 5+ промахов было).
     {
       id: 'h-30-50-q-lt-50-any',
       hMin: 30,
       hMax: 50,
       qppMax: 50,
       footprintIn: ['any'],
-      classCode: 'IN_LINE',
-      construction: 'ин-лайн (типовой выбор, гейт инженера: возможен MULTI)',
-      seriesHint: 'CNP TD',
+      classCode: 'MULTISTAGE',
+      construction: 'вертикальный многоступенчатый (типовой для пожарной серой зоны)',
+      seriesHint: 'CNP CDM',
       rpm: 2900,
     },
     // 6a. H 20-30, Q_pp ≥ 50 → END_SUCTION.

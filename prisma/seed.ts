@@ -217,46 +217,48 @@ async function main() {
 
   // 3.9-A v2 — матрица 12 зон выбора класса насоса по Q_per_pump × H × footprint.
   // Эквивалент DEFAULT_PUMP_CLASS_RULE в src/lib/engine/calc/pump-class.ts.
+  // update применяется явно — для синхронизации БД с TS-fallback при правках.
+  const pumpClassV2Payload = {
+    ruleId: '3.9-A-pump-class',
+    version: 'v2',
+    defaultZone: {
+      classCode: 'END_SUCTION',
+      construction: 'консольный моноблочный (универсальный)',
+      seriesHint: 'CNP NIS',
+    },
+    zones: [
+      { id: 'split-case-large-q', qppMin: 400, classCode: 'SPLIT_CASE', construction: 'двусторонний всас (сплит-кейс)', seriesHint: 'CNP SMM / Д320', rpm: 1450 },
+      { id: 'h-gt-100-q-gt-200', hMin: 100, qppMin: 200, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый (высокий напор, крупный расход)', seriesHint: 'CNP NIS / NES / NM', rpm: 2900 },
+      { id: 'h-gt-100-q-le-200', hMin: 100, qppMax: 200, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (высокий напор)', seriesHint: 'CNP CDM / CDMF / CV', rpm: 2900 },
+      { id: 'h-80-100-q-ge-90-no-vert', hMin: 80, hMax: 100, qppMin: 90, requiresVertical: false, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый (крупный типоразмер 220–260 мм)', seriesHint: 'CNP NIS / NES / NM', rpm: 2900 },
+      { id: 'h-80-100-q-ge-90-vert', hMin: 80, hMax: 100, qppMin: 90, requiresVertical: true, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (ТЗ-требование)', seriesHint: 'CNP CDM / CV', rpm: 2900 },
+      { id: 'h-80-100-q-lt-90', hMin: 80, hMax: 100, qppMax: 90, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый', seriesHint: 'CNP CDM / CV', rpm: 2900 },
+      { id: 'h-50-80-q-ge-90', hMin: 50, hMax: 80, qppMin: 90, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый', seriesHint: 'CNP NIS / NES / NM', rpm: 2900 },
+      { id: 'h-50-80-q-lt-90', hMin: 50, hMax: 80, qppMax: 90, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый', seriesHint: 'CNP CDM / CV', rpm: 2900 },
+      { id: 'h-30-50-q-ge-100', hMin: 30, hMax: 50, qppMin: 100, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый', seriesHint: 'CNP NIS / NES / NBW', rpm: 2900 },
+      { id: 'h-30-50-q-50-100-vert', hMin: 30, hMax: 50, qppMin: 50, qppMax: 100, requiresVertical: true, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (ТЗ-референс типа Wilo MVL)', seriesHint: 'CNP CDM / CV', rpm: 2900 },
+      { id: 'h-30-50-q-50-100-tight', hMin: 30, hMax: 50, qppMin: 50, qppMax: 100, footprintIn: ['tight'], classCode: 'IN_LINE', construction: 'ин-лайн (компромисс, тесная площадка)', seriesHint: 'CNP TD', rpm: 2900 },
+      { id: 'h-30-50-q-50-100-spacious', hMin: 30, hMax: 50, qppMin: 50, qppMax: 100, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый (просторная площадка)', seriesHint: 'CNP NIS / NES', rpm: 2900 },
+      { id: 'h-30-50-q-lt-50-tight', hMin: 30, hMax: 50, qppMax: 50, footprintIn: ['tight'], classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (тесная площадка)', seriesHint: 'CNP CDM', rpm: 2900 },
+      { id: 'h-30-50-q-lt-50-spacious', hMin: 30, hMax: 50, qppMax: 50, footprintIn: ['spacious'], classCode: 'IN_LINE', construction: 'ин-лайн (просторная площадка)', seriesHint: 'CNP TD', rpm: 2900 },
+      { id: 'h-30-50-q-lt-50-any', hMin: 30, hMax: 50, qppMax: 50, footprintIn: ['any'], classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (типовой для пожарной серой зоны)', seriesHint: 'CNP CDM', rpm: 2900 },
+      { id: 'h-20-30-q-ge-50', hMin: 20, hMax: 30, qppMin: 50, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый', seriesHint: 'CNP NIS / NES / NBW / BL', rpm: 2900 },
+      { id: 'h-20-30-q-lt-50', hMin: 20, hMax: 30, qppMax: 50, classCode: 'IN_LINE', construction: 'вертикальный ин-лайн одноступенчатый', seriesHint: 'CNP TD / IL / IPN', rpm: 2900 },
+      { id: 'h-lt-20-q-ge-50', hMax: 20, qppMin: 50, classCode: 'END_SUCTION', construction: 'консольный низконапорный (большой расход)', seriesHint: 'CNP NIS / NES / NBW', rpm: 2900 },
+      { id: 'h-lt-20-q-lt-50-tight', hMax: 20, qppMax: 50, footprintIn: ['tight'], classCode: 'END_SUCTION', construction: 'консольный компактный (подземка)', seriesHint: 'CNP NES65-50 / NBW', rpm: 2900 },
+      { id: 'h-lt-20-q-lt-50-spacious', hMax: 20, qppMax: 50, footprintIn: ['spacious'], classCode: 'IN_LINE', construction: 'ин-лайн (просторная площадка)', seriesHint: 'CNP TD / IL / IPN', rpm: 2900 },
+      { id: 'h-lt-20-q-lt-50-any', hMax: 20, qppMax: 50, footprintIn: ['any'], classCode: 'END_SUCTION', construction: 'консольный компактный (универсальный для малой подземной)', seriesHint: 'CNP NES65-50', rpm: 2900 },
+    ],
+  };
   await db.ruleConfig.upsert({
     where: { ruleId_version: { ruleId: '3.9-A-pump-class', version: 'v2' } },
-    update: {},
+    update: { payload: pumpClassV2Payload },
     create: {
       ruleId: '3.9-A-pump-class',
       version: 'v2',
       notes:
-        'Матрица класса насоса по Q_per_pump × H × footprint (KNOWLEDGE §3.9-A v2). Изменения v2: H>100 (было >80), H 80-100 промежуток с разводкой по vert, серая зона H<20+Q<50 с разводкой по площадке.',
-      payload: {
-        ruleId: '3.9-A-pump-class',
-        version: 'v2',
-        defaultZone: {
-          classCode: 'END_SUCTION',
-          construction: 'консольный моноблочный (универсальный)',
-          seriesHint: 'CNP NIS',
-        },
-        zones: [
-          { id: 'split-case-large-q', qppMin: 400, classCode: 'SPLIT_CASE', construction: 'двусторонний всас (сплит-кейс)', seriesHint: 'CNP SMM / Д320', rpm: 1450 },
-          { id: 'h-gt-100-q-gt-200', hMin: 100, qppMin: 200, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый (высокий напор, крупный расход)', seriesHint: 'CNP NIS / NES / NM', rpm: 2900 },
-          { id: 'h-gt-100-q-le-200', hMin: 100, qppMax: 200, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (высокий напор)', seriesHint: 'CNP CDM / CDMF / CV', rpm: 2900 },
-          { id: 'h-80-100-q-ge-90-no-vert', hMin: 80, hMax: 100, qppMin: 90, requiresVertical: false, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый (крупный типоразмер 220–260 мм)', seriesHint: 'CNP NIS / NES / NM', rpm: 2900 },
-          { id: 'h-80-100-q-ge-90-vert', hMin: 80, hMax: 100, qppMin: 90, requiresVertical: true, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (ТЗ-требование)', seriesHint: 'CNP CDM / CV', rpm: 2900 },
-          { id: 'h-80-100-q-lt-90', hMin: 80, hMax: 100, qppMax: 90, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый', seriesHint: 'CNP CDM / CV', rpm: 2900 },
-          { id: 'h-50-80-q-ge-90', hMin: 50, hMax: 80, qppMin: 90, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый', seriesHint: 'CNP NIS / NES / NM', rpm: 2900 },
-          { id: 'h-50-80-q-lt-90', hMin: 50, hMax: 80, qppMax: 90, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый', seriesHint: 'CNP CDM / CV', rpm: 2900 },
-          { id: 'h-30-50-q-ge-100', hMin: 30, hMax: 50, qppMin: 100, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый', seriesHint: 'CNP NIS / NES / NBW', rpm: 2900 },
-          { id: 'h-30-50-q-50-100-vert', hMin: 30, hMax: 50, qppMin: 50, qppMax: 100, requiresVertical: true, classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (ТЗ-референс типа Wilo MVL)', seriesHint: 'CNP CDM / CV', rpm: 2900 },
-          { id: 'h-30-50-q-50-100-tight', hMin: 30, hMax: 50, qppMin: 50, qppMax: 100, footprintIn: ['tight'], classCode: 'IN_LINE', construction: 'ин-лайн (компромисс, тесная площадка)', seriesHint: 'CNP TD', rpm: 2900 },
-          { id: 'h-30-50-q-50-100-spacious', hMin: 30, hMax: 50, qppMin: 50, qppMax: 100, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый (просторная площадка)', seriesHint: 'CNP NIS / NES', rpm: 2900 },
-          { id: 'h-30-50-q-lt-50-tight', hMin: 30, hMax: 50, qppMax: 50, footprintIn: ['tight'], classCode: 'MULTISTAGE', construction: 'вертикальный многоступенчатый (тесная площадка)', seriesHint: 'CNP CDM', rpm: 2900 },
-          { id: 'h-30-50-q-lt-50-spacious', hMin: 30, hMax: 50, qppMax: 50, footprintIn: ['spacious'], classCode: 'IN_LINE', construction: 'ин-лайн (просторная площадка)', seriesHint: 'CNP TD', rpm: 2900 },
-          { id: 'h-30-50-q-lt-50-any', hMin: 30, hMax: 50, qppMax: 50, footprintIn: ['any'], classCode: 'IN_LINE', construction: 'ин-лайн (типовой выбор, гейт инженера: возможен MULTI)', seriesHint: 'CNP TD', rpm: 2900 },
-          { id: 'h-20-30-q-ge-50', hMin: 20, hMax: 30, qppMin: 50, classCode: 'END_SUCTION', construction: 'консольный одноступенчатый', seriesHint: 'CNP NIS / NES / NBW / BL', rpm: 2900 },
-          { id: 'h-20-30-q-lt-50', hMin: 20, hMax: 30, qppMax: 50, classCode: 'IN_LINE', construction: 'вертикальный ин-лайн одноступенчатый', seriesHint: 'CNP TD / IL / IPN', rpm: 2900 },
-          { id: 'h-lt-20-q-ge-50', hMax: 20, qppMin: 50, classCode: 'END_SUCTION', construction: 'консольный низконапорный (большой расход)', seriesHint: 'CNP NIS / NES / NBW', rpm: 2900 },
-          { id: 'h-lt-20-q-lt-50-tight', hMax: 20, qppMax: 50, footprintIn: ['tight'], classCode: 'END_SUCTION', construction: 'консольный компактный (подземка)', seriesHint: 'CNP NES65-50 / NBW', rpm: 2900 },
-          { id: 'h-lt-20-q-lt-50-spacious', hMax: 20, qppMax: 50, footprintIn: ['spacious'], classCode: 'IN_LINE', construction: 'ин-лайн (просторная площадка)', seriesHint: 'CNP TD / IL / IPN', rpm: 2900 },
-          { id: 'h-lt-20-q-lt-50-any', hMax: 20, qppMax: 50, footprintIn: ['any'], classCode: 'END_SUCTION', construction: 'консольный компактный (универсальный для малой подземной)', seriesHint: 'CNP NES65-50', rpm: 2900 },
-        ],
-      },
+        'Матрица класса насоса по Q_per_pump × H × footprint (KNOWLEDGE §3.9-A v2). Изменения v2: H>100 (было >80), H 80-100 промежуток с разводкой по vert, серая зона H<20+Q<50 с разводкой по площадке. После задачи #11: серая зона H 30-50 Q<50 «any» → MULTISTAGE (типовой выбор инженера).',
+      payload: pumpClassV2Payload,
     },
   });
 
