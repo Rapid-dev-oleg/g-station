@@ -10,6 +10,7 @@ import type { Equipment, Station, Variant } from '@/lib/dossier/types';
 import { measured } from '@/lib/dossier/factory';
 import { fireModule } from '../types/fire';
 import type { Catalog } from '../catalog';
+import type { Rules } from '../rules';
 import { motorForStation } from './step2-calc';
 
 /** Число насосов по схеме. */
@@ -72,6 +73,7 @@ export function processVariant3(
   station: Station,
   variant: Variant,
   catalog?: Catalog,
+  rules?: Rules,
 ): void {
   const { input, calc } = station;
   if (!calc) return;
@@ -194,5 +196,5 @@ export function processVariant3(
 
   // ── 3.4 + спец-часть типа — делегируется модулю ──────────────────────
   variant.equipment = equipment;
-  variant.equipment = fireModule.selectEquipment(variant, calc, input);
+  variant.equipment = fireModule.selectEquipment(variant, calc, input, rules);
 }

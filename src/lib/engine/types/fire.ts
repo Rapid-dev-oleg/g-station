@@ -5,6 +5,7 @@
  */
 
 import type {
+  CollectorMaterial,
   Equipment,
   Output,
   Station,
@@ -15,6 +16,7 @@ import type {
 import { measured } from '@/lib/dossier/factory';
 import { ayptFlowLs, fireDurationHours, fireReserveVolume } from '../calc/norms';
 import { regulationCode } from '../calc/start-type';
+import { evalMaterial, type Rules } from '../rules';
 
 /** Число насосов по схеме резервирования. */
 function pumpCount(scheme: string): number {
@@ -133,7 +135,12 @@ export const fireModule = {
   },
 
   // ─── Раздел 5 — Особенности подбора оборудования ──────────────────────
-  selectEquipment(variant: Variant, calc: StationCalc, input: StationInput): Equipment {
+  selectEquipment(
+    variant: Variant,
+    calc: StationCalc,
+    input: StationInput,
+    rules?: Rules,
+  ): Equipment {
     const eq: Equipment = { ...(variant.equipment ?? {}) };
     const scheme = variant.reservation_scheme ?? input.reservation_scheme;
     const motorKw = eq.main_pump?.motor_power?.value ?? null;
@@ -174,12 +181,20 @@ export const fireModule = {
       };
     }
 
-    // Материал коллектора: Ст.20 по умолчанию; нержавейка при подземном.
+    // Материал коллектора — правило 5.7. Если передан RuleConfig из БД —
+    // применяем его (data-driven); иначе — встроенный fallback v0
+    // (Ст.20 по умолчанию; нержавейка при подземном).
     if (eq.collector) {
-      eq.collector.material = isUnderground ? 'нержавеющая-сталь' : 'углеродистая-сталь';
-      eq.collector.pipe_spec = isUnderground
-        ? 'нержавеющая сталь AISI 304'
-        : 'углеродистая сталь Ст.20 (ГОСТ 10704-91)';
+      if (rules?.material) {
+        const m = evalMaterial(rules.material, input);
+        eq.collector.material = m.material as CollectorMaterial;
+        eq.collector.pipe_spec = m.pipeSpec;
+      } else {
+        eq.collector.material = isUnderground ? 'нержавеющая-сталь' : 'углеродистая-сталь';
+        eq.collector.pipe_spec = isUnderground
+          ? 'нержавеющая сталь AISI 304'
+          : 'углеродистая сталь Ст.20 (ГОСТ 10704-91)';
+      }
     }
 
     // Спец-оборудование пожарного типа.

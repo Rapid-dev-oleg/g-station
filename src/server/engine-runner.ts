@@ -11,7 +11,9 @@ import { validateDossier } from '@/lib/dossier/validate';
 import { runPipeline } from '@/lib/engine';
 import { allGates, type GateReport } from '@/lib/engine/gates';
 import type { Catalog } from '@/lib/engine/catalog';
+import type { Rules } from '@/lib/engine/rules';
 import { createDbCatalogPort } from '@/server/catalog-port';
+import { loadRules } from '@/server/rules-loader';
 
 /** Результат прогона расчёта. */
 export interface CalculationResult {
@@ -44,17 +46,19 @@ export class DossierValidationError extends Error {
  *
  * @param dossier  расчётное дело
  * @param catalog  опциональная реализация каталога
+ * @param rules    опциональный набор правил-конфигов (из БД)
  */
 export function runCalculation(
   dossier: Dossier,
   catalog?: Catalog,
+  rules?: Rules,
 ): CalculationResult {
   const inputCheck = validateDossier(dossier);
   if (!inputCheck.valid) {
     throw new DossierValidationError('input', inputCheck.errors);
   }
 
-  const result = runPipeline(dossier, catalog);
+  const result = runPipeline(dossier, catalog, rules);
 
   const outputCheck = validateDossier(result);
   if (!outputCheck.valid) {
@@ -76,5 +80,6 @@ export async function runCalculationWithDbCatalog(
   dossier: Dossier,
 ): Promise<CalculationResult> {
   const catalog = await createDbCatalogPort();
-  return runCalculation(dossier, catalog);
+  const { rules } = await loadRules();
+  return runCalculation(dossier, catalog, rules);
 }

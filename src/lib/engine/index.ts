@@ -12,6 +12,14 @@ export type {
   CatalogPanel,
   CatalogWork,
 } from './catalog';
+export type {
+  Rules,
+  MaterialRuleV1,
+  MaterialTrigger,
+  ConditionLeaf,
+  ConditionGroup,
+} from './rules';
+export { evalMaterial } from './rules';
 export { fireModule } from './types/fire';
 
 export { runStep1, runStep2, runStep3, runStep4, runStep5, runPipeline } from './pipeline';

@@ -189,3 +189,19 @@ model Norm {
   summary  String?
   url      String?
 }
+
+// Декларативные правила расчёта (триггеры материала, карта аналогов,
+// матрица класса насоса и т.п.). Формулы остаются в TS — здесь только
+// условия выбора. Снапшот версии в Dossier = id записи.
+model RuleConfig {
+  id            String   @id @default(cuid())
+  ruleId        String // '5.7-material', '3.9-A-pump-class', '3.10-brand-map', '2.5-margin', 'B1-markup'
+  version       String // 'v1', 'v2', 'v3' — соответствует версиям из ANALYSIS/19
+  payload       Json // тело правила (структура зависит от ruleId)
+  effectiveFrom DateTime @default(now())
+  notes         String?
+  active        Boolean  @default(true)
+
+  @@unique([ruleId, version])
+  @@index([ruleId, active])
+}

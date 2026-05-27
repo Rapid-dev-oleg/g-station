@@ -77,7 +77,45 @@ async function main() {
     },
   });
 
-  console.log('Сид выполнен: admin, типы систем, категории, производители, нормы, настройки.');
+  // ── Правила (RuleConfig) ──
+  // 5.7 v1 — материал коллектора. Эквивалент текущему fallback в fire.ts.
+  await db.ruleConfig.upsert({
+    where: { ruleId_version: { ruleId: '5.7-material', version: 'v1' } },
+    update: {},
+    create: {
+      ruleId: '5.7-material',
+      version: 'v1',
+      notes: 'Материал коллектора: углеродистая по умолчанию; нержавейка при подземном (HARD-a).',
+      payload: {
+        ruleId: '5.7-material',
+        version: 'v1',
+        defaults: {
+          material: 'углеродистая-сталь',
+          pipeSpec: 'углеродистая сталь Ст.20 (ГОСТ 10704-91)',
+        },
+        triggers: [
+          {
+            id: 'hard-a-underground',
+            when: {
+              anyOf: [
+                {
+                  field: 'station_enclosure',
+                  in: ['подземное-стеклопластик', 'стеклопластиковый-колодец'],
+                },
+                { field: 'installation_place', equals: 'заглублённая' },
+              ],
+            },
+            then: {
+              material: 'нержавеющая-сталь',
+              pipeSpec: 'нержавеющая сталь AISI 304',
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  console.log('Сид выполнен: admin, типы систем, категории, производители, нормы, настройки, правила.');
 }
 
 main()
