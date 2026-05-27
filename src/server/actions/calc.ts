@@ -69,7 +69,13 @@ export async function runSystemCalc(systemId: string) {
   revalidatePath(`/systems/${systemId}`);
   revalidatePath(`/projects/${system.projectId}`);
 
-  return { ok: true as const, gates: result.gates, totalCost, clientPrice };
+  return {
+    ok: true as const,
+    gates: result.gates,
+    dossier: result.dossier,
+    totalCost,
+    clientPrice,
+  };
 }
 
 /** Возвращает отчёты по гейтам для текущего состояния дела системы. */

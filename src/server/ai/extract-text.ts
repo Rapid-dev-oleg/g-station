@@ -3,7 +3,8 @@
  *
  * Шаг 1.2 методики (скил pump-station-calc, «шаг1-вход.md»).
  * Поддержанные форматы: .txt (utf-8/cp1251), .pdf (системный pdftotext),
- * .docx (библиотека mammoth). Прочие форматы — внятная ошибка.
+ * .docx (библиотека mammoth), .xlsx (xlsx → sheet_to_csv по листам).
+ * Прочие форматы — внятная ошибка.
  */
 
 import { execFile } from 'node:child_process';
@@ -15,7 +16,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 /** Распознанный формат документа. */
-export type DocFormat = 'txt' | 'pdf' | 'docx';
+export type DocFormat = 'txt' | 'pdf' | 'docx' | 'xlsx';
 
 export interface ExtractedText {
   /** Извлечённый простой текст. */
@@ -30,8 +31,9 @@ function detectFormat(filename: string): DocFormat {
   if (lower.endsWith('.txt')) return 'txt';
   if (lower.endsWith('.pdf')) return 'pdf';
   if (lower.endsWith('.docx')) return 'docx';
+  if (lower.endsWith('.xlsx')) return 'xlsx';
   throw new Error(
-    `Неподдерживаемый формат файла «${filename}». Допустимы: .txt, .pdf, .docx`,
+    `Неподдерживаемый формат файла «${filename}». Допустимы: .txt, .pdf, .docx, .xlsx`,
   );
 }
 
@@ -43,6 +45,14 @@ function decodeTxt(buffer: Buffer): string {
   const utf8 = buffer.toString('utf-8');
   // U+FFFD — replacement char: признак неверной кодировки.
   if (utf8.includes('�')) {
+    // Попытка CP1251 (через TextDecoder, если доступен в Node 18+).
+    try {
+      const dec = new TextDecoder('windows-1251');
+      const cp1251 = dec.decode(buffer);
+      if (!cp1251.includes('�')) return cp1251;
+    } catch {
+      // fallthrough
+    }
     return buffer.toString('latin1');
   }
   return utf8;
@@ -81,6 +91,28 @@ async function extractDocx(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Извлекает текст из .xlsx через библиотеку xlsx.
+ * Для каждого листа выгружает ячейки в CSV-подобном виде; листы склеиваются
+ * заголовками `=== Лист: <name> ===`. Пустые листы пропускаются.
+ */
+async function extractXlsx(buffer: Buffer): Promise<string> {
+  // Динамический импорт — xlsx тяжёлый.
+  const XLSX = await import('xlsx');
+  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const parts: string[] = [];
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) continue;
+    // sheet_to_csv: построчно, ячейки через `;`. Понятнее модели, чем JSON.
+    const csv = XLSX.utils.sheet_to_csv(sheet, { FS: ';', blankrows: false });
+    const trimmed = csv.trim();
+    if (!trimmed) continue;
+    parts.push(`=== Лист: ${sheetName} ===\n${trimmed}`);
+  }
+  return parts.join('\n\n');
+}
+
+/**
  * Извлекает простой текст из буфера загруженного файла.
  * Возвращает текст и распознанный формат; на пустом результате — ошибка.
  */
@@ -95,8 +127,10 @@ export async function extractText(
     text = decodeTxt(buffer);
   } else if (format === 'pdf') {
     text = await extractPdf(buffer);
-  } else {
+  } else if (format === 'docx') {
     text = await extractDocx(buffer);
+  } else {
+    text = await extractXlsx(buffer);
   }
 
   text = text.replace(/\r\n/g, '\n').trim();

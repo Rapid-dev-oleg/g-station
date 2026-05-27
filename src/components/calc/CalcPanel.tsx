@@ -41,6 +41,7 @@ export function CalcPanel({
     startTransition(async () => {
       const res = await runSystemCalc(systemId);
       if (res.ok) {
+        setDossier(res.dossier);
         setGates(res.gates);
         setDone(true);
         router.refresh();

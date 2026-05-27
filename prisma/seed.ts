@@ -42,6 +42,7 @@ async function main() {
     { code: 'works', name: 'Работы' },
     { code: 'accessories', name: 'Аксессуары' },
     { code: 'vfd', name: 'Частотные преобразователи' },
+    { code: 'jockey-piping', name: 'Обвязка жокей-насоса' },
   ];
   for (const c of categories) {
     await db.productCategory.upsert({ where: { code: c.code }, update: { name: c.name }, create: c });
