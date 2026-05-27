@@ -134,10 +134,23 @@ export default async function ProjectCardPage({
                           {s.label}
                         </Badge>
                         {input?.Q?.value != null && (
-                          <span>Q={input.Q.value} м³/ч</span>
+                          <span>
+                            Q={(() => {
+                              const u = (input.Q.unit ?? '').toLowerCase();
+                              if (u.includes('л/с')) return `${Math.round(input.Q.value * 3.6 * 10) / 10} м³/ч`;
+                              return `${input.Q.value} ${input.Q.unit ?? 'м³/ч'}`;
+                            })()}
+                          </span>
                         )}
                         {input?.H?.value != null && (
-                          <span>H={input.H.value} м</span>
+                          <span>
+                            H={(() => {
+                              const u = (input.H.unit ?? '').toLowerCase();
+                              if (u.includes('бар') || u === 'bar') return `${input.H.value * 10} м`;
+                              if (u.includes('мпа') || u === 'mpa') return `${input.H.value * 100} м`;
+                              return `${input.H.value} ${input.H.unit ?? 'м'}`;
+                            })()}
+                          </span>
                         )}
                       </div>
                     </div>

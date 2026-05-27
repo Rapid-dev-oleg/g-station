@@ -55,6 +55,23 @@ export interface ProposalData {
   anyPricingMissing: boolean;
 }
 
+/** Приводит Measured-поле расхода к м³/ч (л/с → ×3,6). */
+function normalizeFlowM3h(m: { value?: number | null; unit?: string } | null | undefined): number | null {
+  if (m?.value == null) return null;
+  const u = (m.unit ?? '').toLowerCase();
+  if (u.includes('л/с') || u === 'l/s') return Math.round(m.value * 3.6 * 10) / 10;
+  return m.value;
+}
+
+/** Приводит Measured-поле напора к метрам (бар → ×10; МПа → ×100). */
+function normalizeHeadM(m: { value?: number | null; unit?: string } | null | undefined): number | null {
+  if (m?.value == null) return null;
+  const u = (m.unit ?? '').toLowerCase();
+  if (u.includes('бар') || u === 'bar') return Math.round(m.value * 10 * 10) / 10;
+  if (u.includes('мпа') || u === 'mpa') return Math.round(m.value * 100 * 10) / 10;
+  return m.value;
+}
+
 /** Выбранный вариант станции (по output.selected_variant, иначе первый). */
 function selectedVariant(station: Station): Variant | undefined {
   const idx = station.output?.selected_variant ?? 0;
@@ -102,8 +119,12 @@ function buildSystem(
     name,
     typeName,
     productCode: station?.output?.product_code,
-    Q: station?.calc?.Q_target?.value ?? station?.input?.Q?.value ?? null,
-    H: station?.calc?.H_target?.value ?? station?.input?.H?.value ?? null,
+    Q: normalizeFlowM3h(
+      station?.calc?.Q_target ?? station?.input?.Q,
+    ),
+    H: normalizeHeadM(
+      station?.calc?.H_target ?? station?.input?.H,
+    ),
     power: pump?.motor_power?.value ?? null,
     pumpBrand: pump?.brand,
     pumpModel: pump?.model,
