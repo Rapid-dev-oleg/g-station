@@ -6,7 +6,12 @@
  * версии используемых правил кладётся в dossier для воспроизводимости.
  */
 
-import type { MaterialRuleV1, Rules } from '@/lib/engine/rules';
+import type {
+  CollectorDnByFlowRule,
+  CollectorFloorRule,
+  MaterialRuleV1,
+  Rules,
+} from '@/lib/engine/rules';
 import { db } from '@/server/db';
 
 /** Снимок версий правил, использованных в расчёте (для dossier). */
@@ -35,6 +40,18 @@ export async function loadRules(): Promise<{ rules: Rules; snapshot: RulesSnapsh
   if (material) {
     rules.material = material.payload as unknown as MaterialRuleV1;
     versions['5.7-material'] = material.version;
+  }
+
+  const dnByFlow = latest.get('5.1-collector-dn-by-flow');
+  if (dnByFlow) {
+    rules.collectorDnByFlow = dnByFlow.payload as unknown as CollectorDnByFlowRule;
+    versions['5.1-collector-dn-by-flow'] = dnByFlow.version;
+  }
+
+  const floor = latest.get('5.3-collector-floor');
+  if (floor) {
+    rules.collectorFloor = floor.payload as unknown as CollectorFloorRule;
+    versions['5.3-collector-floor'] = floor.version;
   }
 
   return { rules, snapshot: { versions } };

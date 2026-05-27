@@ -178,6 +178,43 @@ async function main() {
     },
   });
 
+  // 5.1 v2 — DN коллектора по расходу станции (порог запаса 80 %).
+  await db.ruleConfig.upsert({
+    where: { ruleId_version: { ruleId: '5.1-collector-dn-by-flow', version: 'v2' } },
+    update: {},
+    create: {
+      ruleId: '5.1-collector-dn-by-flow',
+      version: 'v2',
+      notes:
+        'DN коллектора от расхода станции (СП 31.13330). Запас: при Q ≥ 80 % верхней границы диапазона DN → следующий типоразмер.',
+      payload: {
+        ruleId: '5.1-collector-dn-by-flow',
+        version: 'v2',
+        reserveThreshold: 0.8,
+      },
+    },
+  });
+
+  // 5.3 v3 — floor по патрубку и запас по числу насосов.
+  await db.ruleConfig.upsert({
+    where: { ruleId_version: { ruleId: '5.3-collector-floor', version: 'v3' } },
+    update: {},
+    create: {
+      ruleId: '5.3-collector-floor',
+      version: 'v3',
+      notes:
+        'Floor +1 типоразмер только для патрубков ≤ DN50 (правка после anohin-08: для DN ≥ 65 floor не применяется). Запас +1 при числе насосов ≥ 4 (правка после anohin-10 ВНС).',
+      payload: {
+        ruleId: '5.3-collector-floor',
+        version: 'v3',
+        smallNozzleDnMax: 50,
+        smallNozzleSteps: 1,
+        manyPumpsThreshold: 4,
+        manyPumpsSteps: 1,
+      },
+    },
+  });
+
   console.log('Сид выполнен: admin, типы систем, категории, производители, нормы, настройки, правила.');
 }
 

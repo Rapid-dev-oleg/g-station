@@ -12,7 +12,8 @@
     "validate:schema": "tsx scripts/validate-schema.ts",
     "import:price": "tsx scripts/import-price.ts",
     "import:collectors": "tsx scripts/import-collectors.ts",
-    "ab:5.7": "tsx scripts/ab-rule-5.7.ts"
+    "ab:5.7": "tsx scripts/ab-rule-5.7.ts",
+    "ab:collector": "tsx scripts/ab-rule-collector.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",

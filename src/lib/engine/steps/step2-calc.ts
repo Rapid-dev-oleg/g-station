@@ -15,11 +15,11 @@ import {
 } from '../calc/hydraulics';
 import {
   dischargeDnByFlow,
-  dnStepUp,
   roundUpDn,
-  suctionDnByFlow,
 } from '../calc/norms';
+import { resolveCollectorDn } from '../calc/collector-dn';
 import { decideStartType } from '../calc/start-type';
+import type { Rules } from '../rules';
 
 /** Запас рабочей точки над ТЗ — середина диапазона 5–10 %. */
 export const WORKING_POINT_MARGIN = 0.08;
@@ -42,7 +42,7 @@ function toMeters(value: number, unit?: string): number {
  * Шаг 2 для одной станции. Заполняет `calc` и при необходимости `variants`.
  * Мутирует переданный (клонированный) объект.
  */
-export function processStation2(station: Station): void {
+export function processStation2(station: Station, rules?: Rules): void {
   const { input } = station;
   const calc: StationCalc = { ...(station.calc ?? {}) };
 
@@ -82,29 +82,38 @@ export function processStation2(station: Station): void {
   // расход на один насос
   const qPerPump = nWorking > 0 ? qWp / nWorking : qWp;
 
-  // 2.4. Диаметр коллектора — по СУММАРНОМУ расходу станции (правило 5.4).
-  // floor: патрубок насоса + 2 типоразмера (правило 5.3) — здесь патрубок
-  // оценивается по расходу одного насоса.
-  const dischByFlow = dischargeDnByFlow(qWp);
-  const suctByFlow = suctionDnByFlow(qWp);
+  // 2.4. Диаметр коллектора — правила 5.1 v2, 5.3 v3, 5.4, 5.9, 5.10.
+  // Для наружного ПТ DN считается от Q_тушения (СП 8.13130), если оно
+  // больше Q рабочей точки (правило 5.10, после nikitin-07).
+  const fireFlowLs = input.fire_params?.fire_flow_rate?.value;
+  const qFireM3h =
+    input.purpose === 'наружное-ПТ' && fireFlowLs != null ? fireFlowLs * 3.6 : 0;
+  const qForDn = Math.max(qWp, qFireM3h);
   const nozzleEstimate = roundUpDn(dischargeDnByFlow(qPerPump));
-  const floorDn = dnStepUp(nozzleEstimate, 2);
-  // под заливом — всас можно не увеличивать (правило 5.9)
   const underFlood = input.installation_place === 'под-заливом';
-  const dischDn = Math.max(dischByFlow, floorDn);
-  const suctDn = underFlood
-    ? dischDn
-    : Math.max(suctByFlow, floorDn, dischDn);
+  const dn = resolveCollectorDn(
+    {
+      qStation: qForDn,
+      nozzleDn: nozzleEstimate,
+      pumpsCount: nWorking + (Number(scheme.split('/')[1]) || 0),
+      underFlood,
+    },
+    rules,
+  );
 
   if (input.reservation_scheme !== '1/0') {
+    const sourceNote =
+      qFireM3h > qWp
+        ? `Q_тушения ${qFireM3h.toFixed(0)} м³/ч (СП 8.13130) больше Q_wp ${qWp.toFixed(0)}; DN от Q_тушения`
+        : `по расходу ${qForDn.toFixed(0)} м³/ч`;
     calc.collector_D_discharge = measured(
-      dischDn,
+      dn.discharge,
       'мм',
       'calculated',
-      `по расходу ${qWp.toFixed(0)} м³/ч; floor (патрубок+2)=${floorDn}; разброс ±1 типоразмер`,
+      `${sourceNote}; ${dn.note}`,
     );
     calc.collector_D_suction = measured(
-      suctDn,
+      dn.suction,
       'мм',
       'calculated',
       underFlood

@@ -54,12 +54,49 @@ export interface MaterialRuleV1 {
   triggers: MaterialTrigger[];
 }
 
+// ── Правила 5.1 v2 / 5.3 v3 — DN коллектора ─────────────────────────────
+
+/**
+ * Правило 5.1 v2 — DN коллектора от расхода станции.
+ * Параметризует порог запаса (доля верхней границы диапазона DN), при
+ * достижении которой берётся следующий типоразмер. По умолчанию 0.80
+ * (СП 31.13330: скорость напор 1,0–2,5 м/с, всас 0,8–1,5 м/с).
+ */
+export interface CollectorDnByFlowRule {
+  ruleId: '5.1-collector-dn-by-flow';
+  version: string;
+  /** Доля верхней границы диапазона, при которой переходим на следующий DN. */
+  reserveThreshold: number;
+}
+
+/**
+ * Правило 5.3 v3 — floor и запас по составу станции.
+ * - floor (+1 типоразмер) только для патрубков ≤ smallNozzleDnMax;
+ * - запас (+1 типоразмер) при числе насосов ≥ manyPumpsThreshold.
+ */
+export interface CollectorFloorRule {
+  ruleId: '5.3-collector-floor';
+  version: string;
+  /** Порог DN патрубка, ниже которого применяется floor. */
+  smallNozzleDnMax: number;
+  /** Шагов floor для малого патрубка. */
+  smallNozzleSteps: number;
+  /** Порог числа насосов для запаса. */
+  manyPumpsThreshold: number;
+  /** Шагов запаса при N ≥ threshold. */
+  manyPumpsSteps: number;
+}
+
 // ── Все правила, которые движок умеет принимать ──────────────────────────
 
 /** Набор правил, передаваемый в `runPipeline(..., rules)`. */
 export interface Rules {
   /** Правило 5.7 — материал коллектора. */
   material?: MaterialRuleV1;
+  /** Правило 5.1 v2 — DN коллектора от расхода. */
+  collectorDnByFlow?: CollectorDnByFlowRule;
+  /** Правило 5.3 v3 — floor по патрубку и запас по числу насосов. */
+  collectorFloor?: CollectorFloorRule;
   // Сюда же позже: pumpClass (3.9-A), brandMap (3.10), margin (2.5), markup (B1).
 }
 

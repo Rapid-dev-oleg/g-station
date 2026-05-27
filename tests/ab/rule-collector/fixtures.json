@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "id": "small-flow-no-floor",
+      "_description": "Q=30: напор DN65 max=30 → запас → DN80; всас DN100 (30<42)",
+      "input": { "qStation": 30, "nozzleDn": 80, "pumpsCount": 2, "underFlood": false },
+      "expected": { "dischargeDn": 80, "suctionDn": 100 }
+    },
+    {
+      "id": "border-80pct-discharge",
+      "_description": "Q=130: напор DN150 (130 ≥ 0.8×159) → DN200; всас DN200 (130<170)",
+      "input": { "qStation": 130, "nozzleDn": 80, "pumpsCount": 2, "underFlood": false },
+      "expected": { "dischargeDn": 200, "suctionDn": 200 }
+    },
+    {
+      "id": "small-nozzle-floor",
+      "_description": "патрубок DN50 ≤ DN50 → floor +1 = DN65; малый Q → DN50, но floor поднимает до DN65",
+      "input": { "qStation": 7, "nozzleDn": 50, "pumpsCount": 2, "underFlood": false },
+      "expected": { "dischargeDn": 65, "suctionDn": 65 }
+    },
+    {
+      "id": "no-floor-large-nozzle",
+      "_description": "Q=60, патрубок DN80 — floor НЕ применяется; напор DN125, всас DN150",
+      "input": { "qStation": 60, "nozzleDn": 80, "pumpsCount": 2, "underFlood": false },
+      "expected": { "dischargeDn": 125, "suctionDn": 150 }
+    },
+    {
+      "id": "many-pumps-stepup",
+      "_description": "Q=30, N=4 → запас +1: напор DN80→100, всас DN100→125",
+      "input": { "qStation": 30, "nozzleDn": 65, "pumpsCount": 4, "underFlood": false },
+      "expected": { "dischargeDn": 100, "suctionDn": 125 }
+    },
+    {
+      "id": "under-flood-suction-equal",
+      "_description": "под заливом — всас = напорный (правило 5.9). Q=100 → DN150",
+      "input": { "qStation": 100, "nozzleDn": 80, "pumpsCount": 2, "underFlood": true },
+      "expected": { "dischargeDn": 150, "suctionDn": 150 }
+    },
+    {
+      "id": "large-flow-step-out",
+      "_description": "Q=200: напор DN200 (200<226=0.8×283), всас DN250 (200<212=0.8×265 → DN250)",
+      "input": { "qStation": 200, "nozzleDn": 100, "pumpsCount": 2, "underFlood": false },
+      "expected": { "dischargeDn": 200, "suctionDn": 250 }
+    }
+  ]
+}

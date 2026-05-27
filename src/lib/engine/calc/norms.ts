@@ -129,17 +129,20 @@ export const DN_TABLE: DnRange[] = [
 /** Стандартный ряд DN, мм — для шага типоразмеров. */
 export const DN_SERIES = DN_TABLE.map((r) => r.dn);
 
+/** Порог запаса по правилу 5.1 v2: при Q ≥ reserveThreshold × max → следующий DN. */
+export const DN_RESERVE_THRESHOLD = 0.8;
+
 /**
  * Диаметр напорного коллектора по расходу станции.
  * Берётся минимальный DN, при котором расход попадает в норму скорости;
- * при расходе у верхней границы — следующий типоразмер (правило 5.1).
+ * при расходе у верхней границы — следующий типоразмер (правило 5.1 v2).
  * @param qM3h суммарный расход станции, м³/ч
+ * @param reserveThreshold доля верхней границы, при достижении которой берётся следующий DN
  */
-export function dischargeDnByFlow(qM3h: number): number {
+export function dischargeDnByFlow(qM3h: number, reserveThreshold = DN_RESERVE_THRESHOLD): number {
   for (const r of DN_TABLE) {
     if (qM3h <= r.dischargeMax) {
-      // запас: расход у верхней границы (>85 %) → следующий типоразмер
-      if (qM3h > r.dischargeMax * 0.85) {
+      if (qM3h >= r.dischargeMax * reserveThreshold) {
         const next = DN_TABLE.find((x) => x.dn > r.dn);
         return next ? next.dn : r.dn;
       }
@@ -153,10 +156,10 @@ export function dischargeDnByFlow(qM3h: number): number {
  * Диаметр всасывающего коллектора по расходу станции.
  * Всас крупнее напорного — ниже допустимая скорость.
  */
-export function suctionDnByFlow(qM3h: number): number {
+export function suctionDnByFlow(qM3h: number, reserveThreshold = DN_RESERVE_THRESHOLD): number {
   for (const r of DN_TABLE) {
     if (qM3h <= r.suctionMax) {
-      if (qM3h > r.suctionMax * 0.85) {
+      if (qM3h >= r.suctionMax * reserveThreshold) {
         const next = DN_TABLE.find((x) => x.dn > r.dn);
         return next ? next.dn : r.dn;
       }

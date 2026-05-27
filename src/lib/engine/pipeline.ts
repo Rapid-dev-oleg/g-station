@@ -29,10 +29,10 @@ export function runStep1(dossier: Dossier): Dossier {
 }
 
 /** Шаг 2 — расчёт + вариативность. Уровень станции (создаёт variants). */
-export function runStep2(dossier: Dossier): Dossier {
+export function runStep2(dossier: Dossier, rules?: Rules): Dossier {
   const next = cloneDossier(dossier);
   for (const station of next.stations) {
-    processStation2(station);
+    processStation2(station, rules);
   }
   return next;
 }
@@ -74,7 +74,7 @@ export function runStep5(dossier: Dossier): Dossier {
 /** Полный прогон конвейера: шаги 1→5. */
 export function runPipeline(dossier: Dossier, catalog?: Catalog, rules?: Rules): Dossier {
   let d = runStep1(dossier);
-  d = runStep2(d);
+  d = runStep2(d, rules);
   d = runStep3(d, catalog, rules);
   d = runStep4(d, catalog);
   d = runStep5(d);
