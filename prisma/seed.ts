@@ -260,6 +260,30 @@ async function main() {
     },
   });
 
+  // 3.10 v1 — карта аналогов брендов (Wilo / Grundfos / ... → CNP).
+  // Эквивалент DEFAULT_BRAND_MAP_RULE в src/lib/engine/calc/brand-map.ts.
+  await db.ruleConfig.upsert({
+    where: { ruleId_version: { ruleId: '3.10-brand-map', version: 'v1' } },
+    update: {},
+    create: {
+      ruleId: '3.10-brand-map',
+      version: 'v1',
+      notes:
+        'Карта аналогов брендов (KB §3.10). 5 групп: MULTISTAGE верт., SPLIT_CASE, IN_LINE, END_SUCTION, MULTISTAGE гориз. Применяется ДО матрицы 3.9-A как часть «физики ТЗ».',
+      payload: {
+        ruleId: '3.10-brand-map',
+        version: 'v1',
+        entries: [
+          { id: 'multistage-vertical', matches: ['MVL', 'MVI', 'MVC', 'Grundfos CR', ' CR ', 'CR-', 'Wellmix CV', 'CV-', 'ANTARUS MLV'], classCode: 'MULTISTAGE', cnpSeries: 'CNP CDM / CDMF', construction: 'вертикальный многоступенчатый (аналог 3.10)' },
+          { id: 'split-case', matches: ['Wilo SCP', ' SCP ', 'SCP-', 'LS-HSC', 'Grundfos LS', 'СПЛИТ', 'SPLIT'], classCode: 'SPLIT_CASE', cnpSeries: 'CNP SMM', construction: 'двусторонний всас (сплит-кейс, аналог 3.10)' },
+          { id: 'in-line', matches: ['Wilo IL', 'Wilo IPN', 'Grundfos TP', ' TP ', 'TP-', 'IN-LINE', 'ин-лайн'], classCode: 'IN_LINE', cnpSeries: 'CNP TD', construction: 'вертикальный ин-лайн одноступенчатый (аналог 3.10)' },
+          { id: 'end-suction', matches: ['Wilo NL', 'Wilo BL', ' BL ', 'BL-', 'Grundfos NK', ' NK ', 'NK-', 'Masdaf NM', ' NM ', 'NM-', 'aikon NES', 'NES65', 'NES80', 'NES100', 'Wellmix NBW', 'NBW', 'NKW'], classCode: 'END_SUCTION', cnpSeries: 'CNP NIS / NES', construction: 'консольный одноступенчатый end-suction (аналог 3.10)' },
+          { id: 'multistage-horizontal', matches: ['LEO ECH', ' ECH ', 'ECH-', 'Wellmix CUC', ' CUC ', 'CNP CHL', ' CHL '], classCode: 'MULTISTAGE', cnpSeries: 'Wellmix CUC / CNP CHL', construction: 'горизонтальный многоступенчатый (аналог 3.10)' },
+        ],
+      },
+    },
+  });
+
   console.log('Сид выполнен: admin, типы систем, категории, производители, нормы, настройки, правила.');
 }
 

@@ -7,6 +7,7 @@
  */
 
 import type {
+  BrandMapRule,
   CollectorDnByFlowRule,
   CollectorFloorRule,
   MaterialRuleV1,
@@ -59,6 +60,12 @@ export async function loadRules(): Promise<{ rules: Rules; snapshot: RulesSnapsh
   if (pumpClass) {
     rules.pumpClass = pumpClass.payload as unknown as PumpClassRule;
     versions['3.9-A-pump-class'] = pumpClass.version;
+  }
+
+  const brandMap = latest.get('3.10-brand-map');
+  if (brandMap) {
+    rules.brandMap = brandMap.payload as unknown as BrandMapRule;
+    versions['3.10-brand-map'] = brandMap.version;
   }
 
   return { rules, snapshot: { versions } };

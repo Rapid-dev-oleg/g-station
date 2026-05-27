@@ -1,0 +1,49 @@
+{
+  "cases": [
+    {
+      "id": "wilo-mvl",
+      "input": { "reference": "Wilo MVL 32-410" },
+      "expected": { "classCode": "MULTISTAGE", "cnpSeries": "CNP CDM / CDMF" }
+    },
+    {
+      "id": "grundfos-cr",
+      "input": { "reference": "Grundfos CR 64-2-2" },
+      "expected": { "classCode": "MULTISTAGE", "cnpSeries": "CNP CDM / CDMF" }
+    },
+    {
+      "id": "wilo-bl",
+      "input": { "reference": "Wilo BL 80-150" },
+      "expected": { "classCode": "END_SUCTION", "cnpSeries": "CNP NIS / NES" }
+    },
+    {
+      "id": "grundfos-nk",
+      "input": { "reference": "Grundfos NK 80-200" },
+      "expected": { "classCode": "END_SUCTION", "cnpSeries": "CNP NIS / NES" }
+    },
+    {
+      "id": "wilo-il",
+      "input": { "reference": "Wilo IL 100/170-15/4" },
+      "expected": { "classCode": "IN_LINE", "cnpSeries": "CNP TD" }
+    },
+    {
+      "id": "grundfos-tp",
+      "input": { "reference": "Grundfos TP 50-180/2" },
+      "expected": { "classCode": "IN_LINE", "cnpSeries": "CNP TD" }
+    },
+    {
+      "id": "wilo-scp",
+      "input": { "reference": "Wilo SCP 200-450" },
+      "expected": { "classCode": "SPLIT_CASE", "cnpSeries": "CNP SMM" }
+    },
+    {
+      "id": "leo-ech",
+      "input": { "reference": "LEO ECH 4-50" },
+      "expected": { "classCode": "MULTISTAGE", "cnpSeries": "Wellmix CUC / CNP CHL" }
+    },
+    {
+      "id": "unknown-brand",
+      "input": { "reference": "Какой-то экзотический насос XYZ-99" },
+      "expected": { "classCode": null, "cnpSeries": null }
+    }
+  ]
+}

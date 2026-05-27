@@ -13,6 +13,7 @@ import type { Catalog } from '../catalog';
 import type { Rules } from '../rules';
 import { motorForStation } from './step2-calc';
 import { evalPumpClass } from '../calc/pump-class';
+import { evalBrandMap } from '../calc/brand-map';
 
 /** Число насосов по схеме. */
 function pumpCount(scheme: string): number {
@@ -60,16 +61,31 @@ export function processVariant3(
   // ── 3.1. Основной насос — класс/типоразмер/мощность, не артикул ──────
   const motor = motorForStation(station);
   const qPerPump = qWp / workingPumps(scheme);
-  const cls = evalPumpClass(
-    {
-      qPerPump,
-      hTarget: hWp,
-      stationEnclosure: input.station_enclosure,
-      installationPlace: input.installation_place,
-      required: input.pump_type_required,
-    },
+  // Правило 3.10 — карта аналогов брендов; если ТЗ называет референс,
+  // его класс переопределяет матрицу 3.9-A (часть «физики ТЗ»).
+  // analog_reference из Meta пробрасывается в pump_type_required парсером ТЗ.
+  const brandHit = evalBrandMap(
+    { pumpTypeRequired: input.pump_type_required },
     rules,
   );
+  const cls = brandHit
+    ? {
+        classCode: brandHit.entry.classCode,
+        construction: brandHit.entry.construction,
+        seriesHint: brandHit.entry.cnpSeries,
+        triggerId: `3.10:${brandHit.entry.id} (match «${brandHit.matchedToken}» в «${brandHit.source}»)`,
+        rpm: undefined as number | undefined,
+      }
+    : evalPumpClass(
+        {
+          qPerPump,
+          hTarget: hWp,
+          stationEnclosure: input.station_enclosure,
+          installationPlace: input.installation_place,
+          required: input.pump_type_required,
+        },
+        rules,
+      );
   // проверка существования типоразмера в каталоге по мощности (если он есть)
   let stockNote: string;
   if (catalog) {

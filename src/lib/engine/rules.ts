@@ -135,6 +135,30 @@ export interface PumpClassRule {
   };
 }
 
+// ── Правило 3.10 — карта аналогов брендов ───────────────────────────────
+
+/** Одна запись карты аналогов 3.10. */
+export interface BrandMapEntry {
+  /** Идентификатор для трассировки. */
+  id: string;
+  /** Подстроки в `analog_reference.name` или `pump_type_required[]`,
+   *  по которым опознаём бренд+серию (регистронезависимо). */
+  matches: string[];
+  /** Класс конструкции (соответствует 3.9-A). */
+  classCode: PumpClassCode;
+  /** CNP-аналог (серия), уходит в `seriesHint`. */
+  cnpSeries: string;
+  /** Описание конструктива для note. */
+  construction: string;
+}
+
+/** Правило 3.10 — карта аналогов брендов. */
+export interface BrandMapRule {
+  ruleId: '3.10-brand-map';
+  version: string;
+  entries: BrandMapEntry[];
+}
+
 // ── Все правила, которые движок умеет принимать ──────────────────────────
 
 /** Набор правил, передаваемый в `runPipeline(..., rules)`. */
@@ -147,7 +171,9 @@ export interface Rules {
   collectorFloor?: CollectorFloorRule;
   /** Правило 3.9-A v2 — матрица класса насоса по Q × H × площадка. */
   pumpClass?: PumpClassRule;
-  // Сюда же позже: brandMap (3.10), margin (2.5), markup (B1).
+  /** Правило 3.10 — карта аналогов брендов. */
+  brandMap?: BrandMapRule;
+  // Сюда же позже: margin (2.5), markup (B1).
 }
 
 // ── Evaluator-ы ──────────────────────────────────────────────────────────
