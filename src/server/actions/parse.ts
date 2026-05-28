@@ -18,6 +18,8 @@ import { createEmptyDossier } from '@/lib/dossier/factory';
 import type { Dossier, Meta, StationInput } from '@/lib/dossier/types';
 import { validateDossier } from '@/lib/dossier/validate';
 import { extractText, type DocFormat } from '@/server/ai/extract-text';
+import { documentToImages } from '@/server/ai/document-images';
+import type { KimiImage } from '@/server/ai/kimi';
 import { parseDocument, type ParsedClient, type ParsedDocument } from '@/server/ai/parse-document';
 import { runSystemCalc } from '@/server/actions/calc';
 import { db } from '@/server/db';
@@ -66,6 +68,7 @@ const MAX_FILES = 10;
 async function extractPackage(formData: FormData): Promise<{
   text: string;
   files: ParsedFileInfo[];
+  images: KimiImage[];
 }> {
   // Совместимость: поддерживаем оба ключа — `files[]` (новый UI) и `file` (legacy).
   const raw = [...formData.getAll('files'), ...formData.getAll('file')];
@@ -91,28 +94,49 @@ async function extractPackage(formData: FormData): Promise<{
 
   const files: ParsedFileInfo[] = [];
   const parts: string[] = [];
+  const images: KimiImage[] = [];
   const errors: string[] = [];
+  // Минимальная длина текста на файл, ниже которой считаем его «сканом»
+  // и дополнительно отдаём картинки на vision-разбор.
+  const MIN_TEXT_LEN = 40;
 
   for (const f of inputs) {
+    const buffer = Buffer.from(await f.arrayBuffer());
+    let extractedLen = 0;
     try {
-      const buffer = Buffer.from(await f.arrayBuffer());
       const { text, format } = await extractText(f.name, buffer);
-      files.push({ filename: f.name, format, size: f.size });
-      parts.push(`=== Файл: ${f.name} (${format}) ===\n${text}`);
+      extractedLen = text.trim().length;
+      if (extractedLen >= MIN_TEXT_LEN) {
+        files.push({ filename: f.name, format, size: f.size });
+        parts.push(`=== Файл: ${f.name} (${format}) ===\n${text}`);
+        continue;
+      }
+    } catch {
+      // Текстовый слой не извлёкся (скан) — упадём в vision-ветку ниже.
+    }
+
+    // Текста нет или почти нет → пытаемся извлечь изображения для vision.
+    try {
+      const imgs = await documentToImages(f.name, buffer);
+      if (imgs.length > 0) {
+        images.push(...imgs);
+        const fmt = f.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'docx';
+        files.push({ filename: f.name, format: fmt as ParsedFileInfo['format'], size: f.size });
+      } else {
+        errors.push(`«${f.name}»: нет текстового слоя и не удалось извлечь изображения`);
+      }
     } catch (e) {
-      // Один битый файл не должен ломать весь пакет — копим ошибку и идём дальше.
       const msg = e instanceof Error ? e.message : String(e);
       errors.push(`«${f.name}»: ${msg}`);
     }
   }
 
-  if (parts.length === 0) {
-    // Все файлы провалились — это уже фатально.
-    throw new Error('Не удалось извлечь текст ни из одного файла:\n' + errors.join('\n'));
+  if (parts.length === 0 && images.length === 0) {
+    throw new Error('Не удалось извлечь ни текст, ни изображения:\n' + errors.join('\n'));
   }
 
   const text = parts.join('\n\n');
-  return { text, files };
+  return { text, files, images };
 }
 
 // ─── Проверка полноты карточки для автосабмита ───────────────────────────
@@ -152,18 +176,18 @@ export async function parseUploadedDocument(
   formData: FormData,
   ownerId?: string,
 ): Promise<ParseResponse> {
-  // 1. Извлечение текста пакета.
-  let pkg: { text: string; files: ParsedFileInfo[] };
+  // 1. Извлечение текста и/или изображений пакета.
+  let pkg: { text: string; files: ParsedFileInfo[]; images: KimiImage[] };
   try {
     pkg = await extractPackage(formData);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка извлечения текста' };
   }
 
-  // 2. Разбор ИИ.
+  // 2. Разбор ИИ: текст и/или сканы (vision через Kimi).
   let parsed: ParsedDocument;
   try {
-    parsed = await parseDocument(pkg.text);
+    parsed = await parseDocument({ text: pkg.text, images: pkg.images });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка разбора документа' };
   }

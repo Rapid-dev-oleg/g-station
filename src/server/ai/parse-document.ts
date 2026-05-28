@@ -9,6 +9,7 @@
  */
 
 import { askAi } from './index';
+import { askKimi, kimiAvailable, type KimiImage } from './kimi';
 import type {
   Meta,
   Scenario,
@@ -181,10 +182,12 @@ function buildPrompt(text: string): string {
 Включай в "input" и "meta" только реально извлечённые или обоснованно выведенные поля.
 Остальное не включай. Все допущения дублируй текстом в input.assumptions.
 
-ПАКЕТ ДОКУМЕНТОВ:
-"""
-${text}
-"""`;
+${
+  text
+    ? `ПАКЕТ ДОКУМЕНТОВ:\n"""\n${text}\n"""`
+    : `ПАКЕТ ДОКУМЕНТОВ приложен изображениями (сканы/фото страниц ТЗ).
+Внимательно прочитай весь текст на изображениях, включая таблицы, штампы и рукописные пометки.`
+}`;
 }
 
 // ── Разбор ответа модели ────────────────────────────────────────────────────
@@ -203,20 +206,51 @@ function extractJson(raw: string): unknown {
   return JSON.parse(body.slice(start, end + 1));
 }
 
+/** Источник для разбора: текстовый слой и/или изображения (сканы). */
+export interface ParseSource {
+  /** Извлечённый текст пакета (если есть текстовый слой). */
+  text?: string;
+  /** Изображения страниц/сканов (для документов без текста). */
+  images?: KimiImage[];
+}
+
 /**
- * Разбирает текст документа ТЗ в карточку параметров станции.
- * Делает запрос к ИИ (модель и ключ — из настроек) в JSON-режиме.
+ * Разбирает документ ТЗ в карточку параметров станции.
+ *
+ * Маршрутизация:
+ *  - есть текст → текстовый запрос;
+ *  - текста нет, есть картинки → vision-запрос к Kimi (kimi-for-coding);
+ *  - Kimi недоступен (нет MOONSHOT_API_KEY) → текстовый fallback на OpenRouter,
+ *    сканы без Kimi разобрать нельзя.
  */
-export async function parseDocument(text: string): Promise<ParsedDocument> {
-  if (!text || text.trim().length < 10) {
-    throw new Error('Текст документа слишком короткий для разбора');
+export async function parseDocument(source: ParseSource | string): Promise<ParsedDocument> {
+  // Обратная совместимость: раньше принимали просто строку текста.
+  const src: ParseSource = typeof source === 'string' ? { text: source } : source;
+  const hasText = Boolean(src.text && src.text.trim().length >= 10);
+  const hasImages = Boolean(src.images && src.images.length > 0);
+
+  if (!hasText && !hasImages) {
+    throw new Error('Нет ни текста, ни изображений для разбора документа');
   }
 
-  const { content } = await askAi({
-    system: SYSTEM_PROMPT,
-    prompt: buildPrompt(text),
-    jsonMode: true,
-  });
+  const prompt = buildPrompt(hasText ? src.text! : '');
+
+  let content: string;
+  if (kimiAvailable()) {
+    ({ content } = await askKimi({
+      system: SYSTEM_PROMPT,
+      prompt,
+      images: hasImages ? src.images : undefined,
+      maxTokens: 4000,
+    }));
+  } else {
+    if (!hasText) {
+      throw new Error(
+        'Документ без текстового слоя (скан) требует Kimi — задайте MOONSHOT_API_KEY',
+      );
+    }
+    ({ content } = await askAi({ system: SYSTEM_PROMPT, prompt, jsonMode: true }));
+  }
 
   let parsed: Record<string, unknown>;
   try {
