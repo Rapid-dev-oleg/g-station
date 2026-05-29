@@ -13,7 +13,7 @@ async function main(): Promise<void> {
   console.log(`=== pricing rows for ${caseId} ===`);
   for (const row of v?.pricing?.rows ?? []) {
     console.log(
-      `  ${row.position_group.padEnd(12)} price=${String(row.price ?? 0).padStart(10)} ${row.currency ?? 'RUB'} x${row.qty} => purchase=${row.purchase_cost}  | ${row.position_name}${row.price_note ? ` // ${row.price_note}` : ''}`,
+      `  ${(row.position_group ?? '').padEnd(12)} price=${String(row.price ?? 0).padStart(10)} ${row.currency ?? 'RUB'} x${row.qty} => purchase=${row.purchase_cost}  | ${row.position_name}${row.price_note ? ` // ${row.price_note}` : ''}`,
     );
   }
   console.log('total_cost:', v?.pricing?.total_cost);
