@@ -124,6 +124,7 @@ model Settings {
   defaultMarkup  Float?
   aiModel        String? // выбранная модель OpenRouter для парсинга документов
   openrouterKey  String? // ключ OpenRouter API
+  kimiKey        String? // ключ Kimi (api.kimi.com) для CLI-агента и парсинга сканов
   updatedAt      DateTime @updatedAt
 }
 

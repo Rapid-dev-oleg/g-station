@@ -75,6 +75,7 @@ export default async function SettingsPage() {
         <AiSettings
           initialKey={settings?.openrouterKey ?? ''}
           initialModel={settings?.aiModel ?? ''}
+          initialKimiKey={settings?.kimiKey ?? ''}
         />
       </div>
 

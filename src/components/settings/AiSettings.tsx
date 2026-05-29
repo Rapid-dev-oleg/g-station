@@ -24,12 +24,15 @@ const CONTROL: React.CSSProperties = {
 export function AiSettings({
   initialKey,
   initialModel,
+  initialKimiKey = '',
 }: {
   initialKey: string;
   initialModel: string;
+  initialKimiKey?: string;
 }) {
   const [apiKey, setApiKey] = useState(initialKey);
   const [model, setModel] = useState(initialModel || AI_MODELS[0].id);
+  const [kimiKey, setKimiKey] = useState(initialKimiKey);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<string | null>(null);
@@ -38,7 +41,7 @@ export function AiSettings({
   async function save() {
     setSaving(true);
     setSaved(false);
-    await updateAiSettings({ openrouterKey: apiKey, aiModel: model });
+    await updateAiSettings({ openrouterKey: apiKey, aiModel: model, kimiKey });
     setSaving(false);
     setSaved(true);
   }
@@ -85,6 +88,21 @@ export function AiSettings({
             </option>
           ))}
         </select>
+      </div>
+
+      <div style={FIELD}>
+        <label style={LABEL}>Ключ Kimi API (расчёт через скил, парсинг сканов)</label>
+        <input
+          style={CONTROL}
+          type="password"
+          value={kimiKey}
+          onChange={(e) => {
+            setKimiKey(e.target.value);
+            setSaved(false);
+          }}
+          placeholder="sk-kimi-..."
+          autoComplete="off"
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

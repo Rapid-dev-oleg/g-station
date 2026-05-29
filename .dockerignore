@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.env
+.env.local
+*.log
+prices/*.pdf
+prices/*.xlsx
+/tmp
+test-*.mjs
+test-*.ts

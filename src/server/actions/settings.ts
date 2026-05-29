@@ -4,14 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/server/db';
 import { chatCompletion, getAiConfig } from '@/server/ai';
 
-/** Сохранить настройки ИИ: ключ OpenRouter и выбранную модель. */
+/** Сохранить настройки ИИ: ключ OpenRouter, модель и ключ Kimi. */
 export async function updateAiSettings(input: {
   openrouterKey: string;
   aiModel: string;
+  kimiKey?: string;
 }): Promise<{ ok: boolean }> {
   const data = {
     openrouterKey: input.openrouterKey.trim() || null,
     aiModel: input.aiModel.trim() || null,
+    kimiKey: input.kimiKey?.trim() || null,
   };
   await db.settings.upsert({
     where: { id: 'singleton' },
