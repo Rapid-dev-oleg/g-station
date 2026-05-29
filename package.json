@@ -15,7 +15,8 @@
     "ab:5.7": "tsx scripts/ab-rule-5.7.ts",
     "ab:collector": "tsx scripts/ab-rule-collector.ts",
     "ab:3.9-a": "tsx scripts/ab-rule-3.9-a.ts",
-    "ab:3.10": "tsx scripts/ab-rule-3.10.ts"
+    "ab:3.10": "tsx scripts/ab-rule-3.10.ts",
+    "kimi:calc": "tsx scripts/kimi-calc.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",

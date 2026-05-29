@@ -103,6 +103,9 @@ model System {
   engineerId  String?
   status      SystemStatus @default(INPUT)
   dossier     Json // расчётное дело (Dossier), валидируется JSON Schema
+  kimiCalc    Json? // кеш расчёта Kimi-агента (расчётное дело по скилу)
+  kimiCalcHash String? // хеш карточки на момент расчёта — для инвалидации кеша
+  approvedSnapshot Json? // замороженные утверждённые данные (для ТКП/сметы)
   totalCost   Float? // зеркало dossier для списков
   clientPrice Float?
   createdAt   DateTime     @default(now())

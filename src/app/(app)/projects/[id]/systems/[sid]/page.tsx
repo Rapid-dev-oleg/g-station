@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, IconArrowLeft, IconArrowRight } from '@/components/ui';
 import { SystemWizard } from '@/components/wizard/SystemWizard';
+import { KimiCalcPanel } from '@/components/calc/KimiCalcPanel';
 import { getSystem } from '@/server/services/systems';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,14 @@ export default async function SystemWizardPage({
         initialMeta={system.dossier.meta}
         initialInput={station.input}
       />
+      <div style={{ marginTop: 20 }}>
+        <KimiCalcPanel
+          systemId={sid}
+          initialOutput={
+            (system.kimiCalc as { output?: string } | null | undefined)?.output
+          }
+        />
+      </div>
     </>
   );
 }
