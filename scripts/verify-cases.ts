@@ -172,7 +172,7 @@ function compareStation(
   const hCalc = mv(calc.calc?.H_target);
 
   // схема
-  const schemeCalc = calc.input.reservation_scheme;
+  const schemeCalc = calc.input.reservation_scheme ?? '1/1';
 
   // число насосов
   const pumpsCalc = calc.variants?.[0]?.equipment?.main_pump?.qty ?? null;

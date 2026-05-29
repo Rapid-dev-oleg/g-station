@@ -142,7 +142,7 @@ export const fireModule = {
     rules?: Rules,
   ): Equipment {
     const eq: Equipment = { ...(variant.equipment ?? {}) };
-    const scheme = variant.reservation_scheme ?? input.reservation_scheme;
+    const scheme = variant.reservation_scheme ?? input.reservation_scheme ?? '1/1';
     const motorKw = eq.main_pump?.motor_power?.value ?? null;
     const isUnderground =
       input.station_enclosure === 'подземное-стеклопластик' ||
@@ -237,7 +237,7 @@ export const fireModule = {
   // ─── Раздел 6 — Особенности оформления ────────────────────────────────
   codeSegments(station: Station, variant: Variant): NonNullable<Output['code_segments']> {
     const { input } = station;
-    const scheme = variant.reservation_scheme ?? input.reservation_scheme;
+    const scheme = variant.reservation_scheme ?? input.reservation_scheme ?? '1/1';
     const regulation = regulationCode(input.start_type ?? null);
 
     const options: string[] = [];

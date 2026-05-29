@@ -144,19 +144,16 @@ async function extractPackage(formData: FormData): Promise<{
  * Обязательные поля карточки (по методике pump-station-calc, шаг1-вход.md).
  * Если эти поля заполнены — автосабмит безопасно проходит, иначе показываем ревью.
  *
- * Используем мягкий список: purpose, Q, H, reservation_scheme — самое
- * критичное (без них расчёт не запустится).
+ * Критичный вход — только purpose, Q, H (без них расчёт не запустить).
+ * Схему резервирования, мощность, DN и т.п. определяет расчёт по методике —
+ * их НЕ требуем на входе.
  */
 function isCardComplete(input: Partial<StationInput>, missing: string[]): boolean {
   if (missing.length > 0) {
-    // Если модель сама пометила что-то как missing — без автосабмита.
-    const criticalMissing = missing.some((m) =>
-      /^(purpose|Q|H|reservation_scheme|fire_params\.fire_)/i.test(m.trim()),
-    );
+    const criticalMissing = missing.some((m) => /^(purpose|Q|H)$/i.test(m.trim()));
     if (criticalMissing) return false;
   }
   if (!input.purpose) return false;
-  if (!input.reservation_scheme) return false;
   if (!input.Q || input.Q.value === null || input.Q.value === undefined) return false;
   if (!input.H || input.H.value === null || input.H.value === undefined) return false;
   return true;

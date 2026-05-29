@@ -138,7 +138,9 @@ export interface StationInput {
   H: Measured;
   system_pressure?: Measured;
   inlet_pressure?: Measured;
-  reservation_scheme: ReservationScheme;
+  /** Схема резервирования. Опциональна на входе — определяется расчётом
+   *  (методика: дефолт 1/1, 2/1 по правилу 1.3). */
+  reservation_scheme?: ReservationScheme;
   working_pumps?: number;
   reserve_pumps?: number;
   jockey_required?: boolean;

@@ -72,12 +72,15 @@ const LABELS: Record<string, string> = {
 
 const lbl = (v?: string | null) => (v ? LABELS[v] ?? v : '—');
 
-/** Обязательные поля карточки (по JSON Schema input.required + базовые). */
+/**
+ * Обязательные поля ВХОДА — только то, что не выводится расчётом.
+ * Схему резервирования, мощность, DN коллектора, тип пуска и т.п. определяет
+ * расчёт по методике — их НЕ требуем на входе.
+ */
 const REQUIRED_FIELDS: { key: keyof StationInput; label: string }[] = [
   { key: 'purpose', label: 'Назначение станции' },
   { key: 'Q', label: 'Подача Q' },
   { key: 'H', label: 'Напор H' },
-  { key: 'reservation_scheme', label: 'Схема резервирования' },
 ];
 
 /** Опции для Select-полей карточки. */
@@ -667,8 +670,7 @@ export function IntakeFlow({
             />
             <Select
               label="Схема резервирования"
-              required
-              placeholder="— выберите схему —"
+              placeholder="— определит расчёт —"
               options={RESERVATION_OPTIONS}
               value={input.reservation_scheme ?? ''}
               onChange={(e) =>

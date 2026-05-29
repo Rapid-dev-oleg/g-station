@@ -51,7 +51,7 @@ export function processVariant3(
   const { input, calc } = station;
   if (!calc) return;
 
-  const scheme = variant.reservation_scheme ?? input.reservation_scheme;
+  const scheme = variant.reservation_scheme ?? input.reservation_scheme ?? '1/1';
   const nPumps = pumpCount(scheme);
   const qWp = calc.working_point?.Q?.value ?? input.Q?.value ?? 0;
   const hWp = calc.working_point?.H?.value ?? input.H?.value ?? 0;

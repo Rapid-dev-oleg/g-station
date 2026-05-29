@@ -4,162 +4,368 @@
   "title": "Расчётное дело насосной станции",
   "description": "Черновая схема (v0.2). Растущий документ конвейера 5 шагов: каждый шаг наполняет свою секцию. Выведена из 45 кейсов, обкатана на 6. Ключи — латиницей (для тулинга), человекочитаемые подписи — в title/description. ВАЖНО: документ заполняется прогрессивно, поэтому схема проверяет ФОРМУ данных, а не полноту по шагам — полноту контролируют скилы-шаги (см. README).",
   "type": "object",
-  "required": ["meta", "stations"],
+  "required": [
+    "meta",
+    "stations"
+  ],
   "properties": {
-    "meta": { "$ref": "#/$defs/meta" },
+    "meta": {
+      "$ref": "#/$defs/meta"
+    },
     "stations": {
       "title": "Станции",
       "description": "Кейс может содержать несколько независимых станций (групп насосов).",
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/station" }
+      "items": {
+        "$ref": "#/$defs/station"
+      }
     }
   },
-
   "$defs": {
-
     "measured": {
       "title": "Измеримая величина с провенансом",
       "description": "Значение + единица + источник. Позволяет оператору видеть, что извлечено, а что выведено/допущено.",
       "type": "object",
-      "required": ["value"],
+      "required": [
+        "value"
+      ],
       "properties": {
-        "value": { "type": ["number", "null"], "description": "Числовое значение" },
-        "unit": { "type": "string", "description": "Единица измерения (м³/ч, м, кВт, м³, мм, ₽ ...)" },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Числовое значение"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Единица измерения (м³/ч, м, кВт, м³, мм, ₽ ...)"
+        },
         "source": {
           "title": "Источник значения",
-          "enum": ["extracted", "derived", "assumed", "operator", "calculated", "default"],
+          "enum": [
+            "extracted",
+            "derived",
+            "assumed",
+            "operator",
+            "calculated",
+            "default"
+          ],
           "description": "extracted — извлечено из ТЗ; derived — выведено из косвенных данных; assumed — допущение; operator — введено оператором; calculated — расчёт шага 2+; default — значение по умолчанию"
         },
-        "note": { "type": "string", "description": "Примечание / обоснование" }
+        "note": {
+          "type": "string",
+          "description": "Примечание / обоснование"
+        }
       }
     },
-
     "meta": {
       "title": "Шаг 0 — Метаданные кейса",
       "type": "object",
-      "required": ["case_id", "scenario"],
+      "required": [
+        "case_id",
+        "scenario"
+      ],
       "properties": {
-        "case_id": { "type": "string", "title": "Идентификатор кейса/заказа" },
-        "object_name": { "type": "string", "title": "Наименование объекта" },
-        "customer": { "type": "string", "title": "Заказчик" },
-        "engineer": { "type": "string", "title": "Инженер-расчётчик" },
+        "case_id": {
+          "type": "string",
+          "title": "Идентификатор кейса/заказа"
+        },
+        "object_name": {
+          "type": "string",
+          "title": "Наименование объекта"
+        },
+        "customer": {
+          "type": "string",
+          "title": "Заказчик"
+        },
+        "engineer": {
+          "type": "string",
+          "title": "Инженер-расчётчик"
+        },
         "scenario": {
           "title": "Сценарий расчёта",
-          "enum": ["подбор-с-нуля", "проверка-чужого-подбора", "подбор-на-аналог", "замена-конкурента", "торги-аукцион", "переторжка", "два-исполнения", "пересчёт-под-новый-СП"]
+          "enum": [
+            "подбор-с-нуля",
+            "проверка-чужого-подбора",
+            "подбор-на-аналог",
+            "замена-конкурента",
+            "торги-аукцион",
+            "переторжка",
+            "два-исполнения",
+            "пересчёт-под-новый-СП"
+          ]
         },
         "input_format": {
           "title": "Форматы входных документов",
           "type": "array",
-          "items": { "enum": ["формальное-ТЗ-docx", "опросный-лист", "проект-РД", "ВОР", "заметка-txt", "ТКП-конкурента", "чужая-установка", "фото", "скан-без-текста"] }
+          "items": {
+            "enum": [
+              "формальное-ТЗ-docx",
+              "опросный-лист",
+              "проект-РД",
+              "ВОР",
+              "заметка-txt",
+              "ТКП-конкурента",
+              "чужая-установка",
+              "фото",
+              "скан-без-текста"
+            ]
+          }
         },
         "output_format": {
           "title": "Запрошенный формат КП",
-          "enum": ["ТП+смета", "ТКП-без-технички", "только-смета", "ТП+смета+чертёж-DWG"]
+          "enum": [
+            "ТП+смета",
+            "ТКП-без-технички",
+            "только-смета",
+            "ТП+смета+чертёж-DWG"
+          ]
         },
         "variants_requested": {
           "title": "Запрошенные оси вариативности",
           "type": "array",
-          "items": { "enum": ["по-производителю", "по-исполнению", "по-схеме", "по-поставщику-резервуаров", "по-корпусу"] }
+          "items": {
+            "enum": [
+              "по-производителю",
+              "по-исполнению",
+              "по-схеме",
+              "по-поставщику-резервуаров",
+              "по-корпусу"
+            ]
+          }
         },
         "budget_cap": {
           "title": "Бюджетный потолок клиента",
           "type": "object",
           "properties": {
-            "sale": { "type": "number", "title": "Цена продажи, ₽" },
-            "limit": { "type": "number", "title": "Крайняя цена, ₽" }
+            "sale": {
+              "type": "number",
+              "title": "Цена продажи, ₽"
+            },
+            "limit": {
+              "type": "number",
+              "title": "Крайняя цена, ₽"
+            }
           }
         },
-        "deadline": { "type": "string", "title": "Срок поставки" },
+        "deadline": {
+          "type": "string",
+          "title": "Срок поставки"
+        },
         "analog_reference": {
           "title": "Эталон-аналог (для сценариев аналог/замена)",
           "type": "object",
           "properties": {
-            "name": { "type": "string", "title": "Марка чужой установки/КП" },
-            "competitor_price": { "type": "number", "title": "Цена конкурента, ₽" },
-            "Q": { "$ref": "#/$defs/measured" },
-            "H": { "$ref": "#/$defs/measured" }
+            "name": {
+              "type": "string",
+              "title": "Марка чужой установки/КП"
+            },
+            "competitor_price": {
+              "type": "number",
+              "title": "Цена конкурента, ₽"
+            },
+            "Q": {
+              "$ref": "#/$defs/measured"
+            },
+            "H": {
+              "$ref": "#/$defs/measured"
+            }
           }
         }
       }
     },
-
     "station": {
       "title": "Станция (единица расчёта)",
       "type": "object",
-      "required": ["input"],
+      "required": [
+        "input"
+      ],
       "properties": {
-        "input": { "$ref": "#/$defs/input" },
-        "calc": { "$ref": "#/$defs/calc" },
+        "input": {
+          "$ref": "#/$defs/input"
+        },
+        "calc": {
+          "$ref": "#/$defs/calc"
+        },
         "variants": {
           "title": "Варианты исполнения станции (1..5 альтернатив)",
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/variant" }
+          "items": {
+            "$ref": "#/$defs/variant"
+          }
         },
-        "output": { "$ref": "#/$defs/output" }
+        "output": {
+          "$ref": "#/$defs/output"
+        }
       },
       "$comment": "Контракт типа (какие поля обязательны для пожарной / водоснабжения и т.п.) НЕ выражается жёстким if/then в схеме: документ растёт по шагам, и поле calc законно отсутствует до выполнения шага 2. Обкатка на 6 кейсах показала, что hard-required ломает прогрессивный документ. Полноту по типу проверяет скил-шаг, опираясь на модуль типа."
     },
-
     "input": {
       "title": "Шаг 1 — Входные параметры (карточка из ТЗ)",
       "description": "Заполняется шагом 1 (извлечение). Редактируется оператором на гейте 1.",
       "type": "object",
-      "required": ["station_type", "purpose", "Q", "H", "reservation_scheme"],
+      "required": [
+        "station_type",
+        "purpose",
+        "Q",
+        "H"
+      ],
       "properties": {
         "station_type": {
           "title": "Тип станции (диспетчер модуля)",
-          "enum": ["fire", "water", "power"],
+          "enum": [
+            "fire",
+            "water",
+            "power"
+          ],
           "description": "fire — G-Fire (пожарная); water — G-Water (хоз-питьевое/повышение давления); power — G-Power"
         },
         "purpose": {
           "title": "Назначение",
-          "enum": ["наружное-ПТ", "ВПВ", "АУПТ", "пожаротушение-общее", "хоз-питьевое", "повышение-давления", "береговая-ПНС"]
+          "enum": [
+            "наружное-ПТ",
+            "ВПВ",
+            "АУПТ",
+            "пожаротушение-общее",
+            "хоз-питьевое",
+            "повышение-давления",
+            "береговая-ПНС"
+          ]
         },
-        "Q": { "$ref": "#/$defs/measured", "title": "Расход станции (м³/ч; если задан в л/с — указать unit и пересчёт)" },
-        "H": { "$ref": "#/$defs/measured", "title": "Напор станции, м" },
-        "system_pressure": { "$ref": "#/$defs/measured", "title": "Давление в системе (бар/МПа) — альтернатива напору" },
-        "inlet_pressure": { "$ref": "#/$defs/measured", "title": "Гарантированный напор на вводе, м (часто допущение)" },
+        "Q": {
+          "$ref": "#/$defs/measured",
+          "title": "Расход станции (м³/ч; если задан в л/с — указать unit и пересчёт)"
+        },
+        "H": {
+          "$ref": "#/$defs/measured",
+          "title": "Напор станции, м"
+        },
+        "system_pressure": {
+          "$ref": "#/$defs/measured",
+          "title": "Давление в системе (бар/МПа) — альтернатива напору"
+        },
+        "inlet_pressure": {
+          "$ref": "#/$defs/measured",
+          "title": "Гарантированный напор на вводе, м (часто допущение)"
+        },
         "reservation_scheme": {
           "title": "Схема резервирования",
-          "enum": ["1/0", "1/1", "2/1", "2/2", "3/1"]
+          "enum": [
+            "1/0",
+            "1/1",
+            "2/1",
+            "2/2",
+            "3/1"
+          ]
         },
-        "working_pumps": { "type": "integer", "title": "Рабочих насосов", "minimum": 1 },
-        "reserve_pumps": { "type": "integer", "title": "Резервных насосов", "minimum": 0 },
-        "jockey_required": { "type": "boolean", "title": "Нужен жокей-насос" },
-        "jockey_Q": { "$ref": "#/$defs/measured", "title": "Расход жокея, м³/ч (если задан)" },
-        "jockey_H": { "$ref": "#/$defs/measured", "title": "Напор жокея, м (если задан)" },
+        "working_pumps": {
+          "type": "integer",
+          "title": "Рабочих насосов",
+          "minimum": 1
+        },
+        "reserve_pumps": {
+          "type": "integer",
+          "title": "Резервных насосов",
+          "minimum": 0
+        },
+        "jockey_required": {
+          "type": "boolean",
+          "title": "Нужен жокей-насос"
+        },
+        "jockey_Q": {
+          "$ref": "#/$defs/measured",
+          "title": "Расход жокея, м³/ч (если задан)"
+        },
+        "jockey_H": {
+          "$ref": "#/$defs/measured",
+          "title": "Напор жокея, м (если задан)"
+        },
         "start_type": {
           "title": "Тип пуска двигателя",
-          "enum": ["прямой", "плавный", "частотный", "каскадный"]
+          "enum": [
+            "прямой",
+            "плавный",
+            "частотный",
+            "каскадный"
+          ]
         },
         "collector_material": {
           "title": "Материал коллектора",
-          "enum": ["углеродистая-сталь", "нержавеющая-сталь"]
+          "enum": [
+            "углеродистая-сталь",
+            "нержавеющая-сталь"
+          ]
         },
         "station_enclosure": {
           "title": "Исполнение / корпус станции",
-          "enum": ["моноблок-на-раме", "технологический-павильон", "блок-бокс", "подземное-стеклопластик", "стеклопластиковый-колодец", "в-чужом-резервуаре", "береговой-модуль"]
+          "enum": [
+            "моноблок-на-раме",
+            "технологический-павильон",
+            "блок-бокс",
+            "подземное-стеклопластик",
+            "стеклопластиковый-колодец",
+            "в-чужом-резервуаре",
+            "береговой-модуль"
+          ]
         },
         "installation_place": {
           "title": "Место установки",
-          "enum": ["в-помещении", "под-заливом", "заглублённая", "на-берегу"]
+          "enum": [
+            "в-помещении",
+            "под-заливом",
+            "заглублённая",
+            "на-берегу"
+          ]
         },
         "pump_type_required": {
           "title": "Требуемый конструктив насоса",
           "type": "array",
-          "items": { "enum": ["вертикальный", "горизонтальный", "ин-лайн", "центробежный", "многоступенчатый", "одноступенчатый", "самовсасывающий", "консольный", "моноблочный", "двойного-всасывания"] }
+          "items": {
+            "enum": [
+              "вертикальный",
+              "горизонтальный",
+              "ин-лайн",
+              "центробежный",
+              "многоступенчатый",
+              "одноступенчатый",
+              "самовсасывающий",
+              "консольный",
+              "моноблочный",
+              "двойного-всасывания"
+            ]
+          }
         },
         "reservoirs": {
           "title": "Резервуары запаса воды",
           "type": "object",
           "properties": {
-            "required": { "type": "boolean", "title": "Нужны резервуары" },
-            "count": { "type": "integer", "title": "Количество" },
-            "volume": { "$ref": "#/$defs/measured", "title": "Объём одного, м³" },
-            "material": { "enum": ["сборный-металл", "стеклопластик", "бетонный-чужой"], "title": "Материал" },
-            "volume_given": { "type": "boolean", "title": "Объём задан в ТЗ (иначе считается по СП на шаге 2)" }
+            "required": {
+              "type": "boolean",
+              "title": "Нужны резервуары"
+            },
+            "count": {
+              "type": "integer",
+              "title": "Количество"
+            },
+            "volume": {
+              "$ref": "#/$defs/measured",
+              "title": "Объём одного, м³"
+            },
+            "material": {
+              "enum": [
+                "сборный-металл",
+                "стеклопластик",
+                "бетонный-чужой"
+              ],
+              "title": "Материал"
+            },
+            "volume_given": {
+              "type": "boolean",
+              "title": "Объём задан в ТЗ (иначе считается по СП на шаге 2)"
+            }
           }
         },
         "fire_params": {
@@ -167,115 +373,245 @@
           "description": "Контракт типа «пожарные». Для других типов секция не используется.",
           "type": "object",
           "properties": {
-            "fire_duration": { "$ref": "#/$defs/measured", "title": "Продолжительность тушения, ч" },
-            "fire_flow_rate": { "$ref": "#/$defs/measured", "title": "Расход на тушение, л/с" },
-            "streams_count": { "type": "integer", "title": "Число расчётных струй (ВПВ)" },
-            "stream_flow": { "$ref": "#/$defs/measured", "title": "Расход одной струи, л/с" },
-            "replenishment_time": { "$ref": "#/$defs/measured", "title": "Время восполнения запаса, ч" }
+            "fire_duration": {
+              "$ref": "#/$defs/measured",
+              "title": "Продолжительность тушения, ч"
+            },
+            "fire_flow_rate": {
+              "$ref": "#/$defs/measured",
+              "title": "Расход на тушение, л/с"
+            },
+            "streams_count": {
+              "type": "integer",
+              "title": "Число расчётных струй (ВПВ)"
+            },
+            "stream_flow": {
+              "$ref": "#/$defs/measured",
+              "title": "Расход одной струи, л/с"
+            },
+            "replenishment_time": {
+              "$ref": "#/$defs/measured",
+              "title": "Время восполнения запаса, ч"
+            }
           }
         },
         "power_supply": {
           "title": "Электроснабжение",
           "type": "object",
           "properties": {
-            "category": { "enum": ["I", "II", "III"], "title": "Категория надёжности" },
-            "inputs": { "type": "integer", "title": "Число вводов" },
-            "avr": { "type": "boolean", "title": "АВР" },
-            "voltage": { "type": "string", "title": "Напряжение/частота" },
-            "from_generator": { "type": "boolean", "title": "Питание от генератора/ДГУ (влияет на способ пуска)" },
-            "start_current_limit": { "type": "string", "title": "Ограничение пускового тока / просадки по ТУ (если задано)" }
+            "category": {
+              "enum": [
+                "I",
+                "II",
+                "III"
+              ],
+              "title": "Категория надёжности"
+            },
+            "inputs": {
+              "type": "integer",
+              "title": "Число вводов"
+            },
+            "avr": {
+              "type": "boolean",
+              "title": "АВР"
+            },
+            "voltage": {
+              "type": "string",
+              "title": "Напряжение/частота"
+            },
+            "from_generator": {
+              "type": "boolean",
+              "title": "Питание от генератора/ДГУ (влияет на способ пуска)"
+            },
+            "start_current_limit": {
+              "type": "string",
+              "title": "Ограничение пускового тока / просадки по ТУ (если задано)"
+            }
           }
         },
         "limits": {
           "title": "Ограничения",
           "type": "object",
           "properties": {
-            "motor_power": { "$ref": "#/$defs/measured", "title": "Лимит мощности двигателя, кВт" },
-            "dimensions": { "type": "string", "title": "Габариты ДхШхВ, мм" },
-            "weight": { "$ref": "#/$defs/measured", "title": "Лимит массы, кг" },
-            "noise": { "$ref": "#/$defs/measured", "title": "Лимит шума, дБА" }
+            "motor_power": {
+              "$ref": "#/$defs/measured",
+              "title": "Лимит мощности двигателя, кВт"
+            },
+            "dimensions": {
+              "type": "string",
+              "title": "Габариты ДхШхВ, мм"
+            },
+            "weight": {
+              "$ref": "#/$defs/measured",
+              "title": "Лимит массы, кг"
+            },
+            "noise": {
+              "$ref": "#/$defs/measured",
+              "title": "Лимит шума, дБА"
+            }
           }
         },
         "dispatch_requirements": {
           "title": "Требования к диспетчеризации",
           "type": "array",
-          "items": { "enum": ["ModBus", "RS-485", "Ethernet", "GSM/GPRS", "сухие-контакты", "сигналы-задвижек"] }
+          "items": {
+            "enum": [
+              "ModBus",
+              "RS-485",
+              "Ethernet",
+              "GSM/GPRS",
+              "сухие-контакты",
+              "сигналы-задвижек"
+            ]
+          }
         },
-        "climate_execution": { "enum": ["стандарт", "У-1", "УХЛ1", "УХЛ4"], "title": "Климатическое исполнение" },
-        "ip_rating": { "enum": ["IP54", "IP55", "IP65"], "title": "Степень защиты" },
+        "climate_execution": {
+          "enum": [
+            "стандарт",
+            "У-1",
+            "УХЛ1",
+            "УХЛ4"
+          ],
+          "title": "Климатическое исполнение"
+        },
+        "ip_rating": {
+          "enum": [
+            "IP54",
+            "IP55",
+            "IP65"
+          ],
+          "title": "Степень защиты"
+        },
         "manufacturer_preference": {
           "title": "Предпочтения по производителю насоса",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "pumping_medium": {
           "title": "Перекачиваемая среда",
           "type": "object",
           "properties": {
-            "medium": { "type": "string" },
-            "temperature": { "$ref": "#/$defs/measured" },
-            "density": { "$ref": "#/$defs/measured" }
+            "medium": {
+              "type": "string"
+            },
+            "temperature": {
+              "$ref": "#/$defs/measured"
+            },
+            "density": {
+              "$ref": "#/$defs/measured"
+            }
           }
         },
         "assumptions": {
           "title": "Принятые допущения",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "special_requirements": {
           "title": "Особые требования ТЗ",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
-
     "calc": {
       "title": "Шаг 2 — Расчётные характеристики",
       "description": "Заполняется шагом 2. Все значения с source=calculated.",
       "type": "object",
       "properties": {
-        "Q_target": { "$ref": "#/$defs/measured", "title": "Целевой расход станции, м³/ч" },
-        "H_target": { "$ref": "#/$defs/measured", "title": "Целевой напор = H требуемый − H на вводе, м" },
+        "Q_target": {
+          "$ref": "#/$defs/measured",
+          "title": "Целевой расход станции, м³/ч"
+        },
+        "H_target": {
+          "$ref": "#/$defs/measured",
+          "title": "Целевой напор = H требуемый − H на вводе, м"
+        },
         "working_point": {
           "title": "Рабочая точка ТП (с запасом +5–10 %)",
           "type": "object",
           "properties": {
-            "Q": { "$ref": "#/$defs/measured" },
-            "H": { "$ref": "#/$defs/measured" },
-            "reserve_margin": { "$ref": "#/$defs/measured", "title": "Заложенный запас, %" }
+            "Q": {
+              "$ref": "#/$defs/measured"
+            },
+            "H": {
+              "$ref": "#/$defs/measured"
+            },
+            "reserve_margin": {
+              "$ref": "#/$defs/measured",
+              "title": "Заложенный запас, %"
+            }
           }
         },
-        "fire_reserve_volume": { "$ref": "#/$defs/measured", "title": "Объём пож. запаса = расход×время, м³ (только fire)" },
-        "reservoir_volume_rounded": { "$ref": "#/$defs/measured", "title": "Объём резервуара после округления по СП, м³" },
-        "collector_D_suction": { "$ref": "#/$defs/measured", "title": "Диаметр всасывающего коллектора, DN мм" },
-        "collector_D_discharge": { "$ref": "#/$defs/measured", "title": "Диаметр напорного коллектора, DN мм" },
-        "jockey_Q_calc": { "$ref": "#/$defs/measured", "title": "Расчётный расход жокея (3–5 м³/ч)" },
-        "jockey_H_calc": { "$ref": "#/$defs/measured", "title": "Расчётный напор жокея = H+10 м" },
+        "fire_reserve_volume": {
+          "$ref": "#/$defs/measured",
+          "title": "Объём пож. запаса = расход×время, м³ (только fire)"
+        },
+        "reservoir_volume_rounded": {
+          "$ref": "#/$defs/measured",
+          "title": "Объём резервуара после округления по СП, м³"
+        },
+        "collector_D_suction": {
+          "$ref": "#/$defs/measured",
+          "title": "Диаметр всасывающего коллектора, DN мм"
+        },
+        "collector_D_discharge": {
+          "$ref": "#/$defs/measured",
+          "title": "Диаметр напорного коллектора, DN мм"
+        },
+        "jockey_Q_calc": {
+          "$ref": "#/$defs/measured",
+          "title": "Расчётный расход жокея (3–5 м³/ч)"
+        },
+        "jockey_H_calc": {
+          "$ref": "#/$defs/measured",
+          "title": "Расчётный напор жокея = H+10 м"
+        },
         "applicable_norms": {
           "title": "Применимые нормы",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
-
     "variant": {
       "title": "Вариант станции (шаги 3–4)",
       "type": "object",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
-        "name": { "type": "string", "title": "Название варианта" },
+        "name": {
+          "type": "string",
+          "title": "Название варианта"
+        },
         "reservation_scheme": {
           "title": "Схема резервирования варианта",
           "description": "Заполняется, если вариант исследует ИНУЮ схему, чем в input (веер вариантов с разной архитектурой: 2/1 vs 1/1).",
-          "enum": ["1/0", "1/1", "2/1", "2/2", "3/1"]
+          "enum": [
+            "1/0",
+            "1/1",
+            "2/1",
+            "2/2",
+            "3/1"
+          ]
         },
-        "equipment": { "$ref": "#/$defs/equipment" },
-        "pricing": { "$ref": "#/$defs/pricing" }
+        "equipment": {
+          "$ref": "#/$defs/equipment"
+        },
+        "pricing": {
+          "$ref": "#/$defs/pricing"
+        }
       }
     },
-
     "equipment": {
       "title": "Шаг 3 — Подобранное оборудование",
       "type": "object",
@@ -284,85 +620,209 @@
           "title": "Основной насос",
           "type": "object",
           "properties": {
-            "brand": { "type": "string", "title": "Бренд (CNP, Wilo, Wellmix, aikon, Masdaf, ...)" },
-            "model": { "type": "string", "title": "Артикул/марка" },
-            "qty": { "type": "integer", "title": "Количество (раб+рез)" },
-            "motor_power": { "$ref": "#/$defs/measured", "title": "Мощность двигателя, кВт" },
-            "energy_class": { "enum": ["IE2", "IE3"] },
-            "construction": { "type": "string", "title": "Конструктив" },
-            "nozzle_suction": { "$ref": "#/$defs/measured", "title": "Патрубок всасывающий, DN" },
-            "nozzle_discharge": { "$ref": "#/$defs/measured", "title": "Патрубок напорный, DN" },
-            "in_stock": { "type": "string", "title": "Наличие на складе" }
+            "brand": {
+              "type": "string",
+              "title": "Бренд (CNP, Wilo, Wellmix, aikon, Masdaf, ...)"
+            },
+            "model": {
+              "type": "string",
+              "title": "Артикул/марка"
+            },
+            "qty": {
+              "type": "integer",
+              "title": "Количество (раб+рез)"
+            },
+            "motor_power": {
+              "$ref": "#/$defs/measured",
+              "title": "Мощность двигателя, кВт"
+            },
+            "energy_class": {
+              "enum": [
+                "IE2",
+                "IE3"
+              ]
+            },
+            "construction": {
+              "type": "string",
+              "title": "Конструктив"
+            },
+            "nozzle_suction": {
+              "$ref": "#/$defs/measured",
+              "title": "Патрубок всасывающий, DN"
+            },
+            "nozzle_discharge": {
+              "$ref": "#/$defs/measured",
+              "title": "Патрубок напорный, DN"
+            },
+            "in_stock": {
+              "type": "string",
+              "title": "Наличие на складе"
+            }
           }
         },
         "jockey_pump": {
           "title": "Жокей-насос",
           "type": "object",
           "properties": {
-            "brand": { "type": "string" },
-            "model": { "type": "string" },
-            "motor_power": { "$ref": "#/$defs/measured" }
+            "brand": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "motor_power": {
+              "$ref": "#/$defs/measured"
+            }
           }
         },
-        "drainage_pump": { "type": "string", "title": "Дренажный насос (для подземного/под заливом)" },
-        "vacuum_pump": { "type": "string", "title": "Вакуумный насос (для береговой/самовсасывающей)" },
-        "compressor": { "type": "string", "title": "Компрессор / узел подачи воздуха (воздушная АУПТ)" },
+        "drainage_pump": {
+          "type": "string",
+          "title": "Дренажный насос (для подземного/под заливом)"
+        },
+        "vacuum_pump": {
+          "type": "string",
+          "title": "Вакуумный насос (для береговой/самовсасывающей)"
+        },
+        "compressor": {
+          "type": "string",
+          "title": "Компрессор / узел подачи воздуха (воздушная АУПТ)"
+        },
         "control_cabinet": {
           "title": "Шкаф управления (ШУ)",
           "type": "object",
           "properties": {
-            "brand": { "enum": ["Шторм", "Омега", "Рутек", "G-Control", "нет"], "title": "Бренд ШУ (нет = опция 05)" },
-            "series": { "type": "string", "title": "Серия (ШУФ, ШУФС, ШУЧ, ШУС, АШУ40 ...)" },
-            "rated_power": { "$ref": "#/$defs/measured", "title": "Номинал по мощности, кВт" },
-            "options": { "type": "array", "items": { "type": "string" }, "title": "Опции (АВР, Жн, Пз, Эз, Д, SF, PTC, ENS, УХЛ1 ...)" }
+            "brand": {
+              "enum": [
+                "Шторм",
+                "Омега",
+                "Рутек",
+                "G-Control",
+                "нет"
+              ],
+              "title": "Бренд ШУ (нет = опция 05)"
+            },
+            "series": {
+              "type": "string",
+              "title": "Серия (ШУФ, ШУФС, ШУЧ, ШУС, АШУ40 ...)"
+            },
+            "rated_power": {
+              "$ref": "#/$defs/measured",
+              "title": "Номинал по мощности, кВт"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "title": "Опции (АВР, Жн, Пз, Эз, Д, SF, PTC, ENS, УХЛ1 ...)"
+            }
           }
         },
         "collector": {
           "title": "Коллектор",
           "type": "object",
           "properties": {
-            "code": { "type": "string", "title": "Шифр Dв/Dн-N-dв/dн или короткий D-N-d" },
-            "material": { "enum": ["углеродистая-сталь", "нержавеющая-сталь"] },
-            "pipe_spec": { "type": "string", "title": "Труба (∅, ГОСТ)" }
+            "code": {
+              "type": "string",
+              "title": "Шифр Dв/Dн-N-dв/dн или короткий D-N-d"
+            },
+            "material": {
+              "enum": [
+                "углеродистая-сталь",
+                "нержавеющая-сталь"
+              ]
+            },
+            "pipe_spec": {
+              "type": "string",
+              "title": "Труба (∅, ГОСТ)"
+            }
           }
         },
         "valves": {
           "title": "Арматура",
           "type": "object",
           "properties": {
-            "check_valve": { "type": "string", "title": "Обратный клапан (DN, кол-во)" },
-            "disc_valve": { "type": "string", "title": "Дисковые затворы (DN, кол-во)" },
-            "electric_valve": { "type": "string", "title": "Электрозадвижка (опция 06)" }
+            "check_valve": {
+              "type": "string",
+              "title": "Обратный клапан (DN, кол-во)"
+            },
+            "disc_valve": {
+              "type": "string",
+              "title": "Дисковые затворы (DN, кол-во)"
+            },
+            "electric_valve": {
+              "type": "string",
+              "title": "Электрозадвижка (опция 06)"
+            }
           }
         },
         "instrumentation": {
           "title": "КИП и доп. оборудование",
           "type": "object",
           "properties": {
-            "flow_relay": { "type": "string", "title": "Реле потока" },
-            "pressure_relay": { "type": "string", "title": "Реле давления" },
-            "manometer": { "type": "string", "title": "Манометры" },
-            "membrane_tank": { "type": "string", "title": "Мембранный бак" },
-            "level_sensor": { "type": "string", "title": "Датчик уровня" }
+            "flow_relay": {
+              "type": "string",
+              "title": "Реле потока"
+            },
+            "pressure_relay": {
+              "type": "string",
+              "title": "Реле давления"
+            },
+            "manometer": {
+              "type": "string",
+              "title": "Манометры"
+            },
+            "membrane_tank": {
+              "type": "string",
+              "title": "Мембранный бак"
+            },
+            "level_sensor": {
+              "type": "string",
+              "title": "Датчик уровня"
+            }
           }
         },
         "housing": {
           "title": "Корпус станции",
           "type": "object",
           "properties": {
-            "type": { "type": "string", "title": "Павильон / блок-бокс / ёмкость" },
-            "code": { "type": "string", "title": "Шифр корпуса (G-Drum-ПНС-...)" },
-            "dimensions": { "type": "string", "title": "Габариты, мм" }
+            "type": {
+              "type": "string",
+              "title": "Павильон / блок-бокс / ёмкость"
+            },
+            "code": {
+              "type": "string",
+              "title": "Шифр корпуса (G-Drum-ПНС-...)"
+            },
+            "dimensions": {
+              "type": "string",
+              "title": "Габариты, мм"
+            }
           }
         },
         "reservoirs": {
           "title": "Резервуары (как блок оборудования)",
           "type": "object",
           "properties": {
-            "supplier": { "enum": ["ВАРПЛАСТ", "АКО", "ФЕРТИЛ", "Биопроект"], "title": "Поставщик" },
-            "code": { "type": "string", "title": "Шифр (G-Drum-V)" },
-            "count": { "type": "integer" },
-            "volume": { "$ref": "#/$defs/measured" }
+            "supplier": {
+              "enum": [
+                "ВАРПЛАСТ",
+                "АКО",
+                "ФЕРТИЛ",
+                "Биопроект"
+              ],
+              "title": "Поставщик"
+            },
+            "code": {
+              "type": "string",
+              "title": "Шифр (G-Drum-V)"
+            },
+            "count": {
+              "type": "integer"
+            },
+            "volume": {
+              "$ref": "#/$defs/measured"
+            }
           }
         },
         "extra": {
@@ -371,93 +831,222 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name"],
+            "required": [
+              "name"
+            ],
             "properties": {
-              "name": { "type": "string", "title": "Наименование" },
-              "spec": { "type": "string", "title": "Характеристика" }
+              "name": {
+                "type": "string",
+                "title": "Наименование"
+              },
+              "spec": {
+                "type": "string",
+                "title": "Характеристика"
+              }
             }
           }
         }
       }
     },
-
     "pricing": {
       "title": "Шаг 4 — Ценообразование варианта",
       "type": "object",
       "properties": {
-        "exchange_rate": { "type": "number", "title": "Курс валюты (выставляет инженер; гейт 2)" },
-        "rate_date": { "type": "string", "title": "Дата курса/прайса" },
+        "exchange_rate": {
+          "type": "number",
+          "title": "Курс валюты (выставляет инженер; гейт 2)"
+        },
+        "rate_date": {
+          "type": "string",
+          "title": "Дата курса/прайса"
+        },
         "rows": {
           "title": "Строки BOM",
           "type": "array",
-          "items": { "$ref": "#/$defs/pricingRow" }
+          "items": {
+            "$ref": "#/$defs/pricingRow"
+          }
         },
-        "total_cost": { "type": "number", "title": "ИТОГО — закупочная себестоимость, ₽" },
-        "markup_coefficient": { "type": "number", "title": "Коэффициент наценки (1,3–1,7; решение инженера, гейт 2)" },
-        "client_price": { "type": "number", "title": "Расчётная цена клиенту = total_cost × markup_coefficient, ₽" },
-        "final_offer_price": { "type": "number", "title": "Итоговая цена ТКП (округлённая инженером, с НДС), ₽" },
+        "total_cost": {
+          "type": "number",
+          "title": "ИТОГО — закупочная себестоимость, ₽"
+        },
+        "markup_coefficient": {
+          "type": "number",
+          "title": "Коэффициент наценки (1,3–1,7; решение инженера, гейт 2)"
+        },
+        "client_price": {
+          "type": "number",
+          "title": "Расчётная цена клиенту = total_cost × markup_coefficient, ₽"
+        },
+        "final_offer_price": {
+          "type": "number",
+          "title": "Итоговая цена ТКП (округлённая инженером, с НДС), ₽"
+        },
         "retorg": {
           "title": "Переторжка (если сценарий торгов)",
           "type": "object",
           "properties": {
-            "discount": { "type": "number", "title": "Повышенная скидка, %" },
-            "cost": { "type": "number", "title": "Пересчитанная себестоимость, ₽" }
+            "discount": {
+              "type": "number",
+              "title": "Повышенная скидка, %"
+            },
+            "cost": {
+              "type": "number",
+              "title": "Пересчитанная себестоимость, ₽"
+            }
           }
         },
-        "competitor_price": { "type": "number", "title": "Цена конкурента для сравнения, ₽" }
+        "competitor_price": {
+          "type": "number",
+          "title": "Цена конкурента для сравнения, ₽"
+        }
       }
     },
-
     "pricingRow": {
       "title": "Строка сметы",
       "type": "object",
-      "required": ["position_name", "price", "qty"],
+      "required": [
+        "position_name",
+        "price",
+        "qty"
+      ],
       "properties": {
-        "position_name": { "type": "string", "title": "Наименование позиции" },
+        "position_name": {
+          "type": "string",
+          "title": "Наименование позиции"
+        },
         "position_group": {
           "title": "Группа BOM",
-          "enum": ["насосное", "гидравлика", "работа", "автоматика", "корпус", "резервуары", "кабель", "прочее"]
+          "enum": [
+            "насосное",
+            "гидравлика",
+            "работа",
+            "автоматика",
+            "корпус",
+            "резервуары",
+            "кабель",
+            "прочее"
+          ]
         },
-        "price": { "type": "number", "title": "Цена за единицу" },
-        "currency": { "enum": ["USD", "CNY", "RUB"], "title": "Валюта закупки" },
-        "qty": { "type": "number", "title": "Количество" },
-        "discount": { "type": "number", "title": "Скидка, % (0–57)" },
-        "purchase_cost": { "type": "number", "title": "Закупка = цена×курс×кол-во×(1−скидка), ₽" },
-        "price_note": { "type": "string", "title": "Пометка (грубая оценка, с НДС, по прайсу ...)" }
+        "price": {
+          "type": "number",
+          "title": "Цена за единицу"
+        },
+        "currency": {
+          "enum": [
+            "USD",
+            "CNY",
+            "RUB"
+          ],
+          "title": "Валюта закупки"
+        },
+        "qty": {
+          "type": "number",
+          "title": "Количество"
+        },
+        "discount": {
+          "type": "number",
+          "title": "Скидка, % (0–57)"
+        },
+        "purchase_cost": {
+          "type": "number",
+          "title": "Закупка = цена×курс×кол-во×(1−скидка), ₽"
+        },
+        "price_note": {
+          "type": "string",
+          "title": "Пометка (грубая оценка, с НДС, по прайсу ...)"
+        }
       }
     },
-
     "output": {
       "title": "Шаг 5 — Выход",
       "type": "object",
       "properties": {
-        "selected_variant": { "type": "integer", "title": "Индекс выбранного варианта" },
+        "selected_variant": {
+          "type": "integer",
+          "title": "Индекс выбранного варианта"
+        },
         "selection_criterion": {
           "title": "Критерий выбора варианта",
-          "enum": ["минимальная-цена", "наличие-на-складе", "ходовая-серия", "укладка-в-бюджет"]
+          "enum": [
+            "минимальная-цена",
+            "наличие-на-складе",
+            "ходовая-серия",
+            "укладка-в-бюджет"
+          ]
         },
-        "product_code": { "type": "string", "title": "Полный шифр изделия" },
+        "product_code": {
+          "type": "string",
+          "title": "Полный шифр изделия"
+        },
         "code_segments": {
           "title": "Сегменты шифра",
           "type": "object",
           "properties": {
-            "series": { "enum": ["GF", "GW", "GP"] },
-            "purpose_letter": { "enum": ["П", "В"] },
-            "scheme": { "type": "string" },
-            "regulation": { "enum": ["ПП", "РПП", "РЧП", "РК"] },
-            "options": { "type": "array", "items": { "type": "string" } },
-            "collector_code": { "type": "string" }
+            "series": {
+              "enum": [
+                "GF",
+                "GW",
+                "GP"
+              ]
+            },
+            "purpose_letter": {
+              "enum": [
+                "П",
+                "В"
+              ]
+            },
+            "scheme": {
+              "type": "string"
+            },
+            "regulation": {
+              "enum": [
+                "ПП",
+                "РПП",
+                "РЧП",
+                "РК"
+              ]
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "collector_code": {
+              "type": "string"
+            }
           }
         },
         "documents": {
           "title": "Выпускаемые документы",
           "type": "array",
-          "items": { "enum": ["ТП-pdf", "ТКП-pdf", "смета-xlsx", "гидросхема", "габаритный-чертёж", "чертёж-DWG", "техлист-насоса"] }
+          "items": {
+            "enum": [
+              "ТП-pdf",
+              "ТКП-pdf",
+              "смета-xlsx",
+              "гидросхема",
+              "габаритный-чертёж",
+              "чертёж-DWG",
+              "техлист-насоса"
+            ]
+          }
         },
         "validation_flags": {
           "title": "Результат валидации (контрольный чек-лист)",
           "type": "array",
-          "items": { "enum": ["ШУ-цена-0", "позиция-выпала-из-ИТОГО", "расхождение-смета-ТП", "курс-REF", "опечатка-шифра", "наценка-не-проставлена"] }
+          "items": {
+            "enum": [
+              "ШУ-цена-0",
+              "позиция-выпала-из-ИТОГО",
+              "расхождение-смета-ТП",
+              "курс-REF",
+              "опечатка-шифра",
+              "наценка-не-проставлена"
+            ]
+          }
         }
       }
     }

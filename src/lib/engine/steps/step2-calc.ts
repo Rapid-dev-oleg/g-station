@@ -77,7 +77,7 @@ export function processStation2(station: Station, rules?: Rules): void {
   Object.assign(calc, normCalc);
 
   // 2.3. Схема резервирования — берётся из input; число рабочих.
-  const scheme = input.reservation_scheme;
+  const scheme = input.reservation_scheme ?? '1/1';
   const nWorking = workingPumps(scheme);
   // расход на один насос
   const qPerPump = nWorking > 0 ? qWp / nWorking : qWp;
@@ -195,7 +195,7 @@ export function processStation2(station: Station, rules?: Rules): void {
 export function motorForStation(station: Station): ReturnType<typeof estimateMotor> {
   const qWp = station.calc?.working_point?.Q?.value ?? station.input.Q?.value ?? 0;
   const hWp = station.calc?.working_point?.H?.value ?? station.input.H?.value ?? 0;
-  const nWorking = workingPumps(station.input.reservation_scheme);
+  const nWorking = workingPumps(station.input.reservation_scheme ?? '1/1');
   const qPerPump = nWorking > 0 ? qWp / nWorking : qWp;
   return estimateMotor(qPerPump, hWp);
 }
