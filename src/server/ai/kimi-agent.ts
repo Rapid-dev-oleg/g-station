@@ -40,6 +40,16 @@ function buildConfigToml(apiKey: string, baseUrl: string, skillsDirs: string[]):
     `base_url = ${JSON.stringify(baseUrl)}`,
     `api_key = ${JSON.stringify(apiKey)}`,
     '',
+    // Веб-поиск и загрузка страниц — для подбора продукции (артикулы, цены,
+    // наличие у поставщиков). Тем же ключом (в дефолтном конфиге они на oauth).
+    '[services.moonshot_search]',
+    'base_url = "https://api.kimi.com/coding/v1/search"',
+    `api_key = ${JSON.stringify(apiKey)}`,
+    '',
+    '[services.moonshot_fetch]',
+    'base_url = "https://api.kimi.com/coding/v1/fetch"',
+    `api_key = ${JSON.stringify(apiKey)}`,
+    '',
   ].join('\n');
 }
 
