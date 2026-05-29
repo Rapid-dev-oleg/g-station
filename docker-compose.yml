@@ -31,6 +31,8 @@ services:
       GSTATION_DATABASE_URL: postgresql://gstation:gstation@db:5432/gstation
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3007}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?задайте NEXTAUTH_SECRET}
+      # next-auth v5 за прокси/в Docker — иначе UntrustedHost.
+      AUTH_TRUST_HOST: "true"
       # Ключ Kimi: переопределяется значением из Настроек (БД) в рантайме.
       MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       # Рабочая директория агента (скилы + KNOWLEDGE) — смонтирована ниже.
