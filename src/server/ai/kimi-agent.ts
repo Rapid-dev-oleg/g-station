@@ -29,6 +29,10 @@ function buildConfigToml(apiKey: string, baseUrl: string, skillsDirs: string[]):
     'default_thinking = false',
     skillsDirs.length ? `extra_skills_dirs = [${dirs}]` : '',
     '',
+    // Расчёт + веб-подбор продукции требует много шагов (search/fetch).
+    '[loop_control]',
+    'max_steps_per_turn = 220',
+    '',
     '[models."kimi-code/kimi-for-coding"]',
     'provider = "managed:kimi-code"',
     'model = "kimi-for-coding"',
@@ -108,14 +112,27 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
       prompt,
     ];
 
-    const { stdout } = await execFileAsync(cfg.binPath, args, {
-      timeout: params.timeoutMs ?? 10 * 60 * 1000,
-      maxBuffer: 50 * 1024 * 1024,
-      cwd: workspace,
-      env: { ...process.env },
-    });
-
-    return { output: stdout.trim() };
+    try {
+      const { stdout } = await execFileAsync(cfg.binPath, args, {
+        timeout: params.timeoutMs ?? 10 * 60 * 1000,
+        maxBuffer: 50 * 1024 * 1024,
+        cwd: workspace,
+        env: { ...process.env },
+      });
+      return { output: stdout.trim() };
+    } catch (e) {
+      // execFile при ненулевом exit / таймауте кладёт stdout/stderr в ошибку —
+      // прокидываем их в сообщение для диагностики (иначе видно только «Command failed»).
+      const err = e as { code?: number; killed?: boolean; stdout?: string; stderr?: string };
+      const detail = [
+        err.killed ? 'таймаут/убит' : err.code != null ? `exit ${err.code}` : '',
+        (err.stderr || '').trim().slice(-500),
+        (err.stdout || '').trim().slice(-300),
+      ]
+        .filter(Boolean)
+        .join(' | ');
+      throw new Error(`Kimi CLI: ${detail || (e as Error).message}`);
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -20,6 +20,67 @@ function skillForType(_typeCode: string): string {
   return 'pump-station-calc';
 }
 
+/** Число насосов по схеме (из строки items «Схема»). */
+function pumpCountFromItems(items: CalcItem[]): number {
+  const scheme = items.find((i) => /схема/i.test(i.param))?.value ?? '';
+  const m = scheme.match(/(\d)\s*\/\s*(\d)/);
+  if (m) return Number(m[1]) + Number(m[2]);
+  return 2;
+}
+
+interface PumpFound {
+  model?: string;
+  article?: string;
+  supplier?: string;
+  priceRub?: number;
+  note?: string;
+}
+
+/**
+ * Находит конкретную модель насоса и цену через ПРОСТОЙ веб-поиск Kimi-агента
+ * (одна задача — стабильно укладывается в таймаут, в отличие от «подбор+смета»).
+ */
+async function findPumpPrice(p: {
+  pumpClass: string;
+  motor: string;
+  q?: number;
+  h?: number;
+}): Promise<PumpFound | null> {
+  try {
+    const { output } = await runKimiAgent({
+      prompt:
+        `Найди в интернете (web search, 1-2 запроса) конкретный насос для пожарной/водяной ` +
+        `станции под рабочую точку Q=${p.q ?? '?'} м³/ч, H=${p.h ?? '?'} м, класс «${p.pumpClass}», ` +
+        `мотор ${p.motor}. Предпочтительно CNP, иначе Wilo/Grundfos/Wellmix. ` +
+        `Верни СТРОГО JSON-блоком \`\`\`json {"model":"...","article":"...","priceRub":число,"supplier":"сайт/магазин","note":"наличие/срок"} \`\`\`. ` +
+        `Цену бери из найденного, не выдумывай; не нашёл — priceRub оставь null.`,
+      timeoutMs: 6 * 60 * 1000,
+    });
+    const fence = output.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const a = output.indexOf('{');
+    const z = output.lastIndexOf('}');
+    const cands = [fence?.[1], a >= 0 && z > a ? output.slice(a, z + 1) : null].filter(Boolean) as string[];
+    for (const c of cands) {
+      try {
+        const o = JSON.parse(c.trim()) as Record<string, unknown>;
+        return {
+          model: o.model ? String(o.model) : undefined,
+          article: o.article ? String(o.article) : undefined,
+          supplier: o.supplier ? String(o.supplier) : undefined,
+          priceRub: num(o.priceRub),
+          note: o.note ? String(o.note) : undefined,
+        };
+      } catch {
+        /* next */
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn('[kimi-calc] веб-поиск насоса не удался:', e);
+    return null;
+  }
+}
+
 /** Карточка для расчёта: вход станции + назначение из dossier. */
 interface CalcCard {
   object_name?: string;
@@ -50,10 +111,36 @@ export interface CalcItem {
   gate: boolean;
 }
 
+/** Строка сметы (BOM): позиция с ценой. */
+export interface BomLine {
+  /** Наименование (например «Насос CNP TD65-41G», «Материалы коллектора»). */
+  name: string;
+  /** Артикул/модель (если подобран конкретный). */
+  article?: string;
+  /** Поставщик/источник цены (сайт, склад). */
+  supplier?: string;
+  /** Цена за единицу, ₽. */
+  priceRub?: number;
+  /** Количество. */
+  qty?: number;
+  /** Сумма по строке, ₽. */
+  sum?: number;
+  /** Примечание (наличие, срок). */
+  note?: string;
+}
+
 /** Структурированный результат расчёта Kimi. */
 export interface KimiCalcData {
-  /** Строки расчёта: пункт — значение — обоснование. */
+  /** Строки расчёта характеристик: пункт — значение — обоснование. */
   items: CalcItem[];
+  /** Смета (позиции с ценами, подбор через веб-поиск). */
+  bom?: BomLine[];
+  /** Себестоимость (сумма закупки), ₽. */
+  total?: number;
+  /** Коэффициент наценки. */
+  markup?: number;
+  /** Цена клиенту, ₽ (total × markup). */
+  clientPrice?: number;
   /** Шифр изделия. */
   code?: string;
   /** Полный текст ответа (подробности, на случай нехватки структуры). */
@@ -70,25 +157,49 @@ export interface KimiCalcResult {
   error?: string;
 }
 
-/** Достаёт JSON-блок из ответа агента (```json ... ``` или первый {...}). */
-function extractCalcJson(raw: string): { items: CalcItem[]; code?: string } | null {
+type ParsedCalc = Pick<KimiCalcData, 'items' | 'bom' | 'total' | 'markup' | 'clientPrice' | 'code'>;
+
+function num(v: unknown): number | undefined {
+  const n = typeof v === 'string' ? parseFloat(v.replace(/[^\d.,-]/g, '').replace(',', '.')) : Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Достаёт JSON-блок из ответа агента (```json ... ``` или объект целиком). */
+function extractCalcJson(raw: string): ParsedCalc | null {
   const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidates = fence ? [fence[1]] : [];
-  // Объект целиком: от первого { до последнего } (а не от последнего {).
   const first = raw.indexOf('{');
   const last = raw.lastIndexOf('}');
   if (first >= 0 && last > first) candidates.push(raw.slice(first, last + 1));
   for (const c of candidates) {
     try {
-      const obj = JSON.parse(c.trim()) as { items?: unknown; code?: unknown };
-      if (Array.isArray(obj.items)) {
-        const items: CalcItem[] = (obj.items as Record<string, unknown>[]).map((it) => ({
+      const obj = JSON.parse(c.trim()) as Record<string, unknown>;
+      if (Array.isArray(obj.items) || Array.isArray(obj.bom)) {
+        const items: CalcItem[] = (Array.isArray(obj.items) ? (obj.items as Record<string, unknown>[]) : []).map((it) => ({
           param: String(it.param ?? ''),
           value: String(it.value ?? ''),
           rationale: String(it.rationale ?? ''),
           gate: Boolean(it.gate),
         }));
-        return { items, code: obj.code ? String(obj.code) : undefined };
+        const bom: BomLine[] | undefined = Array.isArray(obj.bom)
+          ? (obj.bom as Record<string, unknown>[]).map((b) => ({
+              name: String(b.name ?? ''),
+              article: b.article ? String(b.article) : undefined,
+              supplier: b.supplier ? String(b.supplier) : undefined,
+              priceRub: num(b.priceRub),
+              qty: num(b.qty),
+              sum: num(b.sum),
+              note: b.note ? String(b.note) : undefined,
+            }))
+          : undefined;
+        return {
+          items,
+          bom,
+          total: num(obj.total),
+          markup: num(obj.markup),
+          clientPrice: num(obj.clientPrice),
+          code: obj.code ? String(obj.code) : undefined,
+        };
       }
     } catch {
       /* следующий кандидат */
@@ -102,18 +213,21 @@ function extractCalcJson(raw: string): { items: CalcItem[]; code?: string } | nu
  * chat-запросом (агент склонен возвращать markdown вместо JSON — здесь
  * простая модель превращает его текст в структуру).
  */
-async function structureViaChat(output: string): Promise<{ items: CalcItem[]; code?: string } | null> {
+async function structureViaChat(output: string): Promise<ParsedCalc | null> {
   try {
     const { content } = await askKimi({
       system:
-        'Ты — парсер. На вход текст расчёта насосной станции. Верни СТРОГО JSON ' +
-        'без markdown: {"items":[{"param":"...","value":"...","rationale":"одна строка","gate":false}],"code":"шифр"}. ' +
-        'param — параметр (Схема, Класс насоса, Мотор, Коллектор DN, Жокей, Шкаф управления и т.п.). ' +
-        'value — итоговое значение. rationale — краткое обоснование одной строкой. ' +
-        'gate=true для решений на проверку инженеру (точная модель насоса, бренд/производитель, наценка). ' +
-        'code — шифр изделия если есть.',
-      prompt: 'Текст расчёта:\n\n' + output,
-      maxTokens: 2000,
+        'Ты — парсер. На вход текст расчёта и подбора насосной станции. Верни СТРОГО JSON без markdown:\n' +
+        '{"items":[{"param":"...","value":"...","rationale":"одна строка","gate":false}],' +
+        '"bom":[{"name":"...","article":"...","supplier":"...","priceRub":число,"qty":число,"sum":число,"note":"..."}],' +
+        '"total":число,"markup":число,"clientPrice":число,"code":"шифр"}\n' +
+        'items — характеристики (Схема, Класс насоса, Мотор, Коллектор DN, Жокей, Шкаф). ' +
+        'gate=true для решений на проверку инженеру. ' +
+        'bom — смета: позиции (насос с артикулом и поставщиком, материалы коллектора, работы, ШУ) с ценами ₽. ' +
+        'total — себестоимость (сумма закупки), markup — коэффициент наценки, clientPrice — цена клиенту. ' +
+        'Если цены/артикулы в тексте нет — оставь поле пустым, не выдумывай. code — шифр.',
+      prompt: 'Текст расчёта и подбора:\n\n' + output,
+      maxTokens: 3000,
     });
     return extractCalcJson(content);
   } catch {
@@ -143,6 +257,10 @@ export async function calcSystemViaKimi(
       ok: true,
       data: {
         items: cached.items ?? [],
+        bom: cached.bom,
+        total: cached.total,
+        markup: cached.markup,
+        clientPrice: cached.clientPrice,
         code: cached.code,
         output: cached.output ?? '',
         at: cached.at,
@@ -152,36 +270,63 @@ export async function calcSystemViaKimi(
   }
 
   try {
-    const { output } = await runKimiAgent({
+    // ── Фаза 1: расчёт характеристик по скилу (без веба — мало шагов). ──
+    const { output: calcOut } = await runKimiAgent({
       skill: skillForType(system.typeCode),
       prompt:
-        'Посчитай насосную станцию по карточке (методика скила). Затем верни ' +
-        'результат СТРОГО в виде JSON-блока ```json ... ``` со структурой:\n' +
-        '{\n' +
-        '  "items": [\n' +
-        '    {"param": "Схема резервирования", "value": "1/1", "rationale": "<1 строка почему>", "gate": false},\n' +
-        '    {"param": "Класс насоса", "value": "...", "rationale": "...", "gate": false},\n' +
-        '    {"param": "Мотор", "value": "15 кВт", "rationale": "...", "gate": false},\n' +
-        '    {"param": "Коллектор DN", "value": "...", "rationale": "...", "gate": false},\n' +
-        '    {"param": "Жокей-насос", "value": "...", "rationale": "...", "gate": false},\n' +
-        '    {"param": "Шкаф управления", "value": "...", "rationale": "...", "gate": false},\n' +
-        '    {"param": "Точная модель насоса", "value": "—", "rationale": "нужны кривые ПО", "gate": true},\n' +
-        '    {"param": "Производитель/бренд", "value": "...", "rationale": "...", "gate": true},\n' +
-        '    {"param": "Коэффициент наценки", "value": "...", "rationale": "...", "gate": true}\n' +
-        '  ],\n' +
-        '  "code": "<шифр изделия>"\n' +
-        '}\n' +
-        'gate=true — решение требует проверки инженера (точная модель, бренд, наценка). ' +
-        'Каждый rationale — одна короткая строка. Карточка:\n' +
+        'Рассчитай насосную станцию по карточке (методика скила). Дай: рабочую точку, ' +
+        'схему, класс насоса, мотор (кВт), коллектор (DN + материал), жокей, ШУ, ' +
+        'объём пожарного запаса, шифр изделия — каждое с кратким обоснованием. ' +
+        'НЕ ищи в интернете на этом шаге. Карточка:\n' +
         JSON.stringify(card, null, 2),
       timeoutMs: 8 * 60 * 1000,
     });
 
-    // Агент мог вернуть JSON сам; если нет — структурируем его текст chat-запросом.
-    const parsed = extractCalcJson(output) ?? (await structureViaChat(output));
+    // Структурируем характеристики (фаза 1).
+    const calcParsed = extractCalcJson(calcOut) ?? (await structureViaChat(calcOut));
+    const items = calcParsed?.items ?? [];
+
+    // ── Фаза 2: ПРОСТОЙ веб-поиск цены насоса (смету собираем в коде ниже). ──
+    // Полный «подбор + смета + JSON» одним агентом не укладывался в таймаут;
+    // здесь агент делает только то, что стабильно — находит модель и цену.
+    const pumpClass = items.find((i) => /класс насоса/i.test(i.param))?.value ?? '';
+    const motor = items.find((i) => /мотор/i.test(i.param))?.value ?? '';
+    const q = card.input.Q?.value ?? undefined;
+    const h = card.input.H?.value ?? undefined;
+    const pump = await findPumpPrice({ pumpClass, motor, q: q ?? undefined, h: h ?? undefined });
+
+    // Смета: насос из веба + оценочные работы/материалы/ШУ (прайсов компании нет).
+    const qty = pumpCountFromItems(items);
+    const bom: BomLine[] = [];
+    if (pump) {
+      bom.push({
+        name: `Насос ${pump.model ?? pumpClass}`,
+        article: pump.article,
+        supplier: pump.supplier,
+        priceRub: pump.priceRub,
+        qty,
+        sum: pump.priceRub != null ? pump.priceRub * qty : undefined,
+        note: pump.note,
+      });
+    }
+    // Оценочные позиции (ориентир — нет внутренних прайсов компании).
+    bom.push({ name: 'Материалы коллектора', priceRub: 95000, qty: 1, sum: 95000, note: 'оценочно' });
+    bom.push({ name: 'Работы (сварка коллектора/рамы, расключение)', priceRub: 72500, qty: 1, sum: 72500, note: 'оценочно' });
+    bom.push({ name: `Шкаф управления (${motor || 'по мотору'})`, priceRub: 185000, qty: 1, sum: 185000, note: 'оценочно' });
+
+    const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
+    const markup = 1.7;
+    const clientPrice = Math.round(total * markup);
+
+    const output =
+      calcOut + (pump ? `\n\n=== ПОДБОР (веб) ===\n${JSON.stringify(pump, null, 2)}` : '');
     const data: KimiCalcData = {
-      items: parsed?.items ?? [],
-      code: parsed?.code,
+      items,
+      bom,
+      total,
+      markup,
+      clientPrice,
+      code: calcParsed?.code,
       output,
       at: new Date().toISOString(),
     };

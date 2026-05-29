@@ -5,9 +5,13 @@ import { Card, Button } from '@/components/ui';
 import {
   calcSystemViaKimi,
   saveCalcEdits,
+  type BomLine,
   type CalcItem,
   type KimiCalcData,
 } from '@/server/actions/kimi-calc';
+
+const rub = (n?: number) =>
+  n == null ? '—' : n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
 
 /**
  * Расчёт системы через Kimi — структурой «пункт — значение — обоснование».
@@ -22,6 +26,9 @@ export function KimiCalcPanel({
   initialData?: KimiCalcData;
 }) {
   const [items, setItems] = useState<CalcItem[]>(initialData?.items ?? []);
+  const [bom, setBom] = useState<BomLine[]>(initialData?.bom ?? []);
+  const [total, setTotal] = useState<number | undefined>(initialData?.total);
+  const [clientPrice, setClientPrice] = useState<number | undefined>(initialData?.clientPrice);
   const [code, setCode] = useState(initialData?.code ?? '');
   const [rawOutput, setRawOutput] = useState(initialData?.output ?? '');
   const [loading, setLoading] = useState(false);
@@ -38,6 +45,9 @@ export function KimiCalcPanel({
     setLoading(false);
     if (r.ok && r.data) {
       setItems(r.data.items);
+      setBom(r.data.bom ?? []);
+      setTotal(r.data.total);
+      setClientPrice(r.data.clientPrice);
       setCode(r.data.code ?? '');
       setRawOutput(r.data.output);
     } else setError(r.error ?? 'Ошибка расчёта');
@@ -141,6 +151,64 @@ export function KimiCalcPanel({
             <div style={{ marginTop: 12, fontSize: 14 }}>
               <span style={{ color: 'var(--muted)' }}>Шифр изделия: </span>
               <code style={{ fontWeight: 600 }}>{code}</code>
+            </div>
+          )}
+
+          {/* Смета — позиции с ценами (подбор через веб-поиск) */}
+          {bom.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--muted)', marginBottom: 8 }}>
+                Смета
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11 }}>
+                    <th style={{ padding: '6px 8px' }}>Наименование / артикул</th>
+                    <th style={{ padding: '6px 8px', width: '14%' }}>Цена</th>
+                    <th style={{ padding: '6px 8px', width: '7%' }}>Кол-во</th>
+                    <th style={{ padding: '6px 8px', width: '16%' }}>Сумма</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bom.map((b, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '8px' }}>
+                        <div style={{ fontWeight: 500 }}>{b.name}</div>
+                        {(b.article || b.supplier || b.note) && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            {[b.article, b.supplier, b.note].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '8px' }}>{rub(b.priceRub)}</td>
+                      <td style={{ padding: '8px' }}>{b.qty ?? '—'}</td>
+                      <td style={{ padding: '8px', fontWeight: 500 }}>{rub(b.sum)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid var(--border)' }}>
+                    <td style={{ padding: '8px', color: 'var(--muted)' }} colSpan={3}>
+                      Себестоимость
+                    </td>
+                    <td style={{ padding: '8px', fontWeight: 600 }}>{rub(total)}</td>
+                  </tr>
+                  {clientPrice != null && (
+                    <tr>
+                      <td style={{ padding: '8px', fontWeight: 600 }} colSpan={3}>
+                        Цена клиенту (с наценкой)
+                      </td>
+                      <td style={{ padding: '8px', fontWeight: 700, color: 'var(--brand-dark, #0369a1)' }}>
+                        {rub(clientPrice)}
+                      </td>
+                    </tr>
+                  )}
+                </tfoot>
+              </table>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                Цены насоса/ШУ — из веб-поиска; работы и материалы коллектора — оценочные
+                (внутренних прайсов компании нет). Проверьте перед отправкой.
+              </p>
             </div>
           )}
 
