@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button, IconArrowLeft } from '@/components/ui';
+import { Badge, Button, IconArrowLeft } from '@/components/ui';
 import { SystemFlow } from '@/components/system/SystemFlow';
+import { systemStatusLabel } from '@/lib/format/labels';
 import { getSystem } from '@/server/services/systems';
 
 export const dynamic = 'force-dynamic';
@@ -19,8 +20,10 @@ export default async function SystemPage({
   const station = system.dossier.stations[0];
   if (!station) notFound();
 
-  const kimiCalc = system.kimiCalc as { output?: string } | null | undefined;
+  const kimiCalc =
+    (system.kimiCalc as import('@/server/actions/kimi-calc').KimiCalcData | null) ?? undefined;
   const snapshot = system.approvedSnapshot as { approvedAt?: string } | null | undefined;
+  const st = systemStatusLabel(system.status);
 
   return (
     <>
@@ -28,11 +31,14 @@ export default async function SystemPage({
         title={system.name}
         subtitle={`${system.type.name} · расчёт станции`}
         actions={
-          <Link href={`/projects/${id}`} style={{ display: 'inline-flex' }}>
-            <Button variant="ghost" leftIcon={<IconArrowLeft />}>
-              К проекту
-            </Button>
-          </Link>
+          <>
+            <Badge variant={st.variant}>{st.label}</Badge>
+            <Link href={`/projects/${id}`} style={{ display: 'inline-flex' }}>
+              <Button variant="ghost" leftIcon={<IconArrowLeft />}>
+                К проекту
+              </Button>
+            </Link>
+          </>
         }
       />
       <SystemFlow
@@ -41,7 +47,7 @@ export default async function SystemPage({
         status={system.status}
         initialMeta={system.dossier.meta}
         initialInput={station.input}
-        initialCalc={kimiCalc?.output}
+        initialCalc={kimiCalc}
         approvedAt={snapshot?.approvedAt ?? null}
       />
     </>

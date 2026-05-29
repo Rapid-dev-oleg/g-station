@@ -47,21 +47,23 @@ async function main() {
   line('…читаю через Kimi…\n');
 
   const parsed = await parseDocument({ text: text.trim().length >= 40 ? text : '', images });
-  const i = parsed.input;
   line('РАСПОЗНАНО:');
   line(`  Объект:      ${parsed.meta.object_name ?? '—'}`);
   line(`  Заказчик:    ${parsed.client?.shortName ?? '—'}${parsed.client?.email ? ' / ' + parsed.client.email : ''}`);
-  line(`  Назначение:  ${i.purpose ?? '—'}`);
-  line(`  Расход Q:    ${i.Q?.value ?? '—'} ${i.Q?.unit ?? ''}  (${i.Q?.note ?? ''})`);
-  line(`  Напор H:     ${i.H?.value ?? '—'} ${i.H?.unit ?? ''}  (${i.H?.note ?? ''})`);
-  line(`  Схема:       ${i.reservation_scheme ?? '—'}`);
-  line(`  Насосы:      ${(i.pump_type_required ?? []).join(', ') || '—'}`);
-  line(`  Жокей:       ${i.jockey_required ? 'да' : 'нет'}`);
-  line(`  Не хватает:  ${parsed.missing.join(', ') || '—'}`);
+  line(`  Систем в ТЗ: ${parsed.systems.length}`);
+  parsed.systems.forEach((s, n) => {
+    const i = s.input;
+    line(`  ── Система ${n + 1}: ${s.systemName} [${s.typeCode}] ──`);
+    line(`     Назначение: ${i.purpose ?? '—'}`);
+    line(`     Q: ${i.Q?.value ?? '—'} ${i.Q?.unit ?? ''}   H: ${i.H?.value ?? '—'} ${i.H?.unit ?? ''}   схема: ${i.reservation_scheme ?? '—'}`);
+    line(`     Насосы: ${(i.pump_type_required ?? []).join(', ') || '—'}   жокей: ${i.jockey_required ? 'да' : 'нет'}`);
+    line(`     Не хватает: ${s.missing.join(', ') || '—'}`);
+  });
 
-  // ── 2. Что Kimi ПОСЧИТАЛ по скилу ───────────────────────────────────
+  // ── 2. Что Kimi ПОСЧИТАЛ по скилу (первая система) ──────────────────
   hr('ШАГ 2 — Kimi СЧИТАЕТ станцию по скилу pump-station-calc');
   line('…агент читает методику и считает (это 2–4 минуты)…\n');
+  const i = parsed.systems[0].input;
   const card = {
     object_name: parsed.meta.object_name,
     purpose: i.purpose,

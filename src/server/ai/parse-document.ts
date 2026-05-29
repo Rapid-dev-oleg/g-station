@@ -28,18 +28,34 @@ export interface ParsedClient {
   email?: string;
 }
 
-/** Результат разбора документа ТЗ. */
-export interface ParsedDocument {
-  /** Частично заполненная карточка параметров станции. */
+/** Одна насосная система, выделенная из ТЗ. */
+export interface ParsedSystem {
+  /** Короткое имя системы (например «Пожаротушение АУПТ»). */
+  systemName: string;
+  /** Тип системы: 'fire' (пожарная) / 'water' (водоснабжение). */
+  typeCode: string;
+  /** Карточка параметров станции. */
   input: Partial<StationInput>;
-  /** Частично заполненные метаданные кейса. */
+  /** Обязательные поля, отсутствующие в ТЗ. */
+  missing: string[];
+}
+
+/** Результат разбора документа ТЗ — одна или несколько систем. */
+export interface ParsedDocument {
+  /** Общие метаданные объекта (объект, заказчик, сценарий, формат). */
   meta: Partial<Meta>;
   /** Заказчик из документа (null, если реквизиты не обнаружены). */
   client: ParsedClient | null;
-  /** Поля карточки, отсутствующие в ТЗ — требуют ввода инженером. */
-  missing: string[];
+  /** Системы объекта (в ТЗ может быть несколько — пожарная + хоз-питьевая). */
+  systems: ParsedSystem[];
   /** Сырой ответ модели — для отладки. */
   raw?: string;
+}
+
+/** Пожарные назначения → тип станции 'fire', остальные → 'water'. */
+function typeCodeForPurpose(purpose?: string): string {
+  const fire = ['наружное-ПТ', 'ВПВ', 'АУПТ', 'пожаротушение-общее', 'береговая-ПНС'];
+  return purpose && fire.includes(purpose) ? 'fire' : purpose ? 'water' : 'fire';
 }
 
 // ── Перечни допустимых значений (передаются модели в промпте) ──────────────
@@ -133,7 +149,14 @@ const SYSTEM_PROMPT = `Ты — инженер-расчётчик насосны
 
 /** Строит пользовательский промпт: перечень полей карточки + текст ТЗ. */
 function buildPrompt(text: string): string {
-  return `Извлеки карточку параметров пожарной насосной станции из пакета документов ниже.
+  return `Извлеки из пакета документов ВСЕ насосные системы объекта.
+
+ВАЖНО: на одном объекте может быть НЕСКОЛЬКО независимых насосных систем —
+например пожаротушение (АУПТ/ВПВ/наружное ПТ) И хоз-питьевое водоснабжение,
+или пожарная + повышение давления. У каждой системы свои Q, H, назначение,
+схема. РАЗДЕЛИ их: верни массив "systems", по одному элементу на КАЖДУЮ
+систему. Если система одна — массив из одного элемента. Общие данные объекта
+и заказчика — в "meta" (один раз, не дублировать в системах).
 
 ФОРМАТ ОТВЕТА — JSON-объект со структурой:
 {
@@ -144,43 +167,45 @@ function buildPrompt(text: string): string {
     "output_format": "ТП+смета" | "ТКП-без-технички" | "только-смета" | "ТП+смета+чертёж-DWG",
     "deadline": "срок поставки, если указан (строка)"
   },
-  "input": {
-    "station_type": "fire",
-    "purpose": один из [${PURPOSE_VALUES.join(', ')}],
-    "Q": measured (расход станции, м³/ч),
-    "H": measured (напор станции, м),
-    "system_pressure": measured (давление в системе, МПа/бар — альтернатива напору),
-    "inlet_pressure": measured (гарантированный напор/давление на вводе, м),
-    "reservation_scheme": один из [${SCHEME_VALUES.join(', ')}] (например «1 рабочий + 1 резервный» → "1/1", «2+1» → "2/1"),
-    "working_pumps": целое,
-    "reserve_pumps": целое,
-    "jockey_required": true|false,
-    "jockey_Q": measured, "jockey_H": measured (если жокей задан с параметрами),
-    "start_type": "прямой" | "плавный" | "частотный" | "каскадный",
-    "collector_material": "углеродистая-сталь" | "нержавеющая-сталь",
-    "station_enclosure": "моноблок-на-раме" | "технологический-павильон" | "блок-бокс" | "подземное-стеклопластик" | "стеклопластиковый-колодец" | "в-чужом-резервуаре" | "береговой-модуль",
-    "installation_place": "в-помещении" | "под-заливом" | "заглублённая" | "на-берегу",
-    "reservoirs": { "required": bool, "count": целое, "volume": measured (объём одного, м³), "material": "сборный-металл"|"стеклопластик"|"бетонный-чужой", "volume_given": bool },
-    "fire_params": { "fire_duration": measured (ч), "fire_flow_rate": measured (л/с), "streams_count": целое, "stream_flow": measured (л/с), "replenishment_time": measured (ч) },
-    "power_supply": { "category": "I"|"II"|"III", "inputs": целое, "avr": bool, "voltage": "строка", "from_generator": bool },
-    "climate_execution": "стандарт" | "У-1" | "УХЛ1" | "УХЛ4",
-    "manufacturer_preference": ["строки"],
-    "assumptions": ["текстовые формулировки всех принятых допущений (обязательно дублируй сюда все assumed-значения)"],
-    "special_requirements": ["особые требования из ТЗ"]
-  },
   "client": { "shortName": "...", "fullName": "...", "inn": "...", "contactName": "...", "phone": "...", "email": "..." } | null,
-  "missing": ["имена обязательных полей, отсутствующих в ТЗ (даже если ты их предположил)"]
+  "systems": [
+    {
+      "systemName": "короткое имя системы, например «Пожаротушение АУПТ» или «Хоз-питьевое водоснабжение»",
+      "input": {
+        "station_type": "fire" (пожарная) | "water" (хоз-питьевое/повышение давления),
+        "purpose": один из [${PURPOSE_VALUES.join(', ')}],
+        "Q": measured (расход станции, м³/ч),
+        "H": measured (напор станции, м),
+        "system_pressure": measured (давление в системе, МПа/бар — альтернатива напору),
+        "inlet_pressure": measured (гарантированный напор/давление на вводе, м),
+        "reservation_scheme": один из [${SCHEME_VALUES.join(', ')}] (например «1 рабочий + 1 резервный» → "1/1", «2+1» → "2/1"),
+        "working_pumps": целое, "reserve_pumps": целое,
+        "jockey_required": true|false,
+        "jockey_Q": measured, "jockey_H": measured (если жокей задан с параметрами),
+        "start_type": "прямой" | "плавный" | "частотный" | "каскадный",
+        "collector_material": "углеродистая-сталь" | "нержавеющая-сталь",
+        "station_enclosure": "моноблок-на-раме" | "технологический-павильон" | "блок-бокс" | "подземное-стеклопластик" | "стеклопластиковый-колодец" | "в-чужом-резервуаре" | "береговой-модуль",
+        "installation_place": "в-помещении" | "под-заливом" | "заглублённая" | "на-берегу",
+        "reservoirs": { "required": bool, "count": целое, "volume": measured (м³), "material": "сборный-металл"|"стеклопластик"|"бетонный-чужой", "volume_given": bool },
+        "fire_params": { "fire_duration": measured (ч), "fire_flow_rate": measured (л/с), "streams_count": целое, "stream_flow": measured (л/с), "replenishment_time": measured (ч) },
+        "power_supply": { "category": "I"|"II"|"III", "inputs": целое, "avr": bool, "voltage": "строка", "from_generator": bool },
+        "climate_execution": "стандарт" | "У-1" | "УХЛ1" | "УХЛ4",
+        "manufacturer_preference": ["строки"],
+        "assumptions": ["текстовые формулировки всех принятых допущений"],
+        "special_requirements": ["особые требования из ТЗ"]
+      },
+      "missing": ["имена обязательных полей этой системы, отсутствующих в ТЗ"]
+    }
+  ]
 }
 
-ОБЯЗАТЕЛЬНЫЕ поля карточки (по методике — фиксированный список):
-  purpose, Q, H, reservation_scheme.
-Дополнительные обязательные для пожарных:
-  fire_params.fire_duration, fire_params.fire_flow_rate,
-  station_enclosure, installation_place.
-Если обязательное поле не нашлось — добавь его имя в "missing".
+ОБЯЗАТЕЛЬНЫЕ поля каждой системы: purpose, Q, H, reservation_scheme.
+Для пожарных дополнительно: fire_params.fire_duration, fire_params.fire_flow_rate,
+station_enclosure, installation_place. Не найдено — добавь имя в "missing" этой системы.
 
-Включай в "input" и "meta" только реально извлечённые или обоснованно выведенные поля.
-Остальное не включай. Все допущения дублируй текстом в input.assumptions.
+Каждое числовое значение — объект {value, unit, source, note}.
+Включай только реально извлечённые или обоснованно выведенные поля.
+Все допущения дублируй текстом в input.assumptions.
 
 ${
   text
@@ -262,15 +287,8 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
     );
   }
 
-  const input = (parsed.input ?? {}) as Partial<StationInput>;
   const meta = (parsed.meta ?? {}) as Partial<Meta>;
   const rawClient = parsed.client as ParsedClient | null | undefined;
-  const missing = Array.isArray(parsed.missing)
-    ? (parsed.missing as unknown[]).map((m) => String(m))
-    : [];
-
-  // Тип станции пожарный по умолчанию — карточка строится для G-Fire.
-  if (!input.station_type) input.station_type = 'fire';
 
   // Клиент валиден только при наличии непустого краткого имени.
   const client: ParsedClient | null =
@@ -285,5 +303,31 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
         }
       : null;
 
-  return { input, meta, client, missing, raw: content };
+  // Системы. Совместимость: если модель вернула старый формат (input на
+  // верхнем уровне) — оборачиваем в массив из одной системы.
+  const rawSystems = Array.isArray(parsed.systems)
+    ? (parsed.systems as Record<string, unknown>[])
+    : parsed.input
+      ? [{ input: parsed.input, missing: parsed.missing }]
+      : [];
+
+  const systems: ParsedSystem[] = rawSystems.map((s, i) => {
+    const input = (s.input ?? {}) as Partial<StationInput>;
+    const purpose = input.purpose as string | undefined;
+    const typeCode = (input.station_type as string) || typeCodeForPurpose(purpose);
+    if (!input.station_type) input.station_type = typeCode as StationInput['station_type'];
+    const missing = Array.isArray(s.missing)
+      ? (s.missing as unknown[]).map((m) => String(m))
+      : [];
+    const name =
+      (typeof s.systemName === 'string' && s.systemName.trim()) ||
+      `Система ${i + 1}${purpose ? ` (${purpose})` : ''}`;
+    return { systemName: name, typeCode, input, missing };
+  });
+
+  if (systems.length === 0) {
+    throw new Error('Модель не выделила ни одной системы из ТЗ');
+  }
+
+  return { meta, client, systems, raw: content };
 }

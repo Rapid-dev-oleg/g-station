@@ -390,10 +390,13 @@ export function IntakeFlow({
         router.refresh();
         return;
       }
-      // Иначе — обычный ревью-режим.
+      // Иначе — обычный ревью-режим (единственная система; несколько систем
+      // создаются автосабмитом и сюда не попадают).
       const r = res.result;
       setResult(r);
-      setInput(r.input);
+      const first = r.systems[0];
+      setInput(first?.input ?? {});
+      if (first?.systemName) setSystemName(first.systemName);
       setMeta(r.meta);
       // Предзаполнение полей проекта из ТЗ.
       setObjectName(r.meta.object_name ?? '');
@@ -792,11 +795,11 @@ export function IntakeFlow({
         )}
 
         {/* Недостающее */}
-        {result.missing.length > 0 && (
+        {(result.systems[0]?.missing.length ?? 0) > 0 && (
           <div className={styles.missingBox}>
             <strong>Не найдено в ТЗ — требует ввода инженером:</strong>
             <ul className={styles.missingList}>
-              {result.missing.map((m, i) => (
+              {result.systems[0].missing.map((m, i) => (
                 <li key={i}>{humanizeMissingField(m)}</li>
               ))}
             </ul>

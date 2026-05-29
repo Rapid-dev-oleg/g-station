@@ -20,7 +20,7 @@ import type { KimiImage } from './kimi';
 const execFileAsync = promisify(execFile);
 
 /** Максимум страниц/картинок, отдаваемых в vision (защита от гигантских PDF). */
-const MAX_IMAGES = 12;
+const MAX_IMAGES = 20;
 
 function mimeByExt(name: string): string {
   const n = name.toLowerCase();

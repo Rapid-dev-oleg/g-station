@@ -196,19 +196,30 @@ export async function parseUploadedDocument(
 
   const result: ParseResult = { ...parsed, files: pkg.files, matchedClient };
 
-  // 4. Если карточка полная и есть владелец — пробуем автосабмит.
-  if (ownerId && isCardComplete(parsed.input, parsed.missing)) {
+  // Привязка к существующему проекту (передаётся UI при загрузке ТЗ из проекта).
+  const lockedProjectId = (formData.get('projectId') as string | null)?.trim() || undefined;
+
+  // 4. Автосабмит создаём, если:
+  //    - систем несколько (детальный ревью по каждой не делаем — инженер
+  //      дополнит карточки в степпере); ИЛИ
+  //    - единственная система полная; ИЛИ
+  //    - ТЗ грузится в существующий проект (lockedProjectId).
+  const multi = parsed.systems.length > 1;
+  const singleComplete =
+    parsed.systems.length === 1 &&
+    isCardComplete(parsed.systems[0].input, parsed.systems[0].missing);
+
+  if (ownerId && (multi || singleComplete || lockedProjectId)) {
     try {
-      const submitted = await autoSubmit({ ownerId, parsed: result });
+      const submitted = await autoSubmit({ ownerId, parsed: result, projectId: lockedProjectId });
       if (submitted.ok) {
-        return {
-          ok: true,
-          mode: 'redirect',
-          redirect: `/projects/${submitted.projectId}/systems/${submitted.systemId}`,
-        };
+        // Одна система → на её экран; несколько → на проект (виден список).
+        const redirect =
+          submitted.systemIds.length === 1
+            ? `/projects/${submitted.projectId}/systems/${submitted.systemIds[0]}`
+            : `/projects/${submitted.projectId}`;
+        return { ok: true, mode: 'redirect', redirect };
       }
-      // Автосабмит не прошёл (ошибка валидации/БД) — отдадим карточку на ревью.
-      // Логируем причину в консоль сервера для диагностики.
       console.warn('[parse] autoSubmit failed, falling back to review:', submitted.errors);
     } catch (e) {
       console.warn('[parse] autoSubmit threw, falling back to review:', e);
@@ -348,73 +359,88 @@ async function resolveClientId(
 interface AutoSubmitParams {
   ownerId: string;
   parsed: ParseResult;
+  /** Привязать к существующему проекту (иначе создаётся новый). */
+  projectId?: string;
 }
 
 type AutoSubmitOutcome =
-  | { ok: true; projectId: string; systemId: string }
+  | { ok: true; projectId: string; systemIds: string[] }
   | { ok: false; errors: string[] };
 
 /**
- * Автосабмит: создаёт клиента (если нужно), проект, систему, прогоняет расчёт.
- * Все шаги — атомарно с точки зрения вызывающего: при ошибке возвращает errors.
+ * Автосабмит: создаёт клиента (если нужно), проект (или использует
+ * существующий) и ВСЕ системы из ТЗ (parsed.systems). Расчёт не запускается —
+ * системы создаются со статусом INPUT, инженер считает через Kimi в степпере.
  */
-async function autoSubmit({ ownerId, parsed }: AutoSubmitParams): Promise<AutoSubmitOutcome> {
-  // 1. Клиент.
-  const clientId = await resolveClientId(parsed.client, parsed.matchedClient);
-
-  // 2. Имена проекта/объекта/системы из meta.
-  const objectName = parsed.meta.object_name?.trim() || 'Объект не указан';
-  const projectName = parsed.meta.object_name
-    ? `${parsed.meta.object_name.trim()} — НС пожаротушения`
-    : `Расчёт из ТЗ (${new Date().toLocaleDateString('ru-RU')})`;
-  const systemName = 'Пожарная насосная станция';
-
-  // 3. Проект.
-  const project = await db.project.create({
-    data: {
-      name: projectName,
-      objectName,
-      clientId,
-      ownerId,
-      deadline: parsed.meta.deadline ? safeDate(parsed.meta.deadline) : null,
-    },
-  });
-
-  // 4. Дело: пустой каркас + распарсенная карточка.
-  const base = createEmptyDossier(systemName);
-  const dossier: Dossier = {
-    meta: { ...base.meta, ...scrubMeta(parsed.meta) },
-    stations: [
-      {
-        ...base.stations[0],
-        input: {
-          ...base.stations[0].input,
-          ...scrubInput(parsed.input as Record<string, unknown>),
-        } as StationInput,
+async function autoSubmit({
+  ownerId,
+  parsed,
+  projectId,
+}: AutoSubmitParams): Promise<AutoSubmitOutcome> {
+  // 1. Проект: существующий или новый.
+  let project: { id: string };
+  if (projectId) {
+    const existing = await db.project.findUnique({ where: { id: projectId } });
+    if (!existing) return { ok: false, errors: ['Проект не найден'] };
+    project = existing;
+  } else {
+    const clientId = await resolveClientId(parsed.client, parsed.matchedClient);
+    const objectName = parsed.meta.object_name?.trim() || 'Объект не указан';
+    const projectName = parsed.meta.object_name
+      ? `${parsed.meta.object_name.trim()} — насосные станции`
+      : `Расчёт из ТЗ (${new Date().toLocaleDateString('ru-RU')})`;
+    project = await db.project.create({
+      data: {
+        name: projectName,
+        objectName,
+        clientId,
+        ownerId,
+        deadline: parsed.meta.deadline ? safeDate(parsed.meta.deadline) : null,
       },
-    ],
-  };
-
-  const check = validateDossier(dossier);
-  if (!check.valid) {
-    return { ok: false, errors: check.errors };
+    });
   }
 
-  const system = await db.system.create({
-    data: {
-      name: systemName,
-      projectId: project.id,
-      typeCode: 'fire',
-      engineerId: ownerId,
-      dossier: dossier as unknown as Prisma.InputJsonValue,
-    },
-  });
+  // 2. Создаём по системе на каждый элемент parsed.systems.
+  const systemIds: string[] = [];
+  const errors: string[] = [];
+  for (const sys of parsed.systems) {
+    const base = createEmptyDossier(sys.systemName);
+    const dossier: Dossier = {
+      meta: { ...base.meta, ...scrubMeta(parsed.meta) },
+      stations: [
+        {
+          ...base.stations[0],
+          input: {
+            ...base.stations[0].input,
+            ...scrubInput(sys.input as Record<string, unknown>),
+          } as StationInput,
+        },
+      ],
+    };
+    const check = validateDossier(dossier);
+    if (!check.valid) {
+      errors.push(`${sys.systemName}: ${check.errors.join('; ')}`);
+      continue;
+    }
+    const created = await db.system.create({
+      data: {
+        name: sys.systemName,
+        projectId: project.id,
+        typeCode: sys.typeCode === 'water' ? 'water' : 'fire',
+        engineerId: ownerId,
+        dossier: dossier as unknown as Prisma.InputJsonValue,
+      },
+    });
+    systemIds.push(created.id);
+  }
 
-  // Расчёт НЕ запускаем автоматически: система создаётся со статусом INPUT,
-  // инженер выполнит расчёт через Kimi на шаге «Расчёт» степпера системы.
+  if (systemIds.length === 0) {
+    return { ok: false, errors: errors.length ? errors : ['Не создано ни одной системы'] };
+  }
+
   revalidatePath('/projects');
   revalidatePath(`/projects/${project.id}`);
-  return { ok: true, projectId: project.id, systemId: system.id };
+  return { ok: true, projectId: project.id, systemIds };
 }
 
 /**
