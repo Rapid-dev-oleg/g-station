@@ -95,6 +95,11 @@ export interface SystemWizardProps {
   projectId: string;
   initialMeta: Meta;
   initialInput: StationInput;
+  /**
+   * Действие на последнем шаге. Если задано — вызывается вместо перехода
+   * на устаревшую страницу /calc (используется степпером SystemFlow).
+   */
+  onComplete?: () => void;
 }
 
 export function SystemWizard({
@@ -102,6 +107,7 @@ export function SystemWizard({
   projectId,
   initialMeta,
   initialInput,
+  onComplete,
 }: SystemWizardProps) {
   const router = useRouter();
   const [meta, setMeta] = useState<Meta>(initialMeta);
@@ -137,7 +143,10 @@ export function SystemWizard({
 
   const goNext = () => {
     if (isLast) {
-      save(() => router.push(`/projects/${projectId}/systems/${systemId}/calc`));
+      save(() => {
+        if (onComplete) onComplete();
+        else router.push(`/projects/${projectId}/systems/${systemId}/calc`);
+      });
     } else {
       save(() => setStepIdx((i) => i + 1));
     }

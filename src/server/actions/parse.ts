@@ -21,7 +21,6 @@ import { extractText, type DocFormat } from '@/server/ai/extract-text';
 import { documentToImages } from '@/server/ai/document-images';
 import type { KimiImage } from '@/server/ai/kimi';
 import { parseDocument, type ParsedClient, type ParsedDocument } from '@/server/ai/parse-document';
-import { runSystemCalc } from '@/server/actions/calc';
 import { db } from '@/server/db';
 
 // ─── Типы ответов ────────────────────────────────────────────────────────
@@ -55,8 +54,8 @@ export type ParseResponse =
 
 // ─── Лимиты ──────────────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE = 15 * 1024 * 1024;
-const MAX_TOTAL_SIZE = 40 * 1024 * 1024;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 100 * 1024 * 1024;
 const MAX_FILES = 10;
 
 // ─── Извлечение текста пакета файлов ─────────────────────────────────────
@@ -84,12 +83,12 @@ async function extractPackage(formData: FormData): Promise<{
   let totalSize = 0;
   for (const f of inputs) {
     if (f.size > MAX_FILE_SIZE) {
-      throw new Error(`Файл «${f.name}» слишком большой (максимум 15 МБ)`);
+      throw new Error(`Файл «${f.name}» слишком большой (максимум 50 МБ)`);
     }
     totalSize += f.size;
   }
   if (totalSize > MAX_TOTAL_SIZE) {
-    throw new Error(`Суммарный размер пакета слишком большой (максимум 40 МБ)`);
+    throw new Error(`Суммарный размер пакета слишком большой (максимум 100 МБ)`);
   }
 
   const files: ParsedFileInfo[] = [];
@@ -205,7 +204,7 @@ export async function parseUploadedDocument(
         return {
           ok: true,
           mode: 'redirect',
-          redirect: `/projects/${submitted.projectId}/systems/${submitted.systemId}/calc`,
+          redirect: `/projects/${submitted.projectId}/systems/${submitted.systemId}`,
         };
       }
       // Автосабмит не прошёл (ошибка валидации/БД) — отдадим карточку на ревью.
@@ -411,14 +410,8 @@ async function autoSubmit({ ownerId, parsed }: AutoSubmitParams): Promise<AutoSu
     },
   });
 
-  // 5. Прогоняем расчёт.
-  const calc = await runSystemCalc(system.id);
-  // Даже если расчёт упал внутри (например, гейт), система создана —
-  // редиректим на calc-страницу, инженер увидит ошибки и доработает.
-  if (!calc.ok) {
-    console.warn('[parse] autoSubmit: calc returned errors:', calc.errors);
-  }
-
+  // Расчёт НЕ запускаем автоматически: система создаётся со статусом INPUT,
+  // инженер выполнит расчёт через Kimi на шаге «Расчёт» степпера системы.
   revalidatePath('/projects');
   revalidatePath(`/projects/${project.id}`);
   return { ok: true, projectId: project.id, systemId: system.id };

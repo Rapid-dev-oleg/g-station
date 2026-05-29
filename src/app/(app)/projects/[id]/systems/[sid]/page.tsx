@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button, IconArrowLeft, IconArrowRight } from '@/components/ui';
-import { SystemWizard } from '@/components/wizard/SystemWizard';
-import { KimiCalcPanel } from '@/components/calc/KimiCalcPanel';
+import { Button, IconArrowLeft } from '@/components/ui';
+import { SystemFlow } from '@/components/system/SystemFlow';
 import { getSystem } from '@/server/services/systems';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SystemWizardPage({
+export default async function SystemPage({
   params,
 }: {
   params: Promise<{ id: string; sid: string }>;
@@ -20,43 +19,31 @@ export default async function SystemWizardPage({
   const station = system.dossier.stations[0];
   if (!station) notFound();
 
+  const kimiCalc = system.kimiCalc as { output?: string } | null | undefined;
+  const snapshot = system.approvedSnapshot as { approvedAt?: string } | null | undefined;
+
   return (
     <>
       <PageHeader
         title={system.name}
-        subtitle={`${system.type.name} · карточка системы`}
+        subtitle={`${system.type.name} · расчёт станции`}
         actions={
-          <>
-            <Link href={`/projects/${id}`} style={{ display: 'inline-flex' }}>
-              <Button variant="ghost" leftIcon={<IconArrowLeft />}>
-                К проекту
-              </Button>
-            </Link>
-            <Link
-              href={`/projects/${id}/systems/${sid}/calc`}
-              style={{ display: 'inline-flex' }}
-            >
-              <Button variant="secondary" rightIcon={<IconArrowRight />}>
-                К расчёту
-              </Button>
-            </Link>
-          </>
+          <Link href={`/projects/${id}`} style={{ display: 'inline-flex' }}>
+            <Button variant="ghost" leftIcon={<IconArrowLeft />}>
+              К проекту
+            </Button>
+          </Link>
         }
       />
-      <SystemWizard
+      <SystemFlow
         systemId={sid}
         projectId={id}
+        status={system.status}
         initialMeta={system.dossier.meta}
         initialInput={station.input}
+        initialCalc={kimiCalc?.output}
+        approvedAt={snapshot?.approvedAt ?? null}
       />
-      <div style={{ marginTop: 20 }}>
-        <KimiCalcPanel
-          systemId={sid}
-          initialOutput={
-            (system.kimiCalc as { output?: string } | null | undefined)?.output
-          }
-        />
-      </div>
     </>
   );
 }

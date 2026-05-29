@@ -40,6 +40,9 @@ import styles from './Intake.module.css';
 export interface IntakeFlowProps {
   ownerId: string;
   projects: { id: string; name: string; clientName: string }[];
+  /** Если задан — ТЗ привязывается к этому проекту, выбор проекта скрыт. */
+  lockedProjectId?: string;
+  lockedProjectName?: string;
 }
 
 // ── подписи перечислений (для человекочитаемого вывода) ────────────────────
@@ -305,7 +308,12 @@ function MeasuredField({
 
 // ── компонент ──────────────────────────────────────────────────────────────
 
-export function IntakeFlow({ ownerId, projects }: IntakeFlowProps) {
+export function IntakeFlow({
+  ownerId,
+  projects,
+  lockedProjectId,
+  lockedProjectName,
+}: IntakeFlowProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -320,10 +328,12 @@ export function IntakeFlow({ ownerId, projects }: IntakeFlowProps) {
   const [input, setInput] = useState<Partial<StationInput>>({});
   const [meta, setMeta] = useState<Partial<Meta>>({});
 
-  // Выбор клиента и проекта.
+  // Выбор клиента и проекта. При lockedProjectId проект зафиксирован.
   const [clientMode, setClientMode] = useState<'matched' | 'new' | 'none'>('none');
-  const [projectMode, setProjectMode] = useState<'new' | 'existing'>('new');
-  const [projectId, setProjectId] = useState('');
+  const [projectMode, setProjectMode] = useState<'new' | 'existing'>(
+    lockedProjectId ? 'existing' : 'new',
+  );
+  const [projectId, setProjectId] = useState(lockedProjectId ?? '');
   const [projectName, setProjectName] = useState('');
   const [objectName, setObjectName] = useState('');
   const [systemName, setSystemName] = useState('Пожарная насосная станция');
@@ -481,9 +491,7 @@ export function IntakeFlow({ ownerId, projects }: IntakeFlowProps) {
         setValidationErrors(res.errors);
         return;
       }
-      router.push(
-        `/projects/${res.projectId}/systems/${res.systemId}/calc`,
-      );
+      router.push(`/projects/${res.projectId}/systems/${res.systemId}`);
       router.refresh();
     });
   };
@@ -880,52 +888,61 @@ export function IntakeFlow({ ownerId, projects }: IntakeFlowProps) {
 
       {/* Проект и система */}
       <Card title="Проект и система">
-        <div className={styles.choiceRow}>
-          <label className={styles.choice}>
-            <input
-              type="radio"
-              checked={projectMode === 'new'}
-              onChange={() => setProjectMode('new')}
-            />
-            Создать новый проект
-          </label>
-          <label className={styles.choice}>
-            <input
-              type="radio"
-              checked={projectMode === 'existing'}
-              onChange={() => setProjectMode('existing')}
-            />
-            Добавить в существующий проект
-          </label>
-        </div>
-
-        {projectMode === 'new' ? (
-          <div className={styles.grid}>
-            <Input
-              label="Название проекта"
-              required
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-            />
-            <Input
-              label="Название объекта"
-              required
-              value={objectName}
-              onChange={(e) => setObjectName(e.target.value)}
-            />
-          </div>
+        {lockedProjectId ? (
+          <p className={styles.note}>
+            Проект: <strong>{lockedProjectName ?? '—'}</strong> — ТЗ привязывается
+            к нему.
+          </p>
         ) : (
-          <Select
-            label="Существующий проект"
-            required
-            placeholder="— выберите проект —"
-            options={projects.map((p) => ({
-              value: p.id,
-              label: `${p.name} · ${p.clientName}`,
-            }))}
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-          />
+          <>
+            <div className={styles.choiceRow}>
+              <label className={styles.choice}>
+                <input
+                  type="radio"
+                  checked={projectMode === 'new'}
+                  onChange={() => setProjectMode('new')}
+                />
+                Создать новый проект
+              </label>
+              <label className={styles.choice}>
+                <input
+                  type="radio"
+                  checked={projectMode === 'existing'}
+                  onChange={() => setProjectMode('existing')}
+                />
+                Добавить в существующий проект
+              </label>
+            </div>
+
+            {projectMode === 'new' ? (
+              <div className={styles.grid}>
+                <Input
+                  label="Название проекта"
+                  required
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                />
+                <Input
+                  label="Название объекта"
+                  required
+                  value={objectName}
+                  onChange={(e) => setObjectName(e.target.value)}
+                />
+              </div>
+            ) : (
+              <Select
+                label="Существующий проект"
+                required
+                placeholder="— выберите проект —"
+                options={projects.map((p) => ({
+                  value: p.id,
+                  label: `${p.name} · ${p.clientName}`,
+                }))}
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+              />
+            )}
+          </>
         )}
 
         <div style={{ marginTop: 14 }}>

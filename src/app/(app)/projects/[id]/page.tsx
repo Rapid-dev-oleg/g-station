@@ -68,10 +68,18 @@ export default async function ProjectCardPage({
               </Link>
             )}
             <Link
+              href={`/intake?projectId=${project.id}`}
+              style={{ display: 'inline-flex' }}
+            >
+              <Button leftIcon={<IconPlus />}>Загрузить ТЗ</Button>
+            </Link>
+            <Link
               href={`/projects/${project.id}/systems/new`}
               style={{ display: 'inline-flex' }}
             >
-              <Button leftIcon={<IconPlus />}>Добавить систему</Button>
+              <Button variant="secondary" leftIcon={<IconPlus />}>
+                Система вручную
+              </Button>
             </Link>
           </>
         }
@@ -162,16 +170,8 @@ export default async function ProjectCardPage({
                         href={`/projects/${project.id}/systems/${sys.id}`}
                         style={{ display: 'inline-flex' }}
                       >
-                        <Button size="sm" variant="secondary" leftIcon={<IconEdit />}>
-                          Карточка
-                        </Button>
-                      </Link>
-                      <Link
-                        href={`/projects/${project.id}/systems/${sys.id}/calc`}
-                        style={{ display: 'inline-flex' }}
-                      >
                         <Button size="sm" rightIcon={<IconArrowRight />}>
-                          Расчёт
+                          Открыть
                         </Button>
                       </Link>
                     </div>
