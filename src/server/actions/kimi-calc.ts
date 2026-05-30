@@ -14,6 +14,7 @@ import type { Dossier, StationInput, Meta } from '@/lib/dossier/types';
 import { db } from '@/server/db';
 import { runKimiAgent } from '@/server/ai/kimi-agent';
 import { askKimi } from '@/server/ai/kimi';
+import { findCollectorPrice, collectorWeldingWorkRub } from '@/lib/pricing/collectors';
 
 /** Скил расчёта по типу системы (сейчас один — пожарные/водоснабжение). */
 function skillForType(_typeCode: string): string {
@@ -327,10 +328,36 @@ export async function calcSystemViaKimi(
         note: pump.note,
       });
     }
-    // Оценочные позиции (ориентир — нет внутренних прайсов компании).
-    bom.push({ name: 'Материалы коллектора', priceRub: 95000, qty: 1, sum: 95000, note: 'оценочно' });
-    bom.push({ name: 'Работы (сварка коллектора/рамы, расключение)', priceRub: 72500, qty: 1, sum: 72500, note: 'оценочно' });
-    bom.push({ name: `Шкаф управления (${motor || 'по мотору'})`, priceRub: 185000, qty: 1, sum: 185000, note: 'оценочно' });
+    // Коллектор — цена из реконструированного прайса по шифру (KNOWLEDGE/tables/коллекторы-цены.md).
+    const collectorMaterial = items.find((i) => /материал коллектор/i.test(i.param))?.value;
+    const collectorDn = items.find((i) => /коллектор/i.test(i.param))?.value;
+    const collectorCode = calcParsed?.code ?? collectorDn ?? '';
+    const coll = findCollectorPrice(collectorCode, collectorMaterial);
+    if (coll) {
+      bom.push({
+        name: 'Материалы коллектора',
+        article: collectorCode,
+        priceRub: coll.priceRub,
+        qty: 1,
+        sum: coll.priceRub,
+        note: coll.exact ? `прайс: ${coll.source}` : `ориентир: ${coll.source}`,
+      });
+    } else {
+      bom.push({ name: 'Материалы коллектора', priceRub: 95000, qty: 1, sum: 95000, note: 'оценочно (нет точки в прайсе)' });
+    }
+    // Работы по сварке коллектора — масштаб с DN из методички (нижняя граница).
+    const dnSucMatch = (collectorCode || '').match(/(\d+)/);
+    const dnSuc = dnSucMatch ? +dnSucMatch[1] : 100;
+    const weld = collectorWeldingWorkRub(dnSuc);
+    bom.push({
+      name: 'Работы (сварка коллектора/рамы, расключение)',
+      priceRub: weld,
+      qty: 1,
+      sum: weld,
+      note: `по DN${dnSuc} (методика)`,
+    });
+    // ШУ — внутреннего прайса нет, оставлена оценка; пометить явно.
+    bom.push({ name: `Шкаф управления (${motor || 'по мотору'})`, priceRub: 185000, qty: 1, sum: 185000, note: 'оценочно (прайса ШУ нет)' });
 
     const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
     const markup = 1.7;
