@@ -15,6 +15,11 @@ import { db } from '@/server/db';
 import { runKimiAgent } from '@/server/ai/kimi-agent';
 import { askKimi } from '@/server/ai/kimi';
 import { findCollectorPrice, collectorWeldingWorkRub } from '@/lib/pricing/collectors';
+import {
+  findCollectorInDb,
+  findJockeyPipingInDb,
+  findPumpInDbBySku,
+} from '@/server/pricing/equipment';
 
 /** Скил расчёта по типу системы (сейчас один — пожарные/водоснабжение). */
 function skillForType(_typeCode: string): string {
@@ -314,49 +319,106 @@ export async function calcSystemViaKimi(
     const h = card.input.H?.value ?? undefined;
     const pump = await findPumpPrice({ pumpClass, motor, q: q ?? undefined, h: h ?? undefined });
 
-    // Смета: насос из веба + оценочные работы/материалы/ШУ (прайсов компании нет).
+    // Смета: каскад БД → веб → оценка для каждой позиции.
     const qty = pumpCountFromItems(items);
     const bom: BomLine[] = [];
+
+    // ─── НАСОС ─── веб даёт точную модель/SKU, потом lookup в БД CNP.
     if (pump) {
+      const dbPump = await findPumpInDbBySku(pump.article ?? pump.model);
+      // Если в БД нашли — используем нашу цену прайса CNP; веб — как альтернатива.
+      const useDb = dbPump?.priceRub != null;
+      const priceRub = useDb ? dbPump!.priceRub : pump.priceRub;
+      const article = useDb ? dbPump!.sku : pump.article;
+      const supplier = useDb ? `${dbPump!.manufacturer} (прайс БД)` : pump.supplier;
+      const noteParts = [
+        useDb ? `БД CNP` : `веб: ${pump.supplier ?? '—'}`,
+        useDb && pump.priceRub != null
+          ? `веб-альтернатива: ${pump.priceRub.toLocaleString('ru-RU')} ₽ ${pump.supplier ?? ''}`
+          : '',
+        pump.note,
+      ].filter(Boolean);
       bom.push({
         name: `Насос ${pump.model ?? pumpClass}`,
-        article: pump.article,
-        supplier: pump.supplier,
-        priceRub: pump.priceRub,
+        article,
+        supplier,
+        priceRub: priceRub ?? undefined,
         qty,
-        sum: pump.priceRub != null ? pump.priceRub * qty : undefined,
-        note: pump.note,
+        sum: priceRub != null ? priceRub * qty : undefined,
+        note: noteParts.join(' · '),
       });
     }
-    // Коллектор — цена из реконструированного прайса по шифру (KNOWLEDGE/tables/коллекторы-цены.md).
+
+    // ─── КОЛЛЕКТОР ─── 1) БД Gfire (43 точки) 2) md-прайс по шифру 3) оценка.
     const collectorMaterial = items.find((i) => /материал коллектор/i.test(i.param))?.value;
     const collectorDn = items.find((i) => /коллектор/i.test(i.param))?.value;
     const collectorCode = calcParsed?.code ?? collectorDn ?? '';
-    const coll = findCollectorPrice(collectorCode, collectorMaterial);
-    if (coll) {
+    // Парсим шифр "Dвсас[/Dнапор]-N[-dпатрубок]" для поиска в БД.
+    const cMatch = (collectorCode || '').match(/(\d+)(?:\/(\d+))?[-\s](\d+)(?:[-\s](\d+))?/);
+    const dbCollector = cMatch
+      ? await findCollectorInDb({
+          dnSuction: +cMatch[1],
+          dnDischarge: cMatch[2] ? +cMatch[2] : undefined,
+          nPumps: +cMatch[3],
+          dnNozzle: cMatch[4] ? +cMatch[4] : undefined,
+          material: collectorMaterial ?? undefined,
+        })
+      : null;
+    if (dbCollector?.priceRub != null) {
       bom.push({
-        name: 'Материалы коллектора',
-        article: collectorCode,
-        priceRub: coll.priceRub,
+        name: dbCollector.name,
+        article: dbCollector.sku,
+        supplier: dbCollector.manufacturer,
+        priceRub: dbCollector.priceRub,
         qty: 1,
-        sum: coll.priceRub,
-        note: coll.exact ? `прайс: ${coll.source}` : `ориентир: ${coll.source}`,
+        sum: dbCollector.priceRub,
+        note: dbCollector.note,
       });
     } else {
-      bom.push({ name: 'Материалы коллектора', priceRub: 95000, qty: 1, sum: 95000, note: 'оценочно (нет точки в прайсе)' });
+      const coll = findCollectorPrice(collectorCode, collectorMaterial);
+      if (coll) {
+        bom.push({
+          name: 'Материалы коллектора',
+          article: collectorCode,
+          priceRub: coll.priceRub,
+          qty: 1,
+          sum: coll.priceRub,
+          note: coll.exact ? `md-прайс: ${coll.source}` : `ориентир: ${coll.source}`,
+        });
+      } else {
+        bom.push({ name: 'Материалы коллектора', priceRub: 95000, qty: 1, sum: 95000, note: 'оценочно (нет точки в прайсе)' });
+      }
+      // Работы — только если в БД нет коллектора (там работы уже включены в total).
+      const dnSucMatch = (collectorCode || '').match(/(\d+)/);
+      const dnSuc = dnSucMatch ? +dnSucMatch[1] : 100;
+      const weld = collectorWeldingWorkRub(dnSuc);
+      bom.push({
+        name: 'Работы (сварка коллектора/рамы, расключение)',
+        priceRub: weld,
+        qty: 1,
+        sum: weld,
+        note: `по DN${dnSuc} (методика)`,
+      });
     }
-    // Работы по сварке коллектора — масштаб с DN из методички (нижняя граница).
-    const dnSucMatch = (collectorCode || '').match(/(\d+)/);
-    const dnSuc = dnSucMatch ? +dnSucMatch[1] : 100;
-    const weld = collectorWeldingWorkRub(dnSuc);
-    bom.push({
-      name: 'Работы (сварка коллектора/рамы, расключение)',
-      priceRub: weld,
-      qty: 1,
-      sum: weld,
-      note: `по DN${dnSuc} (методика)`,
-    });
-    // ШУ — внутреннего прайса нет, оставлена оценка; пометить явно.
+
+    // ─── ОБВЯЗКА ЖОКЕЯ ─── если в items упомянут жокей.
+    const hasJockey = items.some((i) => /жокей/i.test(i.param) || /жокей/i.test(i.value));
+    if (hasJockey) {
+      const jp = await findJockeyPipingInDb(1.0);
+      if (jp?.priceRub != null) {
+        bom.push({
+          name: jp.name,
+          article: jp.sku,
+          supplier: jp.manufacturer,
+          priceRub: jp.priceRub,
+          qty: 1,
+          sum: jp.priceRub,
+          note: jp.note,
+        });
+      }
+    }
+
+    // ─── ШУ ─── прайса в БД нет, оценка.
     bom.push({ name: `Шкаф управления (${motor || 'по мотору'})`, priceRub: 185000, qty: 1, sum: 185000, note: 'оценочно (прайса ШУ нет)' });
 
     const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
