@@ -299,7 +299,7 @@ const JOCKEY_RE = /жокей|jockey|подкачивающ/i;
  * убираем. Список компонентов берём из реестра типов (`componentWords`),
  * чтобы он управлялся данными, а не хардкодом.
  */
-function foldComponentSystems(
+export function foldComponentSystems(
   systems: ParsedSystem[],
   componentWords: string[],
 ): ParsedSystem[] {
