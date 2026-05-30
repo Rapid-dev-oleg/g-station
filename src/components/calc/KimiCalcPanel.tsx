@@ -13,6 +13,107 @@ import {
 const rub = (n?: number) =>
   n == null ? '—' : n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
 
+const TIER_LABEL: Record<NonNullable<BomLine['tier']>, string> = {
+  optimum: 'оптимум',
+  reserve: 'с запасом',
+  economy: 'эконом',
+};
+
+/** Строка сметы с переключателем вариантов (если есть alternatives). */
+function BomRow({ line, onChoose }: { line: BomLine; onChoose: (b: BomLine) => void }) {
+  const [open, setOpen] = useState(false);
+  const hasAlt = (line.alternatives?.length ?? 0) > 0;
+  return (
+    <>
+      <tr style={{ borderTop: '1px solid var(--border)' }}>
+        <td style={{ padding: '8px' }}>
+          <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {line.name}
+            {line.source && <SourceBadge source={line.source} url={line.sourceUrl} />}
+            {line.tier && (
+              <span
+                style={{
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                }}
+              >
+                {TIER_LABEL[line.tier]}
+              </span>
+            )}
+            {hasAlt && (
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                style={{
+                  fontSize: 11,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  padding: '1px 8px',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  color: 'var(--muted)',
+                }}
+              >
+                {open ? 'скрыть' : `варианты (${line.alternatives!.length})`}
+              </button>
+            )}
+          </div>
+          {(line.article || line.supplier || line.note) && (
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+              {[line.article, line.supplier, line.note].filter(Boolean).join(' · ')}
+            </div>
+          )}
+        </td>
+        <td style={{ padding: '8px' }}>{rub(line.priceRub)}</td>
+        <td style={{ padding: '8px' }}>{line.qty ?? '—'}</td>
+        <td style={{ padding: '8px', fontWeight: 500 }}>{rub(line.sum)}</td>
+      </tr>
+      {open &&
+        line.alternatives!.map((alt, i) => (
+          <tr key={`alt-${i}`} style={{ background: '#f8fafc', borderTop: '1px dashed var(--border)' }}>
+            <td style={{ padding: '6px 8px 6px 24px' }}>
+              <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {alt.name}
+                {alt.source && <SourceBadge source={alt.source} url={alt.sourceUrl} />}
+                {alt.tier && (
+                  <span style={{ fontSize: 10, color: '#475569' }}>{TIER_LABEL[alt.tier]}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onChoose(alt)}
+                  style={{
+                    fontSize: 11,
+                    border: 'none',
+                    background: 'var(--brand, #0369a1)',
+                    color: 'white',
+                    padding: '2px 10px',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                  }}
+                >
+                  выбрать
+                </button>
+              </div>
+              {(alt.article || alt.supplier || alt.note) && (
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  {[alt.article, alt.supplier, alt.note].filter(Boolean).join(' · ')}
+                </div>
+              )}
+            </td>
+            <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{rub(alt.priceRub)}</td>
+            <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{alt.qty ?? '—'}</td>
+            <td style={{ padding: '6px 8px', color: 'var(--muted)' }}>{rub(alt.sum)}</td>
+          </tr>
+        ))}
+    </>
+  );
+}
+
 /** Бейдж источника цены: БД (прайс компании) / веб (с URL) / оценка (по правилу). */
 function SourceBadge({ source, url }: { source: 'db' | 'web' | 'estimate'; url?: string }) {
   const palette = {
@@ -95,6 +196,23 @@ export function KimiCalcPanel({
   function editValue(idx: number, value: string) {
     setItems((cur) => cur.map((it, i) => (i === idx ? { ...it, value } : it)));
     setSavedAt(null);
+  }
+
+  /** Переключить вариант насоса (выбор из alternatives). Пересчитывает total/clientPrice. */
+  function chooseAlternative(rowIdx: number, chosen: BomLine) {
+    setBom((cur) => {
+      const next = cur.slice();
+      const old = next[rowIdx];
+      const alts = [...(old.alternatives ?? []), { ...old, alternatives: undefined }].filter(
+        (a) => (a.article ?? a.name) !== (chosen.article ?? chosen.name),
+      );
+      next[rowIdx] = { ...chosen, alternatives: alts };
+      const t = next.reduce((s, b) => s + (b.sum ?? 0), 0);
+      setTotal(t);
+      setClientPrice(Math.round(t * 1.7));
+      setSavedAt(null);
+      return next;
+    });
   }
 
   async function save() {
@@ -210,22 +328,7 @@ export function KimiCalcPanel({
                 </thead>
                 <tbody>
                   {bom.map((b, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ padding: '8px' }}>
-                        <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {b.name}
-                          {b.source && <SourceBadge source={b.source} url={b.sourceUrl} />}
-                        </div>
-                        {(b.article || b.supplier || b.note) && (
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                            {[b.article, b.supplier, b.note].filter(Boolean).join(' · ')}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px' }}>{rub(b.priceRub)}</td>
-                      <td style={{ padding: '8px' }}>{b.qty ?? '—'}</td>
-                      <td style={{ padding: '8px', fontWeight: 500 }}>{rub(b.sum)}</td>
-                    </tr>
+                    <BomRow key={i} line={b} onChoose={(chosen) => chooseAlternative(i, chosen)} />
                   ))}
                 </tbody>
                 <tfoot>

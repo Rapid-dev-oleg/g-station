@@ -42,61 +42,80 @@ interface PumpFound {
   note?: string;
   /** URL страницы оборудования (на сайте производителя/магазина). */
   url?: string;
+  /** Уровень варианта: optimum — точно под рабочую точку, reserve — с запасом,
+   *  economy — самый дешёвый из подходящих. */
+  tier?: 'optimum' | 'reserve' | 'economy';
 }
 
 /**
  * Находит конкретную модель насоса и цену через ПРОСТОЙ веб-поиск Kimi-агента
  * (одна задача — стабильно укладывается в таймаут, в отличие от «подбор+смета»).
  */
-async function findPumpPrice(p: {
+async function findPumpOptions(p: {
   pumpClass: string;
   motor: string;
   q?: number;
   h?: number;
-}): Promise<PumpFound | null> {
+}): Promise<PumpFound[]> {
   try {
     const { output } = await runKimiAgent({
       prompt:
-        `Найди в интернете (web search, 1-2 запроса) конкретный насос для пожарной/водяной ` +
-        `станции под рабочую точку Q=${p.q ?? '?'} м³/ч, H=${p.h ?? '?'} м, класс «${p.pumpClass}», ` +
-        `мотор ${p.motor}. ` +
+        `Подбери в интернете (web search, 2-3 запроса) НЕСКОЛЬКО вариантов насоса ` +
+        `для пожарной/водяной станции под рабочую точку Q=${p.q ?? '?'} м³/ч, ` +
+        `H=${p.h ?? '?'} м, класс «${p.pumpClass}», мотор ${p.motor}.\n` +
+        `Верни 3 варианта (если есть на рынке):\n` +
+        `  • "optimum" — точно под рабочую точку, минимальный избыток;\n` +
+        `  • "reserve" — на типоразмер выше (запас по Q или H 15–30%);\n` +
+        `  • "economy" — дешевле optimum при сохранении рабочей точки.\n` +
         `ПРИОРИТЕТ ИСТОЧНИКОВ — официальные сайты производителей в РФ:\n` +
         `  • CNP → https://www.cnprussia.ru (приоритет №1; site:cnprussia.ru)\n` +
         `  • Wilo → wilo.com/ru\n` +
         `  • Grundfos → grundfos.ru\n` +
         `  • Wellmix → wellmix.ru\n` +
-        `Сначала ищи на официальном сайте бренда — там каноничные артикулы и характеристики. ` +
-        `Если на официальном цены нет — возьми из крупного магазина-дилера, но article и model — ` +
-        `всегда из официального источника.\n` +
-        `Бренд по умолчанию — CNP. Альтернативы — Wilo / Grundfos / Wellmix.\n` +
-        `Верни СТРОГО JSON-блоком \`\`\`json {"model":"...","article":"...","priceRub":число,"supplier":"сайт/магазин","url":"https://полный-url-страницы-оборудования","note":"наличие/срок"} \`\`\`. ` +
-        `URL ОБЯЗАТЕЛЕН — конкретная страница товара (не главная сайта). ` +
-        `Цену бери из найденного, не выдумывай; не нашёл — priceRub оставь null.`,
-      timeoutMs: 6 * 60 * 1000,
+        `Бренд по умолчанию — CNP. Альтернативы — Wilo/Grundfos/Wellmix.\n` +
+        `Верни СТРОГО JSON-массивом:\n` +
+        '```json\n' +
+        '[\n' +
+        '  {"tier":"optimum","model":"...","article":"...","priceRub":число,"supplier":"...","url":"https://...","note":"..."},\n' +
+        '  {"tier":"reserve","model":"...","article":"...","priceRub":число,"supplier":"...","url":"https://...","note":"..."},\n' +
+        '  {"tier":"economy","model":"...","article":"...","priceRub":число,"supplier":"...","url":"https://...","note":"..."}\n' +
+        ']\n' +
+        '```\n' +
+        `URL ОБЯЗАТЕЛЕН для каждого — конкретная страница товара (не главная). ` +
+        `Цену бери из найденного, не выдумывай; не нашёл вариант — пропусти его в массиве.`,
+      timeoutMs: 8 * 60 * 1000,
     });
     const fence = output.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const a = output.indexOf('{');
-    const z = output.lastIndexOf('}');
+    const a = output.indexOf('[');
+    const z = output.lastIndexOf(']');
     const cands = [fence?.[1], a >= 0 && z > a ? output.slice(a, z + 1) : null].filter(Boolean) as string[];
     for (const c of cands) {
       try {
-        const o = JSON.parse(c.trim()) as Record<string, unknown>;
-        return {
-          model: o.model ? String(o.model) : undefined,
-          article: o.article ? String(o.article) : undefined,
-          supplier: o.supplier ? String(o.supplier) : undefined,
-          priceRub: num(o.priceRub),
-          note: o.note ? String(o.note) : undefined,
-          url: o.url ? String(o.url) : undefined,
-        };
+        const parsed = JSON.parse(c.trim());
+        const arr: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+        const out: PumpFound[] = [];
+        for (const v of arr) {
+          if (!v || typeof v !== 'object') continue;
+          const o = v as Record<string, unknown>;
+          out.push({
+            tier: (['optimum', 'reserve', 'economy'] as const).find((t) => t === o.tier) ?? undefined,
+            model: o.model ? String(o.model) : undefined,
+            article: o.article ? String(o.article) : undefined,
+            supplier: o.supplier ? String(o.supplier) : undefined,
+            priceRub: num(o.priceRub),
+            note: o.note ? String(o.note) : undefined,
+            url: o.url ? String(o.url) : undefined,
+          });
+        }
+        if (out.length > 0) return out;
       } catch {
         /* next */
       }
     }
-    return null;
+    return [];
   } catch (e) {
-    console.warn('[kimi-calc] веб-поиск насоса не удался:', e);
-    return null;
+    console.warn('[kimi-calc] подбор насоса не удался:', e);
+    return [];
   }
 }
 
@@ -151,6 +170,10 @@ export interface BomLine {
   source?: 'db' | 'web' | 'estimate';
   /** URL страницы оборудования (для web — ссылка на сайт производителя/магазина). */
   sourceUrl?: string;
+  /** Уровень варианта (для насоса): optimum/reserve/economy. */
+  tier?: 'optimum' | 'reserve' | 'economy';
+  /** Альтернативные варианты — в UI инженер может переключиться. */
+  alternatives?: BomLine[];
 }
 
 /** Структурированный результат расчёта Kimi. */
@@ -326,37 +349,51 @@ export async function calcSystemViaKimi(
     const motor = items.find((i) => /мотор/i.test(i.param))?.value ?? '';
     const q = card.input.Q?.value ?? undefined;
     const h = card.input.H?.value ?? undefined;
-    const pump = await findPumpPrice({ pumpClass, motor, q: q ?? undefined, h: h ?? undefined });
+    const pumpOptions = await findPumpOptions({
+      pumpClass,
+      motor,
+      q: q ?? undefined,
+      h: h ?? undefined,
+    });
 
     // Смета: каскад БД → веб → оценка для каждой позиции.
     const qty = pumpCountFromItems(items);
     const bom: BomLine[] = [];
 
-    // ─── НАСОС ─── веб даёт точную модель/SKU, потом lookup в БД CNP.
-    if (pump) {
-      const dbPump = await findPumpInDbBySku(pump.article ?? pump.model);
-      // Если в БД нашли — используем нашу цену прайса CNP; веб — как альтернатива.
-      const useDb = dbPump?.priceRub != null;
-      const priceRub = useDb ? dbPump!.priceRub : pump.priceRub;
-      const article = useDb ? dbPump!.sku : pump.article;
-      const supplier = useDb ? dbPump!.manufacturer : pump.supplier;
-      const noteParts = [
-        useDb && pump.priceRub != null
-          ? `веб-альтернатива: ${pump.priceRub.toLocaleString('ru-RU')} ₽ ${pump.supplier ?? ''}`
-          : '',
-        pump.note,
-      ].filter(Boolean);
-      bom.push({
-        name: `Насос ${pump.model ?? pumpClass}`,
-        article,
-        supplier,
-        priceRub: priceRub ?? undefined,
-        qty,
-        sum: priceRub != null ? priceRub * qty : undefined,
-        note: noteParts.join(' · ') || undefined,
-        source: useDb ? 'db' : 'web',
-        sourceUrl: !useDb ? pump.url : undefined,
-      });
+    // ─── НАСОС ─── 3 варианта (optimum/reserve/economy) с lookup в БД CNP.
+    if (pumpOptions.length > 0) {
+      // Превращаем каждый веб-вариант в полноценную BomLine с lookup в БД.
+      const lines: BomLine[] = [];
+      for (const opt of pumpOptions) {
+        const dbPump = await findPumpInDbBySku(opt.article ?? opt.model);
+        const useDb = dbPump?.priceRub != null;
+        const priceRub = useDb ? dbPump!.priceRub : opt.priceRub;
+        const article = useDb ? dbPump!.sku : opt.article;
+        const supplier = useDb ? dbPump!.manufacturer : opt.supplier;
+        const noteParts = [
+          useDb && opt.priceRub != null
+            ? `веб-альтернатива: ${opt.priceRub.toLocaleString('ru-RU')} ₽ ${opt.supplier ?? ''}`
+            : '',
+          opt.note,
+        ].filter(Boolean);
+        lines.push({
+          name: `Насос ${opt.model ?? pumpClass}`,
+          article,
+          supplier,
+          priceRub: priceRub ?? undefined,
+          qty,
+          sum: priceRub != null ? priceRub * qty : undefined,
+          note: noteParts.join(' · ') || undefined,
+          source: useDb ? 'db' : 'web',
+          sourceUrl: !useDb ? opt.url : undefined,
+          tier: opt.tier,
+        });
+      }
+      // Основной — optimum (или первый), остальные — alternatives.
+      const main =
+        lines.find((l) => l.tier === 'optimum') ?? lines[0];
+      const alternatives = lines.filter((l) => l !== main);
+      bom.push({ ...main, alternatives });
     }
 
     // ─── КОЛЛЕКТОР ─── 1) БД Gfire (43 точки) 2) md-прайс по шифру 3) оценка.
@@ -454,7 +491,10 @@ export async function calcSystemViaKimi(
     const clientPrice = Math.round(total * markup);
 
     const output =
-      calcOut + (pump ? `\n\n=== ПОДБОР (веб) ===\n${JSON.stringify(pump, null, 2)}` : '');
+      calcOut +
+      (pumpOptions.length > 0
+        ? `\n\n=== ПОДБОР (веб, варианты) ===\n${JSON.stringify(pumpOptions, null, 2)}`
+        : '');
     const data: KimiCalcData = {
       items,
       bom,
