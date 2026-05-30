@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/client": "^6.19.3",
     "ajv": "8.17.1",
     "ajv-formats": "3.0.1",
@@ -34,7 +35,7 @@
     "react-dom": "19.0.0-rc-66855b96-20241106",
     "react-hook-form": "7.53.2",
     "xlsx": "0.18.5",
-    "zod": "3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

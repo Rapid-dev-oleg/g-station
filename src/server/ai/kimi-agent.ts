@@ -92,10 +92,25 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
   const workspace = params.workspace ?? cfg.workspace;
   const toml = buildConfigToml(cfg.apiKey, cfg.baseUrl, cfg.skillsDirs);
 
+  // MCP-сервер к нашей БД — даёт агенту точные каталог/прайс (find_collector,
+  // find_pump_by_sku, search_catalog…), чтобы не гадать вебом. Запускается
+  // через локальный tsx из корня проекта (process.cwd() = корень g-station).
+  const root = process.cwd();
+  const mcpJson = JSON.stringify({
+    mcpServers: {
+      'gstation-db': {
+        command: 'sh',
+        args: ['-c', `cd ${JSON.stringify(root)} && exec node_modules/.bin/tsx src/server/mcp/db-server.ts`],
+      },
+    },
+  });
+
   const dir = await mkdtemp(join(tmpdir(), 'kimi-agent-'));
   const configPath = join(dir, 'config.toml');
+  const mcpPath = join(dir, 'mcp.json');
   try {
     await writeFile(configPath, toml, 'utf-8');
+    await writeFile(mcpPath, mcpJson, 'utf-8');
 
     const prompt = params.skill
       ? `Используй skill \`${params.skill}\`. ${params.prompt}`
@@ -106,6 +121,8 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
       '--quiet',
       '--config-file',
       configPath,
+      '--mcp-config-file',
+      mcpPath,
       '-w',
       workspace,
       '-p',
