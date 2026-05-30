@@ -344,14 +344,15 @@ export function IntakeFlow({
 
   // ── загрузка и парсинг ───────────────────────────────────────────────────
 
-  const SUPPORTED_EXT = /\.(txt|pdf|docx|xlsx)$/i;
+  // Текстовые форматы + изображения (сканы/фото ТЗ читаются через Kimi-vision).
+  const SUPPORTED_EXT = /\.(txt|pdf|docx|xlsx|png|jpe?g|webp|gif)$/i;
 
   /** Принимает FileList/массив — фильтрует по поддерживаемым форматам и добавляет к выбору. */
   const addFiles = (list: FileList | File[] | null) => {
     if (!list) return;
     const incoming = Array.from(list).filter((f) => SUPPORTED_EXT.test(f.name));
     if (incoming.length === 0) {
-      setError('Поддерживаемые форматы: .txt, .pdf, .docx, .xlsx');
+      setError('Поддерживаемые форматы: .txt, .pdf, .docx, .xlsx, изображения (.jpg/.png/.webp)');
       return;
     }
     setFiles((prev) => {
@@ -510,7 +511,7 @@ export function IntakeFlow({
         <input
           ref={fileRef}
           type="file"
-          accept=".txt,.pdf,.docx,.xlsx"
+          accept=".txt,.pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.gif,image/*"
           multiple
           style={{ display: 'none' }}
           onChange={(e) => {
@@ -542,7 +543,7 @@ export function IntakeFlow({
             </div>
             <div className={styles.dropHint}>
               Перетащите один или несколько файлов сюда или нажмите для выбора ·
-              форматы .txt, .pdf, .docx, .xlsx
+              .txt, .pdf, .docx, .xlsx и сканы/фото (.jpg, .png)
             </div>
           </div>
         ) : (

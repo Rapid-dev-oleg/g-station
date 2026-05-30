@@ -17,6 +17,7 @@ import { revalidatePath } from 'next/cache';
 import { createEmptyDossier } from '@/lib/dossier/factory';
 import type { Dossier, Meta, StationInput } from '@/lib/dossier/types';
 import { validateDossier } from '@/lib/dossier/validate';
+import { scrubInput, scrubMeta } from '@/lib/dossier/scrub';
 import { extractText, type DocFormat } from '@/server/ai/extract-text';
 import { documentToImages } from '@/server/ai/document-images';
 import type { KimiImage } from '@/server/ai/kimi';
@@ -452,48 +453,9 @@ function safeDate(s: string): Date | null {
 }
 
 /**
- * Чистит `meta` от null'ов в опциональных полях верхнего уровня.
- * ИИ-разбор регулярно возвращает `customer: null` / `object_name: null`
- * для отсутствующих в ТЗ реквизитов — AJV в этом случае ругается
- * «/meta/customer: must be string». Превращаем такие null'ы в отсутствие
- * ключа, чтобы валидация схемы пропускала.
+ * Очистка карточек от null'ов вынесена в `@/lib/dossier/scrub`
+ * (server-action может экспортировать только async-функции).
  */
-function scrubMeta<T extends Partial<Meta>>(meta: T): T {
-  const out = { ...meta } as Record<string, unknown>;
-  for (const key of Object.keys(out)) {
-    if (out[key] === null) delete out[key];
-  }
-  return out as T;
-}
-
-/**
- * То же для `input` — но глубже: ИИ часто возвращает `system_pressure: null`,
- * `jockey_Q: null`, `fire_params: { fire_duration: null, ... }` — AJV видит
- * «must be object», потому что Measured ожидается объектом, не null.
- * Рекурсивно убираем null-значения и null-поля внутри вложенных объектов.
- * Поле `value: null` внутри Measured ОСТАВЛЯЕМ — оно разрешено схемой.
- */
-function scrubInput<T extends Record<string, unknown>>(obj: T): T {
-  const out: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(obj)) {
-    if (val === null) continue;
-    if (Array.isArray(val)) {
-      out[key] = val;
-      continue;
-    }
-    if (typeof val === 'object') {
-      // Measured (есть свойство value) — сохраняем как есть, value: null валиден.
-      if ('value' in (val as object)) {
-        out[key] = val;
-      } else {
-        out[key] = scrubInput(val as Record<string, unknown>);
-      }
-      continue;
-    }
-    out[key] = val;
-  }
-  return out as T;
-}
 
 // ─── Подтверждение разбора инженером (ручной путь, после ревью) ──────────
 

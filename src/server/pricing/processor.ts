@@ -58,6 +58,9 @@ function parseWebJson(output: string): WebItem | null {
 
 /** Универсальный веб-поиск одной позиции (по описанию категории и требованиям). */
 async function findInWeb(eq: EquipmentReq, hint: string): Promise<WebItem | null> {
+  // Быстрый режим: пропускаем медленный веб-подбор аксессуаров (по одному
+  // Kimi-CLI на позицию) — цена идёт оценкой. Управляется CALC_FAST=1.
+  if (process.env.CALC_FAST === '1') return null;
   const s = await getPricingSettings();
   const sitesLine = Object.entries(s.brandSites)
     .map(([brand, url]) => `  • ${brand} → ${url}`)
@@ -86,10 +89,147 @@ async function findInWeb(eq: EquipmentReq, hint: string): Promise<WebItem | null
 }
 
 /**
+ * Батч-веб: цена СРАЗУ для всего списка аксессуаров одним Kimi-запросом.
+ * Заменяет N последовательных Kimi-CLI (по агенту на позицию) на один вызов —
+ * это и был корень таймаутов фазы 2. Возвращает массив, выровненный по индексу
+ * входных позиций (null там, где не нашлось).
+ */
+async function findManyInWeb(items: { eq: EquipmentReq; hint: string }[]): Promise<(WebItem | null)[]> {
+  if (items.length === 0) return [];
+  if (process.env.CALC_FAST === '1') return items.map(() => null);
+  const s = await getPricingSettings();
+  const sitesLine = Object.entries(s.brandSites)
+    .map(([brand, url]) => `  • ${brand} → ${url}`)
+    .join('\n');
+  const list = items
+    .map(
+      ({ eq, hint }, i) =>
+        `${i}. категория=${eq.category}; наименование=${eq.name}; ` +
+        `требования=${JSON.stringify(eq.req ?? {})}; подсказка=${hint}`,
+    )
+    .join('\n');
+  try {
+    const { output } = await runKimiAgent({
+      prompt:
+        `Подбери в интернете (web search) КОНКРЕТНЫЕ позиции оборудования для насосной станции — ` +
+        `СРАЗУ ВЕСЬ СПИСОК ниже за один проход (по каждому 1-2 запроса максимум).\n\n` +
+        `СПИСОК ПОЗИЦИЙ (сохрани индексы):\n${list}\n\n` +
+        `ПРИОРИТЕТ ИСТОЧНИКОВ — официальные сайты производителей в РФ:\n${sitesLine}\n` +
+        `Бренды в приоритете: ${s.brandPriority.join(', ')}.\n\n` +
+        `Верни СТРОГО JSON-массивом, по элементу на КАЖДЫЙ индекс:\n` +
+        '```json\n' +
+        `[{"idx":0,"model":"...","article":"...","priceRub":число|null,"supplier":"...","url":"https://страница-товара","note":"наличие/срок"}, ...]\n` +
+        '```\n' +
+        `URL — конкретная страница товара (не главная). Цену не нашёл — priceRub:null. ` +
+        `Не выдумывай: если позиции нет — verни элемент с priceRub:null и note почему.`,
+      timeoutMs: 8 * 60 * 1000,
+    });
+    const arr = parseWebArray(output);
+    // Выравниваем по idx (или по порядку, если idx не пришёл).
+    const byIdx = new Map<number, WebItem>();
+    arr.forEach((w, i) => byIdx.set(w.idx ?? i, w.item));
+    return items.map((_, i) => byIdx.get(i) ?? null);
+  } catch (e) {
+    console.warn(`[processor] батч-веб (${items.length} поз.) не удался:`, e);
+    return items.map(() => null);
+  }
+}
+
+/** Парсит JSON-массив батч-ответа в [{idx, item}]. */
+function parseWebArray(output: string): { idx?: number; item: WebItem }[] {
+  const fence = output.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const a = output.indexOf('[');
+  const z = output.lastIndexOf(']');
+  const cands = [fence?.[1], a >= 0 && z > a ? output.slice(a, z + 1) : null].filter(Boolean) as string[];
+  for (const c of cands) {
+    try {
+      const parsed = JSON.parse(c.trim()) as Record<string, unknown>[];
+      if (!Array.isArray(parsed)) continue;
+      return parsed.map((o) => ({
+        idx: num(o.idx),
+        item: {
+          model: o.model ? String(o.model) : undefined,
+          article: o.article ? String(o.article) : undefined,
+          supplier: o.supplier ? String(o.supplier) : undefined,
+          priceRub: num(o.priceRub),
+          url: o.url ? String(o.url) : undefined,
+          note: o.note ? String(o.note) : undefined,
+        },
+      }));
+    } catch {
+      /* next */
+    }
+  }
+  return [];
+}
+
+/** Собирает BomLine аксессуара из результата веб-подбора (или «цена не определена»). */
+function buildAccessoryLine(eq: EquipmentReq, web: WebItem | null): BomLine {
+  const qty = eq.qty ?? 1;
+  if (web?.priceRub != null) {
+    return {
+      name: `${eq.name}${web.model ? ` ${web.model}` : ''}`,
+      article: web.article,
+      supplier: web.supplier,
+      priceRub: web.priceRub,
+      qty,
+      sum: web.priceRub * qty,
+      note: web.note,
+      source: 'web',
+      sourceUrl: web.url,
+    };
+  }
+  return {
+    name: eq.name,
+    qty,
+    note: web?.note ?? `цена не определена; req=${JSON.stringify(eq.req ?? {})}`,
+    source: 'estimate',
+  };
+}
+
+/**
+ * Цена всего списка equipment[] (кроме основного насоса — он считается отдельно
+ * через findPumpOptions). БД/формула — по каждой позиции локально, веб-аксессуары —
+ * ОДНИМ батч-запросом. Это устраняет N последовательных Kimi-CLI фазы 2.
+ */
+export async function priceEquipment(equipment: EquipmentReq[]): Promise<BomLine[]> {
+  const out: BomLine[] = [];
+  const webQueue: { eq: EquipmentReq; hint: string }[] = [];
+  for (const eq of equipment) {
+    if (/^pump$/i.test(eq.category)) continue; // основной насос — отдельно
+    const r = await resolveOffline(eq);
+    if (r === 'web') {
+      webQueue.push({ eq, hint: hintForCategory(eq.category.toLowerCase(), eq.req ?? {}) });
+    } else if (r && r !== 'skip') {
+      out.push(r);
+    }
+  }
+  const priced = await findManyInWeb(webQueue);
+  webQueue.forEach(({ eq }, i) => out.push(buildAccessoryLine(eq, priced[i])));
+  return out;
+}
+
+/**
  * Превращает одну позицию equipment[] в BomLine с правильным каскадом БД→веб→оценка.
  * Возвращает null для категорий «работы» — их добавляет отдельно собиратель сметы.
+ * Для аксессуаров делает ОДИН веб-запрос (для batch — см. priceEquipment).
  */
 export async function processEquipmentItem(eq: EquipmentReq): Promise<BomLine | null> {
+  const r = await resolveOffline(eq);
+  if (r === 'web') {
+    const hint = hintForCategory(eq.category.toLowerCase(), eq.req ?? {});
+    return buildAccessoryLine(eq, await findInWeb(eq, hint));
+  }
+  return r === 'skip' ? null : r;
+}
+
+/**
+ * Локальное (без веба) разрешение позиции по БД/формуле.
+ *  - BomLine — позиция определена из БД/прайса/методики;
+ *  - 'web'   — аксессуар, нужен веб-подбор цены;
+ *  - 'skip'  — пропустить (основной насос без SKU; неразрешимый коллектор).
+ */
+async function resolveOffline(eq: EquipmentReq): Promise<BomLine | 'web' | 'skip'> {
   const qty = eq.qty ?? 1;
   const cat = eq.category.toLowerCase();
   const req = eq.req ?? {};
@@ -115,8 +255,8 @@ export async function processEquipmentItem(eq: EquipmentReq): Promise<BomLine | 
         };
       }
     }
-    // Если SKU не задан — оставляем веб-варианты обработать в основном цикле.
-    return null;
+    // Если SKU не задан — основной насос подбирается отдельно (findPumpOptions).
+    return 'skip';
   }
 
   // ─── КОЛЛЕКТОР ───
@@ -161,7 +301,7 @@ export async function processEquipmentItem(eq: EquipmentReq): Promise<BomLine | 
         };
       }
     }
-    return null;
+    return 'skip';
   }
 
   // ─── ОБВЯЗКА ЖОКЕЯ ─── (категория jockey_piping или похожая)
@@ -180,7 +320,7 @@ export async function processEquipmentItem(eq: EquipmentReq): Promise<BomLine | 
         source: 'db',
       };
     }
-    return null;
+    return 'skip';
   }
 
   // ─── РАБОТЫ КОЛЛЕКТОРА ─── особый кейс: формула по DN
@@ -198,29 +338,8 @@ export async function processEquipmentItem(eq: EquipmentReq): Promise<BomLine | 
   }
 
   // ─── ВСЕ ОСТАЛЬНЫЕ (ШУ, бак, реле, манометры, виброопоры, клапаны, ...) ───
-  // Веб-поиск. Подсказка — по категории.
-  const hint = hintForCategory(cat, req);
-  const web = await findInWeb(eq, hint);
-  if (web?.priceRub != null) {
-    return {
-      name: `${eq.name}${web.model ? ` ${web.model}` : ''}`,
-      article: web.article,
-      supplier: web.supplier,
-      priceRub: web.priceRub,
-      qty,
-      sum: web.priceRub * qty,
-      note: web.note,
-      source: 'web',
-      sourceUrl: web.url,
-    };
-  }
-  // Если веб не нашёл цену — отдаём позицию с пометкой «цена не определена».
-  return {
-    name: eq.name,
-    qty,
-    note: `цена не определена; req=${JSON.stringify(req)}`,
-    source: 'estimate',
-  };
+  // Локально не определяются — нужен веб-подбор (батчем в priceEquipment).
+  return 'web';
 }
 
 function hintForCategory(cat: string, req: Record<string, unknown>): string {
