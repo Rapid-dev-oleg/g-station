@@ -19,6 +19,7 @@ import {
   findCollectorInDb,
   findJockeyPipingInDb,
   findPumpInDbBySku,
+  upsertPumpFromWeb,
 } from '@/server/pricing/equipment';
 
 /** Скил расчёта по типу системы (сейчас один — пожарные/водоснабжение). */
@@ -326,6 +327,16 @@ export async function calcSystemViaKimi(
     // ─── НАСОС ─── веб даёт точную модель/SKU, потом lookup в БД CNP.
     if (pump) {
       const dbPump = await findPumpInDbBySku(pump.article ?? pump.model);
+      // Не нашли в БД но веб дал валидные данные → upsert (пополняем catalog).
+      if (!dbPump && pump.priceRub != null && (pump.article || pump.model)) {
+        await upsertPumpFromWeb({
+          model: pump.model,
+          article: pump.article,
+          priceRub: pump.priceRub,
+          supplier: pump.supplier,
+          note: pump.note,
+        }).catch(() => undefined); // upsert не должен ломать расчёт
+      }
       // Если в БД нашли — используем нашу цену прайса CNP; веб — как альтернатива.
       const useDb = dbPump?.priceRub != null;
       const priceRub = useDb ? dbPump!.priceRub : pump.priceRub;
