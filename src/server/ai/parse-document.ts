@@ -10,6 +10,7 @@
 
 import { askAi } from './index';
 import { askKimi, kimiAvailable, type KimiImage } from './kimi';
+import { db } from '@/server/db';
 import type {
   Meta,
   Scenario,
@@ -17,6 +18,57 @@ import type {
   FirePurpose,
   ReservationScheme,
 } from '@/lib/dossier/types';
+
+/**
+ * Реестр типа станции — что нужно, чтобы тип ОПРЕДЕЛИТЬ и РАСПАРСИТЬ.
+ * Источник — таблица SystemType (скил «ядро + модуль типа», перенесён в данные).
+ * Добавить новый тип = INSERT строки SystemType, без правок парсера.
+ */
+export interface TypeRegistryEntry {
+  code: string;
+  name: string;
+  /** Ключевые слова в ТЗ, по которым станция относится к этому типу. */
+  triggers: string[];
+  /** Допустимые назначения станции этого типа (purpose). */
+  purposes: string[];
+  /** Что считать КОМПОНЕНТОМ станции, а не отдельной системой. */
+  components: string[];
+  skillName: string | null;
+}
+
+const toStrArray = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean) : [];
+
+/** Загружает реестр готовых (READY) типов систем из БД. */
+export async function loadTypeRegistry(): Promise<TypeRegistryEntry[]> {
+  const rows = await db.systemType.findMany({ where: { status: 'READY' } });
+  return rows.map((r) => ({
+    code: r.code,
+    name: r.name,
+    triggers: toStrArray(r.triggers),
+    purposes: toStrArray(r.purposes),
+    components: toStrArray(r.components),
+    skillName: r.skillName ?? null,
+  }));
+}
+
+/**
+ * ПРИНЦИП ДЕЛЕНИЯ на системы — ядро скила (шаг1-вход.md §1.4), общий для всех
+ * типов, поэтому живёт здесь, а не в строке SystemType. Per-type специфика
+ * (триггеры/назначения/компоненты) приходит из реестра.
+ */
+const SPLIT_PRINCIPLE = `ПРИНЦИП ДЕЛЕНИЯ НА СИСТЕМЫ (ядро скила pump-station-calc, шаг1-вход.md §1.4) —
+выполняй буквально:
+Система — это ОДНА НЕЗАВИСИМАЯ ГРУППА НАСОСОВ со своим назначением и своей
+гидравликой (Q, H). На одном объекте их может быть несколько (напр. наружное
+ПТ + АУПТ, или пожарная + хоз-питьевая) — тогда верни по элементу на каждую.
+
+Признак КОМПОНЕНТА (а не системы): он не имеет самостоятельного назначения
+(сам не тушит и не снабжает отдельного потребителя), а обслуживает основную
+группу насосов. Компоненты НИКОГДА не выделяй отдельным элементом "systems":
+жокей-насос заноси в поля родительской станции (jockey_required=true,
+jockey_Q, jockey_H); коллектор, ШУ, бак, обвязку, реле, датчики, компрессор —
+это оборудование станции. Если сомневаешься — это компонент основной станции.`;
 
 /** Данные заказчика, извлечённые из шапки/реквизитов документа. */
 export interface ParsedClient {
@@ -52,10 +104,14 @@ export interface ParsedDocument {
   raw?: string;
 }
 
-/** Пожарные назначения → тип станции 'fire', остальные → 'water'. */
-function typeCodeForPurpose(purpose?: string): string {
-  const fire = ['наружное-ПТ', 'ВПВ', 'АУПТ', 'пожаротушение-общее', 'береговая-ПНС'];
-  return purpose && fire.includes(purpose) ? 'fire' : purpose ? 'water' : 'fire';
+/** Назначение → код типа по реестру (тип, в чьём списке purposes оно есть). */
+function typeCodeForPurpose(purpose: string | undefined, registry: TypeRegistryEntry[]): string {
+  if (purpose) {
+    const hit = registry.find((t) => t.purposes.includes(purpose));
+    if (hit) return hit.code;
+  }
+  // Дефолт — пожарный тип (приложение для G-Fire), иначе первый READY.
+  return registry.find((t) => t.code === 'fire')?.code ?? registry[0]?.code ?? 'fire';
 }
 
 // ── Перечни допустимых значений (передаются модели в промпте) ──────────────
@@ -147,31 +203,24 @@ const SYSTEM_PROMPT = `Ты — инженер-расчётчик насосны
    без пояснений вокруг. Включай в "input" и "meta" только реально извлечённые
    или обоснованно выведенные поля.`;
 
-/** Строит пользовательский промпт: перечень полей карточки + текст ТЗ. */
-function buildPrompt(text: string): string {
+/** Блок идентификации типов — собирается из реестра READY-типов. */
+function buildIdentificationBlock(registry: TypeRegistryEntry[]): string {
+  if (registry.length === 0) return '';
+  const lines = registry.map(
+    (t) => `  • тип "${t.code}" (${t.name}) — если в ТЗ есть: ${t.triggers.join(', ')};`,
+  );
+  return `ОПРЕДЕЛЕНИЕ ТИПА СИСТЕМЫ (по триггерам реестра типов):
+${lines.join('\n')}
+У каждой системы проставь "station_type" = код типа из списка выше.`;
+}
+
+/** Строит пользовательский промпт: реестр типов + перечень полей + текст ТЗ. */
+function buildPrompt(text: string, registry: TypeRegistryEntry[]): string {
   return `Извлеки из пакета документов ВСЕ независимые насосные системы объекта.
 
-ПРИНЦИП ДЕЛЕНИЯ НА СИСТЕМЫ (скил pump-station-calc, шаг1-вход.md §1.4) —
-выполняй буквально:
-Система — это ОДНА НЕЗАВИСИМАЯ ГРУППА НАСОСОВ со своим назначением и своей
-гидравликой (Q, H). Отдельными системами считаются, например:
-  • пожаротушение: АУПТ / ВПВ / наружное ПТ — каждое самостоятельное;
-  • хоз-питьевое водоснабжение;
-  • повышение давления.
-На одном объекте их может быть несколько (напр. наружное ПТ + АУПТ, или
-пожарная + хоз-питьевая) — тогда верни по элементу на каждую.
+${SPLIT_PRINCIPLE}
 
-НЕ ЯВЛЯЮТСЯ отдельными системами (это КОМПОНЕНТЫ одной станции — НИКОГДА
-не выделяй их отдельным элементом "systems"):
-  • ЖОКЕЙ-НАСОС — компенсатор утечек ВНУТРИ той же станции. У него свои Q/H,
-    но он питается от того же коллектора и обслуживает ту же систему. Заноси
-    его в поля РОДИТЕЛЬСКОЙ станции: jockey_required=true, jockey_Q, jockey_H —
-    НЕ создавай для него отдельную систему.
-  • коллектор, шкаф управления (ШУ), мембранный бак, обвязка, реле, датчики,
-    компрессор — это оборудование станции, а не системы.
-Признак компонента (а не системы): он не имеет самостоятельного назначения
-(сам не тушит и не снабжает отдельного потребителя), а обслуживает основную
-группу насосов. Если сомневаешься — это компонент основной станции.
+${buildIdentificationBlock(registry)}
 
 Верни массив "systems": по одному элементу на КАЖДУЮ независимую систему.
 Если система одна — массив из одного элемента. Общие данные объекта и
@@ -236,22 +285,35 @@ ${
 
 // ── Гард: компоненты станции не должны стать «системами» ─────────────────────
 
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Жокей — особый компонент (есть Q/H, сворачиваем в jockey_*); опознаётся
+// универсально, независимо от реестра.
+const JOCKEY_RE = /жокей|jockey|подкачивающ/i;
+
 /**
  * Жокей-насос / ШУ / коллектор / бак — это КОМПОНЕНТЫ станции (скил
  * шаг1-вход.md §1.4), а не самостоятельные системы. Если модель всё же
  * выделила такой компонент отдельным элементом `systems` — сворачиваем его
  * в родительскую станцию (для жокея — в поля jockey_*), а лишний элемент
- * убираем. Так результат соответствует принципу деления независимо от того,
- * насколько аккуратно модель разделила ТЗ.
+ * убираем. Список компонентов берём из реестра типов (`componentWords`),
+ * чтобы он управлялся данными, а не хардкодом.
  */
-function foldComponentSystems(systems: ParsedSystem[]): ParsedSystem[] {
+function foldComponentSystems(
+  systems: ParsedSystem[],
+  componentWords: string[],
+): ParsedSystem[] {
   if (systems.length <= 1) return systems;
 
-  const isJockey = (s: ParsedSystem) => /жокей|jockey|подкачивающ/i.test(s.systemName);
-  // Прочие компоненты, ошибочно ставшие системой — отбрасываем без переноса
+  const isJockey = (s: ParsedSystem) => JOCKEY_RE.test(s.systemName);
+  // Прочие компоненты из реестра (кроме жокея) — отбрасываем без переноса
   // гидравлики (их параметры не относятся к станции как целому).
+  const otherWords = componentWords.filter((w) => !JOCKEY_RE.test(w));
+  const otherRe = otherWords.length
+    ? new RegExp(otherWords.map(escapeRegex).join('|'), 'i')
+    : null;
   const isOtherComponent = (s: ParsedSystem) =>
-    /шкаф\s*управлен|\bШУ\b|коллектор|мембранн|\bбак\b|обвязк|компрессор/i.test(s.systemName);
+    !isJockey(s) && otherRe !== null && otherRe.test(s.systemName);
 
   const stations = systems.filter((s) => !isJockey(s) && !isOtherComponent(s));
   // Сворачивать некуда — оставляем как есть, чтобы не потерять единственную систему.
@@ -312,7 +374,9 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
     throw new Error('Нет ни текста, ни изображений для разбора документа');
   }
 
-  const prompt = buildPrompt(hasText ? src.text! : '');
+  // Реестр типов из БД — управляет идентификацией и парсингом (см. SystemType).
+  const registry = await loadTypeRegistry();
+  const prompt = buildPrompt(hasText ? src.text! : '', registry);
 
   let content: string;
   if (kimiAvailable()) {
@@ -365,11 +429,16 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
       ? [{ input: parsed.input, missing: parsed.missing }]
       : [];
 
+  const knownCodes = new Set(registry.map((t) => t.code));
   const systems: ParsedSystem[] = rawSystems.map((s, i) => {
     const input = (s.input ?? {}) as Partial<StationInput>;
     const purpose = input.purpose as string | undefined;
-    const typeCode = (input.station_type as string) || typeCodeForPurpose(purpose);
-    if (!input.station_type) input.station_type = typeCode as StationInput['station_type'];
+    // Код типа от модели принимаем только если он есть в реестре READY-типов;
+    // иначе определяем по назначению через реестр.
+    const claimed = input.station_type as string | undefined;
+    const typeCode =
+      claimed && knownCodes.has(claimed) ? claimed : typeCodeForPurpose(purpose, registry);
+    input.station_type = typeCode as StationInput['station_type'];
     const missing = Array.isArray(s.missing)
       ? (s.missing as unknown[]).map((m) => String(m))
       : [];
@@ -384,7 +453,9 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
   }
 
   // Свернуть компоненты (жокей/ШУ/…), ошибочно ставшие отдельными системами.
-  const folded = foldComponentSystems(systems);
+  // Список компонентов — объединение из реестра типов.
+  const componentWords = [...new Set(registry.flatMap((t) => t.components))];
+  const folded = foldComponentSystems(systems, componentWords);
 
   return { meta, client, systems: folded, raw: content };
 }

@@ -21,16 +21,58 @@ async function main() {
     },
   });
 
-  // ── Типы систем ──
+  // ── Типы систем (реестр: скил + модуль + схема + триггеры/назначения/компоненты) ──
+  // Источник знаний — скил pump-station-calc: триггеры и назначения из
+  // типы/пожарные.md §1, состав компонентов — типы/пожарные.md §5 + шаг1-вход.md §1.4.
+  // Принцип деления («система = независимая группа насосов») живёт в ядре
+  // (parse-document.ts, константа SPLIT_PRINCIPLE), а не дублируется здесь.
   const types = [
-    { code: 'fire', name: 'Пожарная система', status: 'READY' as const,
-      description: 'Насосные станции пожаротушения (G-Fire): ВПВ, АУПТ, наружное ПТ.' },
-    { code: 'water', name: 'Водоснабжение', status: 'PLANNED' as const,
-      description: 'Хоз-питьевое водоснабжение, повышение давления.' },
-    { code: 'power', name: 'Прочие', status: 'PLANNED' as const, description: null },
+    {
+      code: 'fire',
+      name: 'Пожарная система',
+      status: 'READY' as const,
+      description: 'Насосные станции пожаротушения (G-Fire): ВПВ, АУПТ, наружное ПТ.',
+      skillName: 'pump-station-calc',
+      typeModule: 'типы/пожарные.md',
+      schemaRef: 'расчётное-дело.schema.json',
+      triggers: [
+        'пожаротушение', 'ВПВ', 'АУПТ', 'наружное ПТ', 'наружное пожаротушение',
+        'противопожарн', 'спринклер', 'дренчер', 'пожарный кран', 'пожарный запас',
+        'МЧС', 'СП 10', 'СП 485', 'СП 8', 'береговая ПНС',
+      ],
+      purposes: ['наружное-ПТ', 'ВПВ', 'АУПТ', 'пожаротушение-общее', 'береговая-ПНС'],
+      components: [
+        'жокей', 'jockey', 'подкачивающ', 'шкаф управлен', 'ШУ', 'коллектор',
+        'мембранный бак', 'бак', 'обвязк', 'компрессор', 'реле', 'датчик',
+      ],
+    },
+    {
+      code: 'water',
+      name: 'Водоснабжение',
+      status: 'PLANNED' as const,
+      description: 'Хоз-питьевое водоснабжение, повышение давления.',
+      skillName: 'pump-station-calc',
+      typeModule: null,
+      schemaRef: 'расчётное-дело.schema.json',
+      triggers: ['хоз-питьевое', 'водоснабжение', 'повышение давления', 'ХВС', 'питьевая вода'],
+      purposes: ['хоз-питьевое', 'повышение-давления'],
+      components: ['жокей', 'шкаф управлен', 'ШУ', 'коллектор', 'бак', 'обвязк'],
+    },
+    {
+      code: 'power',
+      name: 'Прочие',
+      status: 'PLANNED' as const,
+      description: null,
+      skillName: null,
+      typeModule: null,
+      schemaRef: null,
+      triggers: [],
+      purposes: [],
+      components: [],
+    },
   ];
   for (const t of types) {
-    await db.systemType.upsert({ where: { code: t.code }, update: { name: t.name, status: t.status }, create: t });
+    await db.systemType.upsert({ where: { code: t.code }, update: t, create: t });
   }
 
   // ── Категории каталога ──

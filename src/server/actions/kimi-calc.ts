@@ -23,9 +23,13 @@ import {
 import { processEquipmentItem } from '@/server/pricing/processor';
 import { getPricingSettings } from '@/server/pricing/settings';
 
-/** Скил расчёта по типу системы (сейчас один — пожарные/водоснабжение). */
-function skillForType(_typeCode: string): string {
-  return 'pump-station-calc';
+/** Скил расчёта по типу системы — из реестра SystemType (fallback на дефолт). */
+async function skillForType(typeCode: string): Promise<string> {
+  const t = await db.systemType.findUnique({
+    where: { code: typeCode },
+    select: { skillName: true },
+  });
+  return t?.skillName ?? 'pump-station-calc';
 }
 
 /** Число насосов по схеме (из строки items «Схема»). */
@@ -350,7 +354,7 @@ export async function calcSystemViaKimi(
   try {
     // ── Фаза 1: расчёт характеристик по скилу (без веба — мало шагов). ──
     const { output: calcOut } = await runKimiAgent({
-      skill: skillForType(system.typeCode),
+      skill: await skillForType(system.typeCode),
       prompt:
         'Выполни ШАГИ 1-3 скила pump-station-calc для этой станции: определи тип, ' +
         'посчитай рабочую точку и характеристики (шаг 2), подбери ПОЛНЫЙ СОСТАВ ' +

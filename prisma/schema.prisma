@@ -88,6 +88,14 @@ model SystemType {
   name        String
   description String?
   status      SystemTypeStatus @default(PLANNED)
+  // Реестр типа станции (скил «ядро + модуль типа», перенесён в данные).
+  // Управляет идентификацией и парсингом ТЗ — см. parse-document.ts.
+  skillName   String? // скил расчёта, напр. 'pump-station-calc'
+  typeModule  String? // модуль типа в скиле, напр. 'типы/пожарные.md'
+  schemaRef   String? // схема расчётного дела, напр. 'расчётное-дело.schema.json'
+  triggers    Json? // ключевые слова идентификации типа из ТЗ (string[])
+  purposes    Json? // допустимые назначения станции этого типа (string[])
+  components  Json? // что считать компонентом станции, а не системой (string[])
   systems     System[]
 }
 

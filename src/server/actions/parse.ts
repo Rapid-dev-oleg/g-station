@@ -423,7 +423,8 @@ async function autoSubmit({
       data: {
         name: sys.systemName,
         projectId: project.id,
-        typeCode: sys.typeCode === 'water' ? 'water' : 'fire',
+        // typeCode уже определён парсером по реестру SystemType (READY-тип).
+        typeCode: sys.typeCode,
         engineerId: ownerId,
         dossier: dossier as unknown as Prisma.InputJsonValue,
       },
