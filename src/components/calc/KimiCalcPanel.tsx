@@ -13,6 +13,45 @@ import {
 const rub = (n?: number) =>
   n == null ? '—' : n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
 
+/** Бейдж источника цены: БД (прайс компании) / веб (с URL) / оценка (по правилу). */
+function SourceBadge({ source, url }: { source: 'db' | 'web' | 'estimate'; url?: string }) {
+  const palette = {
+    db: { bg: '#dcfce7', fg: '#166534', label: 'БД' },
+    web: { bg: '#dbeafe', fg: '#1d4ed8', label: 'веб' },
+    estimate: { bg: '#fef3c7', fg: '#92400e', label: 'оценка' },
+  }[source];
+  const badge = (
+    <span
+      style={{
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        background: palette.bg,
+        color: palette.fg,
+        padding: '1px 6px',
+        borderRadius: 4,
+        fontWeight: 600,
+      }}
+    >
+      {palette.label}
+    </span>
+  );
+  if (source === 'web' && url) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={url}
+        style={{ textDecoration: 'none' }}
+      >
+        {badge}
+      </a>
+    );
+  }
+  return badge;
+}
+
 /**
  * Расчёт системы через Kimi — структурой «пункт — значение — обоснование».
  * Значения редактируемы; строки-гейты (точная модель, бренд, наценка)
@@ -173,7 +212,10 @@ export function KimiCalcPanel({
                   {bom.map((b, i) => (
                     <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ padding: '8px' }}>
-                        <div style={{ fontWeight: 500 }}>{b.name}</div>
+                        <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {b.name}
+                          {b.source && <SourceBadge source={b.source} url={b.sourceUrl} />}
+                        </div>
                         {(b.article || b.supplier || b.note) && (
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
                             {[b.article, b.supplier, b.note].filter(Boolean).join(' · ')}
@@ -206,9 +248,8 @@ export function KimiCalcPanel({
                 </tfoot>
               </table>
               <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-                Насос — веб-поиск (приоритет cnprussia.ru). Коллектор — реконструированный
-                прайс по шифру (41 точка из 45 кейсов; разброс 1.5×, медиана + поправка на материал).
-                Работы — масштаб по DN из методички. ШУ — оценка (прайса нет). Проверьте перед отправкой.
+                Источники цены: <SourceBadge source="db" /> — прайс компании в БД, <SourceBadge source="web" url="" /> — найдено в интернете (клик по бейджу → страница оборудования), <SourceBadge source="estimate" /> — оценка по правилу/методичке (прайса нет).
+                Проверьте перед отправкой клиенту.
               </p>
             </div>
           )}

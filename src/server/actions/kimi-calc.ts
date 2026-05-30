@@ -19,7 +19,6 @@ import {
   findCollectorInDb,
   findJockeyPipingInDb,
   findPumpInDbBySku,
-  upsertPumpFromWeb,
 } from '@/server/pricing/equipment';
 
 /** Скил расчёта по типу системы (сейчас один — пожарные/водоснабжение). */
@@ -41,6 +40,8 @@ interface PumpFound {
   supplier?: string;
   priceRub?: number;
   note?: string;
+  /** URL страницы оборудования (на сайте производителя/магазина). */
+  url?: string;
 }
 
 /**
@@ -68,7 +69,8 @@ async function findPumpPrice(p: {
         `Если на официальном цены нет — возьми из крупного магазина-дилера, но article и model — ` +
         `всегда из официального источника.\n` +
         `Бренд по умолчанию — CNP. Альтернативы — Wilo / Grundfos / Wellmix.\n` +
-        `Верни СТРОГО JSON-блоком \`\`\`json {"model":"...","article":"...","priceRub":число,"supplier":"сайт/магазин","note":"наличие/срок"} \`\`\`. ` +
+        `Верни СТРОГО JSON-блоком \`\`\`json {"model":"...","article":"...","priceRub":число,"supplier":"сайт/магазин","url":"https://полный-url-страницы-оборудования","note":"наличие/срок"} \`\`\`. ` +
+        `URL ОБЯЗАТЕЛЕН — конкретная страница товара (не главная сайта). ` +
         `Цену бери из найденного, не выдумывай; не нашёл — priceRub оставь null.`,
       timeoutMs: 6 * 60 * 1000,
     });
@@ -85,6 +87,7 @@ async function findPumpPrice(p: {
           supplier: o.supplier ? String(o.supplier) : undefined,
           priceRub: num(o.priceRub),
           note: o.note ? String(o.note) : undefined,
+          url: o.url ? String(o.url) : undefined,
         };
       } catch {
         /* next */
@@ -143,6 +146,11 @@ export interface BomLine {
   sum?: number;
   /** Примечание (наличие, срок). */
   note?: string;
+  /** Источник цены: 'db' (юзерский прайс из catalog), 'web' (нашли в интернете),
+   *  'estimate' (оценка по правилу/методичке, прайса нет). */
+  source?: 'db' | 'web' | 'estimate';
+  /** URL страницы оборудования (для web — ссылка на сайт производителя/магазина). */
+  sourceUrl?: string;
 }
 
 /** Структурированный результат расчёта Kimi. */
@@ -327,23 +335,12 @@ export async function calcSystemViaKimi(
     // ─── НАСОС ─── веб даёт точную модель/SKU, потом lookup в БД CNP.
     if (pump) {
       const dbPump = await findPumpInDbBySku(pump.article ?? pump.model);
-      // Не нашли в БД но веб дал валидные данные → upsert (пополняем catalog).
-      if (!dbPump && pump.priceRub != null && (pump.article || pump.model)) {
-        await upsertPumpFromWeb({
-          model: pump.model,
-          article: pump.article,
-          priceRub: pump.priceRub,
-          supplier: pump.supplier,
-          note: pump.note,
-        }).catch(() => undefined); // upsert не должен ломать расчёт
-      }
       // Если в БД нашли — используем нашу цену прайса CNP; веб — как альтернатива.
       const useDb = dbPump?.priceRub != null;
       const priceRub = useDb ? dbPump!.priceRub : pump.priceRub;
       const article = useDb ? dbPump!.sku : pump.article;
-      const supplier = useDb ? `${dbPump!.manufacturer} (прайс БД)` : pump.supplier;
+      const supplier = useDb ? dbPump!.manufacturer : pump.supplier;
       const noteParts = [
-        useDb ? `БД CNP` : `веб: ${pump.supplier ?? '—'}`,
         useDb && pump.priceRub != null
           ? `веб-альтернатива: ${pump.priceRub.toLocaleString('ru-RU')} ₽ ${pump.supplier ?? ''}`
           : '',
@@ -356,7 +353,9 @@ export async function calcSystemViaKimi(
         priceRub: priceRub ?? undefined,
         qty,
         sum: priceRub != null ? priceRub * qty : undefined,
-        note: noteParts.join(' · '),
+        note: noteParts.join(' · ') || undefined,
+        source: useDb ? 'db' : 'web',
+        sourceUrl: !useDb ? pump.url : undefined,
       });
     }
 
@@ -384,6 +383,7 @@ export async function calcSystemViaKimi(
         qty: 1,
         sum: dbCollector.priceRub,
         note: dbCollector.note,
+        source: 'db',
       });
     } else {
       const coll = findCollectorPrice(collectorCode, collectorMaterial);
@@ -395,9 +395,17 @@ export async function calcSystemViaKimi(
           qty: 1,
           sum: coll.priceRub,
           note: coll.exact ? `md-прайс: ${coll.source}` : `ориентир: ${coll.source}`,
+          source: 'estimate',
         });
       } else {
-        bom.push({ name: 'Материалы коллектора', priceRub: 95000, qty: 1, sum: 95000, note: 'оценочно (нет точки в прайсе)' });
+        bom.push({
+          name: 'Материалы коллектора',
+          priceRub: 95000,
+          qty: 1,
+          sum: 95000,
+          note: 'оценочно (нет точки в прайсе)',
+          source: 'estimate',
+        });
       }
       // Работы — только если в БД нет коллектора (там работы уже включены в total).
       const dnSucMatch = (collectorCode || '').match(/(\d+)/);
@@ -409,6 +417,7 @@ export async function calcSystemViaKimi(
         qty: 1,
         sum: weld,
         note: `по DN${dnSuc} (методика)`,
+        source: 'estimate',
       });
     }
 
@@ -425,12 +434,20 @@ export async function calcSystemViaKimi(
           qty: 1,
           sum: jp.priceRub,
           note: jp.note,
+          source: 'db',
         });
       }
     }
 
     // ─── ШУ ─── прайса в БД нет, оценка.
-    bom.push({ name: `Шкаф управления (${motor || 'по мотору'})`, priceRub: 185000, qty: 1, sum: 185000, note: 'оценочно (прайса ШУ нет)' });
+    bom.push({
+      name: `Шкаф управления (${motor || 'по мотору'})`,
+      priceRub: 185000,
+      qty: 1,
+      sum: 185000,
+      note: 'оценочно (прайса ШУ нет)',
+      source: 'estimate',
+    });
 
     const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
     const markup = 1.7;
