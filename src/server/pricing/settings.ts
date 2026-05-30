@@ -1,11 +1,11 @@
 /**
- * Параметры ценообразования и подбора — из БД (RuleConfig).
+ * Параметры ценообразования и подбора — из таблицы Settings (singleton).
  *
- * Чтобы НЕ хардкодить в коде: наценку клиенту, курс валют, приоритет брендов
- * для веб-поиска. Менеджер правит через UI Settings, без пересборки.
+ * Чтобы НЕ хардкодить в коде: наценку клиенту, курс USD, приоритет брендов.
+ * Менеджер правит через UI /settings, без пересборки.
  *
- * Источник: RuleConfig ruleId='pricing-settings' active=true.
- * Если записи нет — отдаются дефолты (см. DEFAULT).
+ * Использует существующие поля Settings.defaultMarkup / defaultRateUsd.
+ * Приоритет брендов / сайты — пока в defaults (можно вынести в Settings позже).
  */
 
 import { db } from '@/server/db';
@@ -43,17 +43,13 @@ export async function getPricingSettings(): Promise<PricingSettings> {
   const now = Date.now();
   if (cached && now - cached.at < TTL_MS) return cached.value;
 
-  const row = await db.ruleConfig.findFirst({
-    where: { ruleId: 'pricing-settings', active: true },
-    orderBy: { effectiveFrom: 'desc' },
-  });
-  const payload = (row?.payload ?? null) as Partial<PricingSettings> | null;
+  const row = await db.settings.findUnique({ where: { id: 'singleton' } });
   const merged: PricingSettings = {
-    clientMarkup: payload?.clientMarkup ?? DEFAULT.clientMarkup,
-    usdRub: payload?.usdRub ?? DEFAULT.usdRub,
-    eurRub: payload?.eurRub ?? DEFAULT.eurRub,
-    brandPriority: payload?.brandPriority ?? DEFAULT.brandPriority,
-    brandSites: payload?.brandSites ?? DEFAULT.brandSites,
+    clientMarkup: row?.defaultMarkup ?? DEFAULT.clientMarkup,
+    usdRub: row?.defaultRateUsd ?? DEFAULT.usdRub,
+    eurRub: DEFAULT.eurRub,
+    brandPriority: DEFAULT.brandPriority,
+    brandSites: DEFAULT.brandSites,
   };
   cached = { value: merged, at: now };
   return merged;

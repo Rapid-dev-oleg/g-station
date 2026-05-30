@@ -3,6 +3,28 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/server/db';
 import { chatCompletion, getAiConfig } from '@/server/ai';
+import { resetPricingSettingsCache } from '@/server/pricing/settings';
+
+/** Сохранить параметры ценообразования: курс USD/CNY, коэф. наценки. */
+export async function updatePricingSettings(input: {
+  defaultRateUsd?: number | null;
+  defaultRateCny?: number | null;
+  defaultMarkup?: number | null;
+}): Promise<{ ok: boolean }> {
+  const data = {
+    defaultRateUsd: input.defaultRateUsd ?? null,
+    defaultRateCny: input.defaultRateCny ?? null,
+    defaultMarkup: input.defaultMarkup ?? null,
+  };
+  await db.settings.upsert({
+    where: { id: 'singleton' },
+    update: data,
+    create: { id: 'singleton', ...data },
+  });
+  resetPricingSettingsCache();
+  revalidatePath('/settings');
+  return { ok: true };
+}
 
 /** Сохранить настройки ИИ: ключ OpenRouter, модель и ключ Kimi. */
 export async function updateAiSettings(input: {

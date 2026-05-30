@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui';
 import { getSettings } from '@/server/services/settings';
 import { AiSettings } from '@/components/settings/AiSettings';
+import { PricingSettings } from '@/components/settings/PricingSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,18 +57,10 @@ export default async function SettingsPage() {
         </Card>
 
         <Card title="Параметры расчёта по умолчанию">
-          <div style={ROW}>
-            <span style={LABEL}>Курс USD</span>
-            <span style={VALUE}>{settings?.defaultRateUsd ?? '—'}</span>
-          </div>
-          <div style={ROW}>
-            <span style={LABEL}>Курс CNY</span>
-            <span style={VALUE}>{settings?.defaultRateCny ?? '—'}</span>
-          </div>
-          <div style={{ ...ROW, borderBottom: 'none' }}>
-            <span style={LABEL}>Коэффициент наценки</span>
-            <span style={VALUE}>{settings?.defaultMarkup ?? '—'}</span>
-          </div>
+          <PricingSettings
+            initialRateUsd={settings?.defaultRateUsd ?? null}
+            initialMarkup={settings?.defaultMarkup ?? null}
+          />
         </Card>
       </div>
 
@@ -80,7 +73,8 @@ export default async function SettingsPage() {
       </div>
 
       <p style={{ marginTop: 16, fontSize: 13, color: 'var(--muted)' }}>
-        Реквизиты компании и курсы пока редактируются администратором базы данных.
+        Реквизиты компании пока редактируются администратором базы данных.
+        Параметры расчёта применяются при следующей сборке сметы.
       </p>
     </>
   );
