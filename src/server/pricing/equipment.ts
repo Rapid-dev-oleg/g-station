@@ -16,6 +16,7 @@
  */
 
 import { db } from '@/server/db';
+import { getPricingSettings } from './settings';
 
 export interface FoundItem {
   source: 'db' | 'web';
@@ -28,15 +29,13 @@ export interface FoundItem {
 }
 
 /** Цена позиции в RUB (если в БД хранится не в RUB — конвертация по курсу). */
-function toRub(price: number | null | undefined, currency: string | null | undefined): number | undefined {
+async function toRub(price: number | null | undefined, currency: string | null | undefined): Promise<number | undefined> {
   if (price == null) return undefined;
   const c = (currency ?? 'RUB').toUpperCase();
   if (c === 'RUB') return price;
-  // Курс — из env (USD_RUB/EUR_RUB), дефолт 92/100. На проде подменим точным.
-  const usd = Number(process.env.USD_RUB) || 92;
-  const eur = Number(process.env.EUR_RUB) || 100;
-  if (c === 'USD') return Math.round(price * usd);
-  if (c === 'EUR') return Math.round(price * eur);
+  const s = await getPricingSettings();
+  if (c === 'USD') return Math.round(price * s.usdRub);
+  if (c === 'EUR') return Math.round(price * s.eurRub);
   return price; // неизвестная валюта — отдаём как есть, виновный увидит сам
 }
 
@@ -102,7 +101,7 @@ export async function findCollectorInDb(req: CollectorReq): Promise<FoundItem | 
     sku: best.c.sku,
     name: best.c.name,
     manufacturer: best.c.manufacturer.name,
-    priceRub: toRub(best.c.price, best.c.currency),
+    priceRub: await toRub(best.c.price, best.c.currency),
     currency: best.c.currency ?? undefined,
     note: `БД: матч score=${best.score} (${best.attr.config})`,
   };
@@ -128,7 +127,7 @@ export async function findJockeyPipingInDb(pressureMaxMpa?: number): Promise<Fou
     sku: chosen.sku,
     name: chosen.name,
     manufacturer: chosen.manufacturer.name,
-    priceRub: toRub(chosen.price, chosen.currency),
+    priceRub: await toRub(chosen.price, chosen.currency),
     currency: chosen.currency ?? undefined,
     note: `обвязка под ${p} МПа`,
   };
@@ -180,7 +179,7 @@ export async function findPumpInDbBySku(skuOrArticle: string | undefined | null)
     sku: item.sku,
     name: item.name,
     manufacturer: item.manufacturer.name,
-    priceRub: toRub(item.price, item.currency),
+    priceRub: await toRub(item.price, item.currency),
     currency: item.currency ?? undefined,
     note: `БД (${item.currency ?? 'RUB'}): ${item.sku}`,
   };

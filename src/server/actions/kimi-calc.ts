@@ -20,6 +20,8 @@ import {
   findJockeyPipingInDb,
   findPumpInDbBySku,
 } from '@/server/pricing/equipment';
+import { processEquipmentItem } from '@/server/pricing/processor';
+import { getPricingSettings } from '@/server/pricing/settings';
 
 /** Скил расчёта по типу системы (сейчас один — пожарные/водоснабжение). */
 function skillForType(_typeCode: string): string {
@@ -204,7 +206,23 @@ export interface KimiCalcResult {
   error?: string;
 }
 
-type ParsedCalc = Pick<KimiCalcData, 'items' | 'bom' | 'total' | 'markup' | 'clientPrice' | 'code'>;
+type ParsedCalc = Pick<KimiCalcData, 'items' | 'bom' | 'total' | 'markup' | 'clientPrice' | 'code'> & {
+  equipment?: EquipmentReq[];
+};
+
+/** Требование к позиции оборудования — приходит из расчёта Kimi (open list). */
+export interface EquipmentReq {
+  /** Категория: pump | jockey | collector | shu | tank | valve | check_valve |
+   *  pressure_switch | gauge | vibro_mount | pipe_fitting | sensor | compressor |
+   *  cabinet | vfd | свободная строка. */
+  category: string;
+  /** Человекочитаемое название позиции. */
+  name: string;
+  /** Количество в комплекте. */
+  qty?: number;
+  /** Характеристики (свободный объект — зависит от категории). */
+  req?: Record<string, unknown>;
+}
 
 function num(v: unknown): number | undefined {
   const n = typeof v === 'string' ? parseFloat(v.replace(/[^\d.,-]/g, '').replace(',', '.')) : Number(v);
@@ -221,7 +239,7 @@ function extractCalcJson(raw: string): ParsedCalc | null {
   for (const c of candidates) {
     try {
       const obj = JSON.parse(c.trim()) as Record<string, unknown>;
-      if (Array.isArray(obj.items) || Array.isArray(obj.bom)) {
+      if (Array.isArray(obj.items) || Array.isArray(obj.bom) || Array.isArray(obj.equipment)) {
         const items: CalcItem[] = (Array.isArray(obj.items) ? (obj.items as Record<string, unknown>[]) : []).map((it) => ({
           param: String(it.param ?? ''),
           value: String(it.value ?? ''),
@@ -239,9 +257,18 @@ function extractCalcJson(raw: string): ParsedCalc | null {
               note: b.note ? String(b.note) : undefined,
             }))
           : undefined;
+        const equipment: EquipmentReq[] | undefined = Array.isArray(obj.equipment)
+          ? (obj.equipment as Record<string, unknown>[]).map((e) => ({
+              category: String(e.category ?? ''),
+              name: String(e.name ?? ''),
+              qty: num(e.qty),
+              req: (e.req && typeof e.req === 'object' ? (e.req as Record<string, unknown>) : undefined),
+            }))
+          : undefined;
         return {
           items,
           bom,
+          equipment,
           total: num(obj.total),
           markup: num(obj.markup),
           clientPrice: num(obj.clientPrice),
@@ -325,12 +352,34 @@ export async function calcSystemViaKimi(
     const { output: calcOut } = await runKimiAgent({
       skill: skillForType(system.typeCode),
       prompt:
-        'Рассчитай насосную станцию по карточке (методика скила). Дай: рабочую точку, ' +
-        'схему, класс насоса, мотор (кВт), коллектор (DN + материал), жокей, ШУ, ' +
-        'объём пожарного запаса, шифр изделия — каждое с кратким обоснованием. ' +
-        'НЕ включай в результат строки «Точная модель насоса», «Производитель/бренд», ' +
-        '«Коэффициент наценки» — точную модель и поставщика найдёт следующий этап ' +
-        '(веб-поиск), наценка считается в коде. НЕ ищи в интернете на этом шаге. ' +
+        'Выполни ШАГИ 1-3 скила pump-station-calc для этой станции: определи тип, ' +
+        'посчитай рабочую точку и характеристики (шаг 2), подбери ПОЛНЫЙ СОСТАВ ' +
+        'оборудования (шаг 3 — основной насос, жокей если нужен, коллектор, ШУ, ' +
+        'резервуары, дренажный/вакуумный насос, реле/манометры/затворы/клапаны, ' +
+        'компрессор, патрубки МПТ, опции 04/05/08 — всё, что диктует методика и ' +
+        'модуль типа). НЕ ограничивайся минимальным списком — пройди скил.\n\n' +
+        'НЕ ищи в интернете (точные модели/цены найдёт следующий этап). НЕ выбирай ' +
+        'бренд/производителя/точную модель — это решение инженера (правило 3.11).\n\n' +
+        'Верни СТРОГО JSON-блоком:\n' +
+        '```json\n' +
+        '{\n' +
+        '  "items":[{"param":"<характеристика>","value":"<значение>","rationale":"<правило/норматив>","gate":false}, ...],\n' +
+        '  "code":"<шифр изделия по nomenclature.md>",\n' +
+        '  "equipment":[\n' +
+        '    {"category":"<категория>","name":"<наименование>","qty":<n>,"req":{<характеристики позиции>}},\n' +
+        '    ...\n' +
+        '  ]\n' +
+        '}\n' +
+        '```\n\n' +
+        'Категории equipment — выбирай уместные: pump, jockey, collector, shu, ' +
+        'tank, vfd, valve, check_valve, pressure_switch, gauge, vibro_mount, ' +
+        'pipe_fitting, sensor, compressor, drainage_pump, vacuum_pump, ' +
+        'foot_valve, suction_hose, mpt_branch, cabinet (под кабину/корпус). ' +
+        'Для pump req — class/Q/H/motor_kW; для collector — dn_suction/' +
+        'dn_discharge/n_pumps/dn_nozzle/material; для shu — motor_kW/start_type/' +
+        'series/options; для tank — volume_m3/material; для valve — dn/qty.\n\n' +
+        'НЕ включай в items строки «Точная модель насоса», «Производитель/бренд», ' +
+        '«Коэффициент наценки» — это решение инженера / следующий этап.\n\n' +
         'Карточка:\n' +
         JSON.stringify(card, null, 2),
       timeoutMs: 8 * 60 * 1000,
@@ -356,13 +405,22 @@ export async function calcSystemViaKimi(
       h: h ?? undefined,
     });
 
-    // Смета: каскад БД → веб → оценка для каждой позиции.
+    // ─── Сборка сметы: цикл по equipment[] из расчёта Kimi ───
+    // НЕТ захардкоженного списка позиций. Если Kimi не вернул equipment —
+    // упадём на минимальный набор (насос + коллектор + ШУ) для обратной совместимости.
     const qty = pumpCountFromItems(items);
     const bom: BomLine[] = [];
+    const equipment: EquipmentReq[] = calcParsed?.equipment ?? [];
+    const settings = await getPricingSettings();
 
-    // ─── НАСОС ─── 3 варианта (optimum/reserve/economy) с lookup в БД CNP.
+    // НАСОС (категория pump): 3 варианта optimum/reserve/economy через веб + lookup в БД.
+    // Эта позиция остаётся обработана отдельно: для неё специальный multi-variant поиск.
+    const pumpEq = equipment.find((e) => /^pump$/i.test(e.category)) ?? {
+      category: 'pump',
+      name: 'Насос основной',
+      qty,
+    };
     if (pumpOptions.length > 0) {
-      // Превращаем каждый веб-вариант в полноценную BomLine с lookup в БД.
       const lines: BomLine[] = [];
       for (const opt of pumpOptions) {
         const dbPump = await findPumpInDbBySku(opt.article ?? opt.model);
@@ -381,113 +439,90 @@ export async function calcSystemViaKimi(
           article,
           supplier,
           priceRub: priceRub ?? undefined,
-          qty,
-          sum: priceRub != null ? priceRub * qty : undefined,
+          qty: pumpEq.qty ?? qty,
+          sum: priceRub != null ? priceRub * (pumpEq.qty ?? qty) : undefined,
           note: noteParts.join(' · ') || undefined,
           source: useDb ? 'db' : 'web',
           sourceUrl: !useDb ? opt.url : undefined,
           tier: opt.tier,
         });
       }
-      // Основной — optimum (или первый), остальные — alternatives.
-      const main =
-        lines.find((l) => l.tier === 'optimum') ?? lines[0];
+      const main = lines.find((l) => l.tier === 'optimum') ?? lines[0];
       const alternatives = lines.filter((l) => l !== main);
       bom.push({ ...main, alternatives });
     }
 
-    // ─── КОЛЛЕКТОР ─── 1) БД Gfire (43 точки) 2) md-прайс по шифру 3) оценка.
-    const collectorMaterial = items.find((i) => /материал коллектор/i.test(i.param))?.value;
-    const collectorDn = items.find((i) => /коллектор/i.test(i.param))?.value;
-    const collectorCode = calcParsed?.code ?? collectorDn ?? '';
-    // Парсим шифр "Dвсас[/Dнапор]-N[-dпатрубок]" для поиска в БД.
-    const cMatch = (collectorCode || '').match(/(\d+)(?:\/(\d+))?[-\s](\d+)(?:[-\s](\d+))?/);
-    const dbCollector = cMatch
-      ? await findCollectorInDb({
-          dnSuction: +cMatch[1],
-          dnDischarge: cMatch[2] ? +cMatch[2] : undefined,
-          nPumps: +cMatch[3],
-          dnNozzle: cMatch[4] ? +cMatch[4] : undefined,
-          material: collectorMaterial ?? undefined,
-        })
-      : null;
-    if (dbCollector?.priceRub != null) {
-      bom.push({
-        name: dbCollector.name,
-        article: dbCollector.sku,
-        supplier: dbCollector.manufacturer,
-        priceRub: dbCollector.priceRub,
-        qty: 1,
-        sum: dbCollector.priceRub,
-        note: dbCollector.note,
-        source: 'db',
-      });
-    } else {
-      const coll = findCollectorPrice(collectorCode, collectorMaterial);
-      if (coll) {
-        bom.push({
-          name: 'Материалы коллектора',
-          article: collectorCode,
-          priceRub: coll.priceRub,
-          qty: 1,
-          sum: coll.priceRub,
-          note: coll.exact ? `md-прайс: ${coll.source}` : `ориентир: ${coll.source}`,
-          source: 'estimate',
-        });
-      } else {
-        bom.push({
-          name: 'Материалы коллектора',
-          priceRub: 95000,
-          qty: 1,
-          sum: 95000,
-          note: 'оценочно (нет точки в прайсе)',
-          source: 'estimate',
-        });
+    // ВСЕ ОСТАЛЬНЫЕ ПОЗИЦИИ — диспатч через processEquipmentItem (БД→веб→оценка).
+    // Если equipment[] пустой — добавим хотя бы коллектор/ШУ из items (старая логика).
+    if (equipment.length > 0) {
+      for (const eq of equipment) {
+        if (/^pump$/i.test(eq.category)) continue; // насос уже выше
+        const line = await processEquipmentItem(eq);
+        if (line) bom.push(line);
       }
-      // Работы — только если в БД нет коллектора (там работы уже включены в total).
-      const dnSucMatch = (collectorCode || '').match(/(\d+)/);
-      const dnSuc = dnSucMatch ? +dnSucMatch[1] : 100;
-      const weld = collectorWeldingWorkRub(dnSuc);
-      bom.push({
-        name: 'Работы (сварка коллектора/рамы, расключение)',
-        priceRub: weld,
-        qty: 1,
-        sum: weld,
-        note: `по DN${dnSuc} (методика)`,
-        source: 'estimate',
-      });
-    }
-
-    // ─── ОБВЯЗКА ЖОКЕЯ ─── если в items упомянут жокей.
-    const hasJockey = items.some((i) => /жокей/i.test(i.param) || /жокей/i.test(i.value));
-    if (hasJockey) {
-      const jp = await findJockeyPipingInDb(1.0);
-      if (jp?.priceRub != null) {
+    } else {
+      // Fallback: минимальный набор по items (если equipment[] не пришёл).
+      const collectorMaterial = items.find((i) => /материал коллектор/i.test(i.param))?.value;
+      const collectorDn = items.find((i) => /коллектор/i.test(i.param))?.value;
+      const collectorCode = calcParsed?.code ?? collectorDn ?? '';
+      const cMatch = (collectorCode || '').match(/(\d+)(?:\/(\d+))?[-\s](\d+)(?:[-\s](\d+))?/);
+      const dbCollector = cMatch
+        ? await findCollectorInDb({
+            dnSuction: +cMatch[1],
+            dnDischarge: cMatch[2] ? +cMatch[2] : undefined,
+            nPumps: +cMatch[3],
+            dnNozzle: cMatch[4] ? +cMatch[4] : undefined,
+            material: collectorMaterial ?? undefined,
+          })
+        : null;
+      if (dbCollector?.priceRub != null) {
         bom.push({
-          name: jp.name,
-          article: jp.sku,
-          supplier: jp.manufacturer,
-          priceRub: jp.priceRub,
+          name: dbCollector.name,
+          article: dbCollector.sku,
+          supplier: dbCollector.manufacturer,
+          priceRub: dbCollector.priceRub,
           qty: 1,
-          sum: jp.priceRub,
-          note: jp.note,
+          sum: dbCollector.priceRub,
+          note: dbCollector.note,
           source: 'db',
         });
+      } else if (collectorCode) {
+        const md = findCollectorPrice(collectorCode, collectorMaterial);
+        if (md) {
+          bom.push({
+            name: 'Материалы коллектора',
+            article: collectorCode,
+            priceRub: md.priceRub,
+            qty: 1,
+            sum: md.priceRub,
+            note: md.exact ? `md-прайс: ${md.source}` : `ориентир: ${md.source}`,
+            source: 'estimate',
+          });
+        }
+        const dnSucMatch = collectorCode.match(/(\d+)/);
+        const dnSuc = dnSucMatch ? +dnSucMatch[1] : 100;
+        const weld = collectorWeldingWorkRub(dnSuc);
+        bom.push({
+          name: 'Работы (сварка коллектора/рамы, расключение)',
+          priceRub: weld,
+          qty: 1,
+          sum: weld,
+          note: `по DN${dnSuc} (методика)`,
+          source: 'estimate',
+        });
       }
+      // ШУ через веб (без хардкода 185 000).
+      const shu = await processEquipmentItem({
+        category: 'shu',
+        name: 'Шкаф управления',
+        qty: 1,
+        req: { motor_kW: motor, start_type: 'прямой' },
+      });
+      if (shu) bom.push(shu);
     }
 
-    // ─── ШУ ─── прайса в БД нет, оценка.
-    bom.push({
-      name: `Шкаф управления (${motor || 'по мотору'})`,
-      priceRub: 185000,
-      qty: 1,
-      sum: 185000,
-      note: 'оценочно (прайса ШУ нет)',
-      source: 'estimate',
-    });
-
     const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
-    const markup = 1.7;
+    const markup = settings.clientMarkup;
     const clientPrice = Math.round(total * markup);
 
     const output =
