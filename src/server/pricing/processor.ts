@@ -188,9 +188,83 @@ function buildAccessoryLine(eq: EquipmentReq, web: WebItem | null): BomLine {
 }
 
 /**
+ * Цена всего списка equipment[] АГЕНТОМ через MCP-инструменты БД.
+ *
+ * Один вызов Kimi-агента: он сам по каждой позиции зовёт MCP (search_catalog /
+ * find_collector / find_pump_by_sku / find_jockey_piping) — точные данные из БД,
+ * web — только на то, чего в БД нет. Возвращает готовый BomLine[]. Это замена
+ * кода-каскада на «агент с инструментами» (то, ради чего поднят MCP).
+ * При неудаче — null, вызывающий падает на код-путь priceEquipment().
+ */
+export async function priceEquipmentViaAgent(equipment: EquipmentReq[]): Promise<BomLine[] | null> {
+  const items = equipment.filter((e) => !/^pump$/i.test(e.category));
+  if (items.length === 0) return [];
+  const s = await getPricingSettings();
+  const sitesLine = Object.entries(s.brandSites)
+    .map(([brand, url]) => `  • ${brand} → ${url}`)
+    .join('\n');
+  try {
+    const { output } = await runKimiAgent({
+      timeoutMs: 8 * 60 * 1000,
+      prompt:
+        'Оцени стоимость позиций насосной станции. У тебя есть MCP-инструменты к нашей БД — ' +
+        'ОБЯЗАТЕЛЬНО используй их ПЕРЕД веб-поиском:\n' +
+        '  • find_collector(dn_suction,dn_discharge,n_pumps,dn_nozzle,material) — коллектор;\n' +
+        '  • find_jockey_piping(pressure_max_mpa) — обвязка жокея;\n' +
+        '  • find_pump_by_sku(sku) — насос по артикулу;\n' +
+        '  • search_catalog(category,query,limit) — ШУ (panels), баки (tanks) и пр.\n' +
+        'Если позиции нет в БД — только тогда web search (цена в рублях). ' +
+        'Цены прайса CNP в БД в USD — переведи в рубли по курсу ' + s.usdRub + ' (поле currency подскажет).\n\n' +
+        'ПРИОРИТЕТ веб-источников:\n' + sitesLine + '\n\n' +
+        'ПОЗИЦИИ (JSON):\n' + JSON.stringify(items) + '\n\n' +
+        'Верни СТРОГО JSON-массив, по элементу на позицию:\n' +
+        '```json\n[{"name":"...","category":"...","article":"...","supplier":"...","priceRub":число|null,"qty":число,"source":"db|web|estimate","url":"..."}]\n```\n' +
+        'priceRub — за единицу, в рублях. Не нашёл цену — priceRub:null, source:"estimate".',
+    });
+    const arr = parseAgentBom(output);
+    if (!arr.length) return null;
+    return arr;
+  } catch (e) {
+    console.warn('[processor] агентный pricing не удался, fallback на код:', e);
+    return null;
+  }
+}
+
+/** Парсит JSON-массив сметы от агента в BomLine[]. */
+function parseAgentBom(output: string): BomLine[] {
+  const fence = output.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const a = output.indexOf('[');
+  const z = output.lastIndexOf(']');
+  const cands = [fence?.[1], a >= 0 && z > a ? output.slice(a, z + 1) : null].filter(Boolean) as string[];
+  for (const c of cands) {
+    try {
+      const parsed = JSON.parse(c.trim()) as Record<string, unknown>[];
+      if (!Array.isArray(parsed)) continue;
+      return parsed.map((o) => {
+        const qty = num(o.qty) ?? 1;
+        const priceRub = num(o.priceRub);
+        return {
+          name: String(o.name ?? 'Позиция'),
+          article: o.article ? String(o.article) : undefined,
+          supplier: o.supplier ? String(o.supplier) : undefined,
+          priceRub,
+          qty,
+          sum: priceRub != null ? priceRub * qty : undefined,
+          source: (o.source === 'db' || o.source === 'web' ? o.source : 'estimate') as BomLine['source'],
+          sourceUrl: o.url ? String(o.url) : undefined,
+        };
+      });
+    } catch {
+      /* next */
+    }
+  }
+  return [];
+}
+
+/**
  * Цена всего списка equipment[] (кроме основного насоса — он считается отдельно
  * через findPumpOptions). БД/формула — по каждой позиции локально, веб-аксессуары —
- * ОДНИМ батч-запросом. Это устраняет N последовательных Kimi-CLI фазы 2.
+ * ОДНИМ батч-запросом. Код-путь (fallback к агентному priceEquipmentViaAgent).
  */
 export async function priceEquipment(equipment: EquipmentReq[]): Promise<BomLine[]> {
   const out: BomLine[] = [];

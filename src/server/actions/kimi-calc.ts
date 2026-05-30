@@ -20,7 +20,7 @@ import {
   findJockeyPipingInDb,
   findPumpInDbBySku,
 } from '@/server/pricing/equipment';
-import { processEquipmentItem, priceEquipment } from '@/server/pricing/processor';
+import { processEquipmentItem, priceEquipment, priceEquipmentViaAgent } from '@/server/pricing/processor';
 import { getPricingSettings } from '@/server/pricing/settings';
 
 /** Скил расчёта по типу системы — из реестра SystemType (fallback на дефолт). */
@@ -459,9 +459,11 @@ export async function calcSystemViaKimi(
     // ВСЕ ОСТАЛЬНЫЕ ПОЗИЦИИ — диспатч через processEquipmentItem (БД→веб→оценка).
     // Если equipment[] пустой — добавим хотя бы коллектор/ШУ из items (старая логика).
     if (equipment.length > 0) {
-      // Все позиции кроме основного насоса — БД/формула локально + ОДИН батч-веб
-      // на аксессуары (вместо N последовательных Kimi-CLI — это вешало фазу 2).
-      bom.push(...(await priceEquipment(equipment)));
+      // Все позиции кроме основного насоса — агент ценит через MCP-инструменты БД
+      // (search_catalog/find_collector/…), web только на дыры. Если агент не
+      // справился — fallback на код-путь (БД/формула + батч-веб).
+      const viaAgent = await priceEquipmentViaAgent(equipment);
+      bom.push(...(viaAgent ?? (await priceEquipment(equipment))));
     } else {
       // Fallback: минимальный набор по items (если equipment[] не пришёл).
       const collectorMaterial = items.find((i) => /материал коллектор/i.test(i.param))?.value;
