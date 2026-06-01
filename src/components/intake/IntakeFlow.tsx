@@ -30,9 +30,10 @@ import { sourceLabel } from '@/lib/format/labels';
 import type { FireParams, Measured, Meta, StationInput } from '@/lib/dossier/types';
 import {
   commitIntake,
-  parseUploadedDocument,
   type ParseResult,
+  type ParseResponse,
 } from '@/server/actions/parse';
+import { enqueueParse, getJob } from '@/server/actions/jobs';
 import styles from './Intake.module.css';
 
 // ── входные пропсы ─────────────────────────────────────────────────────────
@@ -322,7 +323,8 @@ export function IntakeFlow({
 
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [parsing, startParsing] = useTransition();
+  const [parsing, setParsing] = useState(false);
+  const [parseMsg, setParseMsg] = useState<string | null>(null);
   const [committing, startCommit] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -377,43 +379,62 @@ export function IntakeFlow({
     setError(null);
   };
 
-  const runParse = () => {
+  /** Применить результат разбора: redirect на проект/систему или режим ревью. */
+  const applyParseResult = (res: ParseResponse) => {
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    if (res.mode === 'redirect') {
+      router.replace(res.redirect);
+      router.refresh();
+      return;
+    }
+    if (res.mode !== 'review') return;
+    const r = res.result;
+    setResult(r);
+    const first = r.systems[0];
+    setInput(first?.input ?? {});
+    if (first?.systemName) setSystemName(first.systemName);
+    setMeta(r.meta);
+    setObjectName(r.meta.object_name ?? '');
+    setProjectName(r.meta.object_name ? `${r.meta.object_name} — НС пожаротушения` : 'Расчёт из ТЗ');
+    if (r.matchedClient) setClientMode('matched');
+    else if (r.client) setClientMode('new');
+    else setClientMode('none');
+  };
+
+  // Разбор идёт в ОЧЕРЕДИ на сервере: ставим задачу и поллим прогресс. Задача
+  // переживает уход со страницы (виден в разделе «Задачи»); по завершении —
+  // redirect на созданный проект или режим ревью.
+  const runParse = async () => {
     if (files.length === 0) return;
     setError(null);
-    startParsing(async () => {
-      const fd = new FormData();
-      for (const f of files) fd.append('files', f);
-      const res = await parseUploadedDocument(fd, ownerId);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+    setParsing(true);
+    setParseMsg('Ставлю в очередь…');
+    const fd = new FormData();
+    for (const f of files) fd.append('files', f);
+    if (lockedProjectId) fd.append('projectId', lockedProjectId);
+    const enq = await enqueueParse(fd, ownerId);
+    if (!enq.ok) {
+      setParsing(false);
+      setError(enq.error);
+      return;
+    }
+    const timer = setInterval(async () => {
+      const j = await getJob(enq.jobId);
+      if (!j) return;
+      setParseMsg(`${j.progress}%${j.message ? ' · ' + j.message : ''}`);
+      if (j.status === 'done') {
+        clearInterval(timer);
+        setParsing(false);
+        applyParseResult(j.result as ParseResponse);
+      } else if (j.status === 'error') {
+        clearInterval(timer);
+        setParsing(false);
+        setError(j.error ?? 'Ошибка разбора');
       }
-      // Автосабмит сработал — сразу на calc.
-      if (res.mode === 'redirect') {
-        router.replace(res.redirect);
-        router.refresh();
-        return;
-      }
-      // Иначе — обычный ревью-режим (единственная система; несколько систем
-      // создаются автосабмитом и сюда не попадают).
-      const r = res.result;
-      setResult(r);
-      const first = r.systems[0];
-      setInput(first?.input ?? {});
-      if (first?.systemName) setSystemName(first.systemName);
-      setMeta(r.meta);
-      // Предзаполнение полей проекта из ТЗ.
-      setObjectName(r.meta.object_name ?? '');
-      setProjectName(
-        r.meta.object_name
-          ? `${r.meta.object_name} — НС пожаротушения`
-          : 'Расчёт из ТЗ',
-      );
-      // Режим клиента: найден → matched; распознан новый → new; нет → none.
-      if (r.matchedClient) setClientMode('matched');
-      else if (r.client) setClientMode('new');
-      else setClientMode('none');
-    });
+    }, 3000);
   };
 
   // ── редактирование карточки ──────────────────────────────────────────────
@@ -593,7 +614,7 @@ export function IntakeFlow({
             onClick={runParse}
           >
             {parsing
-              ? 'Разбираем документы…'
+              ? `Разбираем… ${parseMsg ?? ''}`
               : files.length > 1
                 ? `Распарсить пакет (${files.length})`
                 : 'Распарсить документ'}

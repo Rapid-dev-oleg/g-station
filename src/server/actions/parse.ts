@@ -56,6 +56,7 @@ export interface ParseResult extends ParsedDocument {
 export type ParseResponse =
   | { ok: true; mode: 'review'; result: ParseResult }
   | { ok: true; mode: 'redirect'; redirect: string }
+  | { ok: true; mode: 'job'; jobId: string }
   | { ok: false; error: string };
 
 // ─── Лимиты ──────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ function formatByExt(name: string): DocFormat {
  * рендера в память приложения (это снимало OOM на тяжёлых ПД).
  * Вызывающий обязан удалить `dir` после разбора.
  */
-async function stagePackageToDir(formData: FormData): Promise<{
+export async function stagePackageToDir(formData: FormData): Promise<{
   dir: string;
   files: ParsedFileInfo[];
 }> {
@@ -147,41 +148,52 @@ export async function parseUploadedDocument(
   formData: FormData,
   ownerId?: string,
 ): Promise<ParseResponse> {
-  // 1. Складываем файлы во временную папку (агент прочитает их сам).
   let pkg: { dir: string; files: ParsedFileInfo[] };
   try {
     pkg = await stagePackageToDir(formData);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка приёма файлов' };
   }
+  const lockedProjectId = (formData.get('projectId') as string | null)?.trim() || undefined;
+  return runParseJob({
+    dir: pkg.dir,
+    files: pkg.files,
+    ownerId,
+    lockedProjectId,
+  });
+}
 
-  // 2. Разбор АГЕНТОМ: он сам читает файлы (read_media/shell), без локального
-  //    извлечения и рендера в память приложения.
+/**
+ * Сам разбор пакета (для фоновой задачи и синхронного вызова): агент читает
+ * файлы из `dir` → карточка → поиск клиента → автосабмит/ревью. Чистит `dir`.
+ * `progress` — необязательный колбэк для отчёта в очередь задач.
+ */
+export async function runParseJob(params: {
+  dir: string;
+  files: ParsedFileInfo[];
+  ownerId?: string;
+  lockedProjectId?: string;
+  progress?: (pct: number, message?: string) => Promise<void>;
+}): Promise<ParseResponse> {
+  const { dir, files, ownerId, lockedProjectId, progress } = params;
   let parsed: ParsedDocument;
   try {
+    await progress?.(20, `Агент читает файлы (${files.length} шт.)…`);
     parsed = await parseDocumentViaAgent(
-      pkg.dir,
-      pkg.files.map((f) => f.filename),
+      dir,
+      files.map((f) => f.filename),
     );
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка разбора документа' };
   } finally {
-    await rm(pkg.dir, { recursive: true, force: true }).catch(() => {});
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 
-  // 3. Поиск клиента в базе.
+  await progress?.(75, 'Сборка карточки и создание проекта…');
   const matchedClient = await matchClient(parsed.client);
+  const result: ParseResult = { ...parsed, files, matchedClient };
 
-  const result: ParseResult = { ...parsed, files: pkg.files, matchedClient };
-
-  // Привязка к существующему проекту (передаётся UI при загрузке ТЗ из проекта).
-  const lockedProjectId = (formData.get('projectId') as string | null)?.trim() || undefined;
-
-  // 4. Автосабмит создаём, если:
-  //    - систем несколько (детальный ревью по каждой не делаем — инженер
-  //      дополнит карточки в степпере); ИЛИ
-  //    - единственная система полная; ИЛИ
-  //    - ТЗ грузится в существующий проект (lockedProjectId).
+  // Автосабмит: несколько систем / единственная полная / загрузка в проект.
   const multi = parsed.systems.length > 1;
   const singleComplete =
     parsed.systems.length === 1 &&
@@ -191,7 +203,6 @@ export async function parseUploadedDocument(
     try {
       const submitted = await autoSubmit({ ownerId, parsed: result, projectId: lockedProjectId });
       if (submitted.ok) {
-        // Одна система → на её экран; несколько → на проект (виден список).
         const redirect =
           submitted.systemIds.length === 1
             ? `/projects/${submitted.projectId}/systems/${submitted.systemIds[0]}`
