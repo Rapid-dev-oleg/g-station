@@ -528,7 +528,7 @@ export async function parseDocumentViaAgent(
     skill: 'pump-station-calc',
     addDirs: [dir],
     prompt,
-    timeoutMs: 10 * 60 * 1000,
+    timeoutMs: 20 * 60 * 1000, // тяжёлые сканы ПД (десятки МБ) дольше 10 мин
   });
 
   let parsed: Record<string, unknown>;

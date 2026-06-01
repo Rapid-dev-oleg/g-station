@@ -37,6 +37,33 @@ export function registerJobHandler(type: string, fn: JobHandler): void {
   Q.handlers[type] = fn;
 }
 
+/**
+ * Выполняет долгую операцию `fn`, плавно двигая прогресс по ВРЕМЕНИ к ~92%
+ * за ожидаемые `etaSec` секунд и показывая «осталось ~N мин» (агент не отдаёт
+ * реальный %, поэтому оценка по времени — но бар движется и есть ETA). По
+ * завершении вызывающий ставит 100%.
+ */
+export async function runWithEta<T>(
+  ctx: JobContext,
+  etaSec: number,
+  fn: () => Promise<T>,
+): Promise<T> {
+  let elapsed = 0;
+  await ctx.progress(8, `осталось ~${Math.ceil(etaSec / 60)} мин`);
+  const timer = setInterval(() => {
+    elapsed += 5;
+    const pct = Math.min(92, 8 + (elapsed / etaSec) * 84);
+    const leftSec = Math.max(0, Math.round(etaSec - elapsed));
+    const msg = leftSec > 0 ? `осталось ~${Math.ceil(leftSec / 60)} мин` : 'почти готово…';
+    void ctx.progress(pct, msg);
+  }, 5000);
+  try {
+    return await fn();
+  } finally {
+    clearInterval(timer);
+  }
+}
+
 /** Помечает «зависшие» running-задачи ошибкой (один раз после рестарта сервера). */
 async function resetStaleJobs(): Promise<void> {
   if (Q.staleReset) return;
