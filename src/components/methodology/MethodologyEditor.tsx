@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
-import { readSkillFile, saveSkillFile, type SkillFile } from '@/server/actions/skills';
+import { readSkillFile, saveSkillFile } from '@/server/actions/skills';
+import type { SkillFile } from '@/server/actions/skills-types';
 
 const ROOT_LABEL: Record<string, string> = {
   '.claude/skills': 'Скил (методика)',

@@ -14,6 +14,7 @@
 
 import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, dirname, extname } from 'node:path';
+import type { SkillFile } from './skills-types';
 
 const WORKSPACE = process.env.KIMI_AGENT_WORKSPACE || process.cwd();
 
@@ -21,15 +22,6 @@ const WORKSPACE = process.env.KIMI_AGENT_WORKSPACE || process.cwd();
 const EDITABLE_ROOTS = ['.claude/skills', 'KNOWLEDGE'];
 /** Текстовые расширения, доступные для правки. */
 const EDITABLE_EXT = new Set(['.md', '.csv', '.json', '.txt']);
-
-export interface SkillFile {
-  /** Путь относительно workspace (он же ключ для read/save). */
-  path: string;
-  /** Размер, байт. */
-  size: number;
-  /** Корень (скил/знания). */
-  root: string;
-}
 
 /** Проверяет, что относительный путь лежит внутри разрешённого корня. */
 function guard(relPath: string): string {

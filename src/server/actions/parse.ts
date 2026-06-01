@@ -55,8 +55,8 @@ export type ParseResponse =
 
 // ─── Лимиты ──────────────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
-const MAX_TOTAL_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 400 * 1024 * 1024;
 const MAX_FILES = 10;
 
 // ─── Извлечение текста пакета файлов ─────────────────────────────────────
@@ -84,12 +84,12 @@ async function extractPackage(formData: FormData): Promise<{
   let totalSize = 0;
   for (const f of inputs) {
     if (f.size > MAX_FILE_SIZE) {
-      throw new Error(`Файл «${f.name}» слишком большой (максимум 50 МБ)`);
+      throw new Error(`Файл «${f.name}» слишком большой (максимум 200 МБ)`);
     }
     totalSize += f.size;
   }
   if (totalSize > MAX_TOTAL_SIZE) {
-    throw new Error(`Суммарный размер пакета слишком большой (максимум 100 МБ)`);
+    throw new Error(`Суммарный размер пакета слишком большой (максимум 400 МБ)`);
   }
 
   const files: ParsedFileInfo[] = [];
