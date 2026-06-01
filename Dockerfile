@@ -1,16 +1,18 @@
 # g-station: Next.js + Kimi CLI агент (расчёт через скилы) в одном образе.
 #
-# Включает:
-#  - Node 20 (Next.js приложение);
-#  - Python 3 + uv + kimi-cli (агентный расчёт по скилу pump-station-calc);
-#  - poppler-utils (pdftoppm/pdftotext) + unzip (извлечение картинок из PDF/DOCX
-#    для vision-парсинга сканов ТЗ).
+# Включает ВСЕ зависимости рантайма, которые приложение вызывает процессами:
+#  - Node 20 (Next.js приложение + MCP-сервер к БД через tsx);
+#  - Python 3 + uv + kimi-cli (агентный расчёт/подбор по скилу pump-station-calc,
+#    web search/fetch, MCP-инструменты к нашей БД);
+#  - poppler-utils (pdftotext/pdftoppm) + unzip — текст/картинки из PDF/DOCX;
+#  - antiword + catdoc — чтение старых .doc/.xls (catppt/xls2csv в комплекте).
 
 FROM node:20-bookworm-slim AS base
 
-# Системные инструменты: python (для kimi-cli), poppler, unzip, curl.
+# Системные инструменты рантайма (см. шапку — все спавнятся приложением).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 python3-venv curl ca-certificates poppler-utils unzip \
+      antiword catdoc \
     && rm -rf /var/lib/apt/lists/*
 
 # uv + kimi-cli (ставится как изолированный tool, бинарь в /root/.local/bin).
