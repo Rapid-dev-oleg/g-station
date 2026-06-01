@@ -72,6 +72,9 @@ export interface KimiAgentParams {
   workspace?: string;
   /** Доп. таймаут в мс (агент думает долго). По умолчанию 10 минут. */
   timeoutMs?: number;
+  /** Доп. директории в скоуп агента (--add-dir) — напр. папка с файлами ТЗ,
+   *  которые агент читает сам (read_media/shell), без локального извлечения. */
+  addDirs?: string[];
 }
 
 export interface KimiAgentResult {
@@ -125,6 +128,7 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
       mcpPath,
       '-w',
       workspace,
+      ...(params.addDirs ?? []).flatMap((d) => ['--add-dir', d]),
       '-p',
       prompt,
     ];

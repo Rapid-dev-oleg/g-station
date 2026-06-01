@@ -12,16 +12,21 @@
  *    проект/систему, прогнал расчёт, вернул URL страницы расчёта.
  */
 
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { createEmptyDossier } from '@/lib/dossier/factory';
 import type { Dossier, Meta, StationInput } from '@/lib/dossier/types';
 import { validateDossier } from '@/lib/dossier/validate';
 import { scrubInput, scrubMeta } from '@/lib/dossier/scrub';
-import { extractText, type DocFormat } from '@/server/ai/extract-text';
-import { documentToImages } from '@/server/ai/document-images';
-import type { KimiImage } from '@/server/ai/kimi';
-import { parseDocument, type ParsedClient, type ParsedDocument } from '@/server/ai/parse-document';
+import { type DocFormat } from '@/server/ai/extract-text';
+import {
+  parseDocumentViaAgent,
+  type ParsedClient,
+  type ParsedDocument,
+} from '@/server/ai/parse-document';
 import { db } from '@/server/db';
 
 // ─── Типы ответов ────────────────────────────────────────────────────────
@@ -59,28 +64,34 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 400 * 1024 * 1024;
 const MAX_FILES = 10;
 
-// ─── Извлечение текста пакета файлов ─────────────────────────────────────
+// ─── Подготовка пакета файлов для агента ─────────────────────────────────
+
+/** Формат файла по расширению (для отображения в UI). */
+function formatByExt(name: string): DocFormat {
+  const n = name.toLowerCase();
+  if (n.endsWith('.pdf')) return 'pdf';
+  if (n.endsWith('.docx')) return 'docx';
+  if (n.endsWith('.xlsx')) return 'xlsx';
+  return 'txt';
+}
 
 /**
- * Принимает FormData с одним или несколькими файлами (ключ `files` или `file`)
- * и склеивает извлечённый текст с заголовками `=== Файл: ... ===`.
+ * Складывает загруженные файлы во временную директорию — её читает Kimi-агент
+ * СВОИМИ инструментами (read_media/shell), без локального извлечения текста и
+ * рендера в память приложения (это снимало OOM на тяжёлых ПД).
+ * Вызывающий обязан удалить `dir` после разбора.
  */
-async function extractPackage(formData: FormData): Promise<{
-  text: string;
+async function stagePackageToDir(formData: FormData): Promise<{
+  dir: string;
   files: ParsedFileInfo[];
-  images: KimiImage[];
 }> {
-  // Совместимость: поддерживаем оба ключа — `files[]` (новый UI) и `file` (legacy).
   const raw = [...formData.getAll('files'), ...formData.getAll('file')];
   const inputs = raw.filter((f): f is File => f instanceof File && f.size > 0);
 
-  if (inputs.length === 0) {
-    throw new Error('Файлы не выбраны или пусты');
-  }
+  if (inputs.length === 0) throw new Error('Файлы не выбраны или пусты');
   if (inputs.length > MAX_FILES) {
     throw new Error(`Слишком много файлов: ${inputs.length} (максимум ${MAX_FILES})`);
   }
-
   let totalSize = 0;
   for (const f of inputs) {
     if (f.size > MAX_FILE_SIZE) {
@@ -92,51 +103,14 @@ async function extractPackage(formData: FormData): Promise<{
     throw new Error(`Суммарный размер пакета слишком большой (максимум 400 МБ)`);
   }
 
+  const dir = await mkdtemp(join(tmpdir(), 'gstation-tz-'));
   const files: ParsedFileInfo[] = [];
-  const parts: string[] = [];
-  const images: KimiImage[] = [];
-  const errors: string[] = [];
-  // Минимальная длина текста на файл, ниже которой считаем его «сканом»
-  // и дополнительно отдаём картинки на vision-разбор.
-  const MIN_TEXT_LEN = 40;
-
   for (const f of inputs) {
     const buffer = Buffer.from(await f.arrayBuffer());
-    let extractedLen = 0;
-    try {
-      const { text, format } = await extractText(f.name, buffer);
-      extractedLen = text.trim().length;
-      if (extractedLen >= MIN_TEXT_LEN) {
-        files.push({ filename: f.name, format, size: f.size });
-        parts.push(`=== Файл: ${f.name} (${format}) ===\n${text}`);
-        continue;
-      }
-    } catch {
-      // Текстовый слой не извлёкся (скан) — упадём в vision-ветку ниже.
-    }
-
-    // Текста нет или почти нет → пытаемся извлечь изображения для vision.
-    try {
-      const imgs = await documentToImages(f.name, buffer);
-      if (imgs.length > 0) {
-        images.push(...imgs);
-        const fmt = f.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'docx';
-        files.push({ filename: f.name, format: fmt as ParsedFileInfo['format'], size: f.size });
-      } else {
-        errors.push(`«${f.name}»: нет текстового слоя и не удалось извлечь изображения`);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      errors.push(`«${f.name}»: ${msg}`);
-    }
+    await writeFile(join(dir, f.name), buffer);
+    files.push({ filename: f.name, format: formatByExt(f.name), size: f.size });
   }
-
-  if (parts.length === 0 && images.length === 0) {
-    throw new Error('Не удалось извлечь ни текст, ни изображения:\n' + errors.join('\n'));
-  }
-
-  const text = parts.join('\n\n');
-  return { text, files, images };
+  return { dir, files };
 }
 
 // ─── Проверка полноты карточки для автосабмита ───────────────────────────
@@ -173,20 +147,26 @@ export async function parseUploadedDocument(
   formData: FormData,
   ownerId?: string,
 ): Promise<ParseResponse> {
-  // 1. Извлечение текста и/или изображений пакета.
-  let pkg: { text: string; files: ParsedFileInfo[]; images: KimiImage[] };
+  // 1. Складываем файлы во временную папку (агент прочитает их сам).
+  let pkg: { dir: string; files: ParsedFileInfo[] };
   try {
-    pkg = await extractPackage(formData);
+    pkg = await stagePackageToDir(formData);
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка извлечения текста' };
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка приёма файлов' };
   }
 
-  // 2. Разбор ИИ: текст и/или сканы (vision через Kimi).
+  // 2. Разбор АГЕНТОМ: он сам читает файлы (read_media/shell), без локального
+  //    извлечения и рендера в память приложения.
   let parsed: ParsedDocument;
   try {
-    parsed = await parseDocument({ text: pkg.text, images: pkg.images });
+    parsed = await parseDocumentViaAgent(
+      pkg.dir,
+      pkg.files.map((f) => f.filename),
+    );
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка разбора документа' };
+  } finally {
+    await rm(pkg.dir, { recursive: true, force: true }).catch(() => {});
   }
 
   // 3. Поиск клиента в базе.

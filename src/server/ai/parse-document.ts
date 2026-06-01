@@ -10,6 +10,7 @@
 
 import { askAi } from './index';
 import { askKimi, kimiAvailable, type KimiImage } from './kimi';
+import { runKimiAgent } from './kimi-agent';
 import { db } from '@/server/db';
 import type {
   Meta,
@@ -405,6 +406,17 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
     );
   }
 
+  return assembleParsed(parsed, registry, content);
+}
+
+/** Собирает ParsedDocument из JSON модели/агента: клиент, системы, свёртка
+ *  компонентов, маппинг типа по реестру. Общий хвост для текстового и
+ *  агентного путей разбора. */
+function assembleParsed(
+  parsed: Record<string, unknown>,
+  registry: TypeRegistryEntry[],
+  content: string,
+): ParsedDocument {
   const meta = (parsed.meta ?? {}) as Partial<Meta>;
   const rawClient = parsed.client as ParsedClient | null | undefined;
 
@@ -453,9 +465,69 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
   }
 
   // Свернуть компоненты (жокей/ШУ/…), ошибочно ставшие отдельными системами.
-  // Список компонентов — объединение из реестра типов.
   const componentWords = [...new Set(registry.flatMap((t) => t.components))];
   const folded = foldComponentSystems(systems, componentWords);
 
   return { meta, client, systems: folded, raw: content };
+}
+
+/**
+ * Разбор пакета ТЗ АГЕНТОМ: агент сам читает файлы своими инструментами
+ * (read_media для сканов/фото, shell `pdftotext`/`antiword`/`catdoc` для
+ * pdf/doc, unzip для docx) — БЕЗ локального извлечения и рендера в память
+ * приложения (это снимает OOM на тяжёлых ПД). Файлы лежат в `dir`, который
+ * добавляется в скоуп агента (--add-dir).
+ */
+export async function parseDocumentViaAgent(
+  dir: string,
+  fileNames: string[],
+): Promise<ParsedDocument> {
+  const registry = await loadTypeRegistry();
+  const prompt =
+    `В директории ${dir} лежат файлы технического задания на насосную станцию:\n` +
+    fileNames.map((n) => `  • ${n}`).join('\n') +
+    `\n\nПРОЧИТАЙ их САМ своими инструментами (НЕ проси текст у пользователя):\n` +
+    `  • изображения/сканы (.jpg/.png/.webp) — инструментом просмотра медиа (read_media);\n` +
+    `  • .pdf — текст через shell \`pdftotext -layout «файл» -\`; если текста нет (скан) —\n` +
+    `    отрендерь страницы \`pdftoppm -png -r 110 -l 15 «файл» /tmp/pg\` и просмотри их как изображения;\n` +
+    `  • .docx — текст (\`unzip -p «файл» word/document.xml\` или mammoth); .doc — \`antiword «файл»\`; .xls/.doc — \`catdoc\`/\`xls2csv\`;\n` +
+    `  • .txt — прочитай как есть (возможна кодировка CP1251).\n\n` +
+    `Затем выполни ШАГ 1 методики pump-station-calc: извлеки карточку(и) параметров станции.\n\n` +
+    SPLIT_PRINCIPLE +
+    `\n\n` +
+    buildIdentificationBlock(registry) +
+    `\n\nВерни СТРОГО ОДИН JSON-объект (без markdown вокруг):\n` +
+    `{\n` +
+    `  "meta": {"object_name": "...", "customer": "...", "scenario": один из [${SCENARIO_VALUES.join(', ')}], "output_format": "...", "deadline": "..."},\n` +
+    `  "client": {"shortName":"...","fullName":"...","inn":"...","contactName":"...","phone":"...","email":"..."} | null,\n` +
+    `  "systems": [{\n` +
+    `    "systemName": "короткое имя системы",\n` +
+    `    "input": {"station_type":"<код типа>","purpose": один из [${PURPOSE_VALUES.join(', ')}],\n` +
+    `      "Q": measured, "H": measured, "reservation_scheme": один из [${SCHEME_VALUES.join(', ')}],\n` +
+    `      "jockey_required": bool, "jockey_Q": measured, "jockey_H": measured,\n` +
+    `      "station_enclosure": "...", "installation_place": "...",\n` +
+    `      "fire_params": {"fire_duration": measured, "fire_flow_rate": measured, "streams_count": int, "stream_flow": measured},\n` +
+    `      "collector_material":"...", "special_requirements": ["..."], "assumptions": ["..."]},\n` +
+    `    "missing": ["имена обязательных полей, отсутствующих в ТЗ"]\n` +
+    `  }]\n` +
+    `}\n` +
+    `Каждое числовое значение — объект {"value":число|null,"unit":"...","source":"extracted|derived|assumed","note":"..."}.\n` +
+    `Обязательные поля: purpose, Q, H, reservation_scheme; для пожарных ещё fire_params.fire_duration/fire_flow_rate, station_enclosure, installation_place. Не нашёл — в "missing".`;
+
+  const { output } = await runKimiAgent({
+    skill: 'pump-station-calc',
+    addDirs: [dir],
+    prompt,
+    timeoutMs: 10 * 60 * 1000,
+  });
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = extractJson(output) as Record<string, unknown>;
+  } catch (e) {
+    throw new Error(
+      'Агент не вернул валидный JSON разбора: ' + (e instanceof Error ? e.message : String(e)),
+    );
+  }
+  return assembleParsed(parsed, registry, output);
 }
