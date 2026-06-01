@@ -41,9 +41,14 @@ services:
     ports:
       - "3007:3007"
     volumes:
-      # Скилы и база знаний доступны агенту (read-only).
-      # Подставьте путь к репозиторию gidrostroy на хосте.
-      - ${KIMI_WORKSPACE_HOST:-../gidrostroy}:/workspace:ro
+      # Методика (скилы + KNOWLEDGE) НЕ запекается в образ — живёт на
+      # ЗАПИСЫВАЕМОМ volume, чтобы правки из раздела «Методика» сохранялись и
+      # переживали рестарт контейнера.
+      - gstation-workspace:/workspace
+      # Источник для ПЕРВОГО засева (read-only): репозиторий с методикой.
+      # entrypoint копирует его в volume, только если volume пуст.
+      - ${KIMI_WORKSPACE_HOST:-../gidrostroy}:/seed:ro
 
 volumes:
   gstation-db-data:
+  gstation-workspace:

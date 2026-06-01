@@ -31,9 +31,15 @@ COPY . .
 RUN npx prisma generate && npm run build
 
 ENV NODE_ENV=production
-# Путь к рабочей директории агента (скилы + KNOWLEDGE) — монтируется volume.
+# Путь к рабочей директории агента (скилы + KNOWLEDGE) — ЗАПИСЫВАЕМЫЙ volume,
+# засевается из /seed при первом старте (см. docker-entrypoint.sh). Методика
+# НЕ запечена в образ — правится из браузера и переживает рестарт.
 ENV KIMI_AGENT_WORKSPACE=/workspace
 ENV KIMI_BIN=/root/.local/bin/kimi
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 3007
-CMD ["npm", "run", "start"]
+# Засев методики в volume + prisma db push + старт.
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
