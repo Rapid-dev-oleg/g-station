@@ -554,7 +554,13 @@ export async function calcSystemViaKimi(
       },
     });
 
-    revalidatePath(`/projects/${system.projectId}/systems/${systemId}`);
+    // В фоновом воркере (без запроса) revalidatePath может бросить — не валим
+    // успешный расчёт (результат уже сохранён выше).
+    try {
+      revalidatePath(`/projects/${system.projectId}/systems/${systemId}`);
+    } catch {
+      /* вне request-scope — игнорируем */
+    }
     return { ok: true, data, cached: false };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

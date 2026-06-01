@@ -1,14 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, Button } from '@/components/ui';
-import {
-  calcSystemViaKimi,
-  saveCalcEdits,
-  type BomLine,
-  type CalcItem,
-  type KimiCalcData,
-} from '@/server/actions/kimi-calc';
+import { saveCalcEdits, type BomLine, type CalcItem, type KimiCalcData } from '@/server/actions/kimi-calc';
+import { enqueueCalc, getJob, getJobForSystem } from '@/server/actions/jobs';
 
 const rub = (n?: number) =>
   n == null ? '—' : n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
@@ -175,22 +171,66 @@ export function KimiCalcPanel({
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [jobMsg, setJobMsg] = useState<string | null>(null);
+  const router = useRouter();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasResult = items.length > 0 || rawOutput;
 
-  async function run(force: boolean) {
+  // Поллинг задачи расчёта: обновляет прогресс; по завершении — refresh страницы
+  // (свежий результат подтянется из System.kimiCalc). Задача идёт на сервере,
+  // поэтому переживает уход со страницы — на возврате поллинг возобновляется.
+  function startPolling(jobId: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
     setLoading(true);
+    pollRef.current = setInterval(async () => {
+      const j = await getJob(jobId);
+      if (!j) return;
+      setProgress(j.progress);
+      setJobMsg(j.message);
+      if (j.status === 'done') {
+        stopPolling();
+        setLoading(false);
+        router.refresh();
+      } else if (j.status === 'error') {
+        stopPolling();
+        setLoading(false);
+        setError(j.error ?? 'Расчёт не удался');
+      }
+    }, 3000);
+  }
+  function stopPolling() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+  }
+
+  // На монтировании: если по системе уже идёт расчёт — возобновляем индикатор.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const j = await getJobForSystem(systemId);
+      if (cancelled || !j) return;
+      if (j.status === 'queued' || j.status === 'running') {
+        setProgress(j.progress);
+        setJobMsg(j.message);
+        startPolling(j.id);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [systemId]);
+
+  async function run(_force: boolean) {
     setError(null);
-    const r = await calcSystemViaKimi(systemId, force);
-    setLoading(false);
-    if (r.ok && r.data) {
-      setItems(r.data.items);
-      setBom(r.data.bom ?? []);
-      setTotal(r.data.total);
-      setClientPrice(r.data.clientPrice);
-      setCode(r.data.code ?? '');
-      setRawOutput(r.data.output);
-    } else setError(r.error ?? 'Ошибка расчёта');
+    setProgress(0);
+    setJobMsg('Ставлю в очередь…');
+    setLoading(true);
+    const { jobId } = await enqueueCalc(systemId);
+    startPolling(jobId);
   }
 
   function editValue(idx: number, value: string) {
@@ -226,7 +266,7 @@ export function KimiCalcPanel({
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
         <Button onClick={() => run(false)} disabled={loading}>
           {loading
-            ? 'Kimi считает по методике (~3 мин)…'
+            ? `Считается… ${progress}%${jobMsg ? ' · ' + jobMsg : ''}`
             : hasResult
               ? 'Пересчитать'
               : 'Рассчитать через Kimi'}

@@ -19,6 +19,7 @@ const NAV = [
   { href: '/intake', label: 'Новый расчёт из ТЗ', icon: <IconSparkles /> },
   { href: '/clients', label: 'Клиенты', icon: <IconBuilding /> },
   { href: '/projects', label: 'Проекты', icon: <IconFolder /> },
+  { href: '/jobs', label: 'Задачи', icon: <IconSparkles /> },
   { href: '/catalog', label: 'Каталог', icon: <IconPackage /> },
   { href: '/standards', label: 'Нормы', icon: <IconBook /> },
   { href: '/methodology', label: 'Методика', icon: <IconBook /> },

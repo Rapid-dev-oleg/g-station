@@ -217,3 +217,27 @@ model RuleConfig {
   @@unique([ruleId, version])
   @@index([ruleId, active])
 }
+
+// Фоновая задача (парсинг ТЗ / расчёт станции). Выполняется в очереди на
+// сервере, прогресс/результат пишутся в БД — UI поллит, задача переживает
+// уход со страницы.
+model Job {
+  id         String    @id @default(cuid())
+  type       String // 'parse' | 'calc'
+  status     String    @default("queued") // queued | running | done | error
+  progress   Int       @default(0) // 0..100
+  message    String? // текущий шаг (человекочитаемо)
+  label      String? // имя файла / системы для списка
+  input      Json? // параметры задачи
+  result     Json? // результат (ParsedDocument / KimiCalcData / redirect)
+  error      String?
+  projectId  String?
+  systemId   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
