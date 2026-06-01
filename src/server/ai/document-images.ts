@@ -31,17 +31,29 @@ function mimeByExt(name: string): string {
   return 'application/octet-stream';
 }
 
-/** PDF → PNG постранично (150 dpi достаточно для распознавания текста). */
+/** PDF → PNG постранично. 110 dpi достаточно для распознавания текста vision'ом
+ *  и держит размер под контролем: 150 dpi на тяжёлых ПД давало ~7 МБ/стр →
+ *  десятки МБ base64 в памяти и неподъёмный запрос к Kimi (и OOM сервера). */
 async function pdfToImages(buffer: Buffer): Promise<KimiImage[]> {
   const dir = await mkdtemp(join(tmpdir(), 'gstation-pdfimg-'));
   const src = join(dir, 'doc.pdf');
   try {
     await writeFile(src, buffer);
-    await execFileAsync(
-      'pdftoppm',
-      ['-png', '-r', '150', '-l', String(MAX_IMAGES), src, join(dir, 'page')],
-      { maxBuffer: 200 * 1024 * 1024 },
-    );
+    try {
+      await execFileAsync(
+        'pdftoppm',
+        ['-png', '-r', '110', '-l', String(MAX_IMAGES), src, join(dir, 'page')],
+        { maxBuffer: 64 * 1024 * 1024, timeout: 5 * 60 * 1000 },
+      );
+    } catch (e) {
+      // Прокидываем настоящую причину (stderr/таймаут/убит), иначе видно только
+      // «Command failed: pdftoppm».
+      const err = e as { killed?: boolean; signal?: string; stderr?: string };
+      const why = err.killed
+        ? `прерван (таймаут/память${err.signal ? ', ' + err.signal : ''})`
+        : (err.stderr || '').trim().slice(-300) || (e as Error).message;
+      throw new Error(`pdftoppm не смог отрендерить PDF: ${why}`);
+    }
     const files = (await readdir(dir))
       .filter((f) => f.startsWith('page') && f.endsWith('.png'))
       .sort();
