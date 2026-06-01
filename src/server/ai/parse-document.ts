@@ -498,21 +498,31 @@ export async function parseDocumentViaAgent(
     buildIdentificationBlock(registry) +
     `\n\nВерни СТРОГО ОДИН JSON-объект (без markdown вокруг):\n` +
     `{\n` +
-    `  "meta": {"object_name": "...", "customer": "...", "scenario": один из [${SCENARIO_VALUES.join(', ')}], "output_format": "...", "deadline": "..."},\n` +
+    `  "meta": {"object_name": "...", "customer": "...", "scenario": один из [${SCENARIO_VALUES.join(', ')}],\n` +
+    `    "output_format": один из ["ТП+смета","ТКП-без-технички","только-смета","ТП+смета+чертёж-DWG"], "deadline": "..."},\n` +
     `  "client": {"shortName":"...","fullName":"...","inn":"...","contactName":"...","phone":"...","email":"..."} | null,\n` +
     `  "systems": [{\n` +
     `    "systemName": "короткое имя системы",\n` +
     `    "input": {"station_type":"<код типа>","purpose": один из [${PURPOSE_VALUES.join(', ')}],\n` +
     `      "Q": measured, "H": measured, "reservation_scheme": один из [${SCHEME_VALUES.join(', ')}],\n` +
     `      "jockey_required": bool, "jockey_Q": measured, "jockey_H": measured,\n` +
-    `      "station_enclosure": "...", "installation_place": "...",\n` +
+    `      "collector_material": один из ["углеродистая-сталь","нержавеющая-сталь"],\n` +
+    `      "station_enclosure": один из ["моноблок-на-раме","технологический-павильон","блок-бокс","подземное-стеклопластик","стеклопластиковый-колодец","в-чужом-резервуаре","береговой-модуль"],\n` +
+    `      "installation_place": один из ["в-помещении","под-заливом","заглублённая","на-берегу"],\n` +
     `      "fire_params": {"fire_duration": measured, "fire_flow_rate": measured, "streams_count": int, "stream_flow": measured},\n` +
-    `      "collector_material":"...", "special_requirements": ["..."], "assumptions": ["..."]},\n` +
+    `      "special_requirements": ["..."], "assumptions": ["..."]},\n` +
     `    "missing": ["имена обязательных полей, отсутствующих в ТЗ"]\n` +
     `  }]\n` +
     `}\n` +
     `Каждое числовое значение — объект {"value":число|null,"unit":"...","source":"extracted|derived|assumed","note":"..."}.\n` +
-    `Обязательные поля: purpose, Q, H, reservation_scheme; для пожарных ещё fire_params.fire_duration/fire_flow_rate, station_enclosure, installation_place. Не нашёл — в "missing".`;
+    `КРИТИЧНО: для перечислимых полей (output_format, purpose, reservation_scheme,\n` +
+    `collector_material, station_enclosure, installation_place) бери значение СТРОГО\n` +
+    `из приведённого списка — НЕ пиши свободный текст. Если в ТЗ другое/неясно —\n` +
+    `подбери ближайшее по смыслу из списка (напр. подземная автостоянка →\n` +
+    `station_enclosure="подземное-стеклопластик", installation_place="заглублённая"),\n` +
+    `а если выбрать нельзя — НЕ включай поле и добавь его имя в "missing".\n` +
+    `Обязательные: purpose, Q, H, reservation_scheme; для пожарных ещё\n` +
+    `fire_params.fire_duration/fire_flow_rate, station_enclosure, installation_place.`;
 
   const { output } = await runKimiAgent({
     skill: 'pump-station-calc',
