@@ -21,6 +21,7 @@ const NAV = [
   { href: '/projects', label: 'Проекты', icon: <IconFolder /> },
   { href: '/catalog', label: 'Каталог', icon: <IconPackage /> },
   { href: '/standards', label: 'Нормы', icon: <IconBook /> },
+  { href: '/methodology', label: 'Методика', icon: <IconBook /> },
 ];
 
 export function Sidebar() {
