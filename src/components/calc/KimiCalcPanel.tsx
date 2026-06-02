@@ -262,14 +262,14 @@ export function KimiCalcPanel({
   }
 
   return (
-    <Card title="Расчёт через Kimi (по методике скила)">
+    <Card title="Расчёт (по методике)">
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
         <Button onClick={() => run(false)} disabled={loading}>
           {loading
             ? `Считается… ${progress}%${jobMsg ? ' · ' + jobMsg : ''}`
             : hasResult
               ? 'Пересчитать'
-              : 'Рассчитать через Kimi'}
+              : 'Рассчитать'}
         </Button>
         {savedAt && (
           <span style={{ fontSize: 13, color: 'var(--success, #16a34a)' }}>
@@ -413,7 +413,7 @@ export function KimiCalcPanel({
                 textDecoration: 'underline',
               }}
             >
-              {showRaw ? 'скрыть' : 'показать'} подробный разбор Kimi
+              {showRaw ? 'скрыть' : 'показать'} подробный разбор
             </button>
           </div>
         </>
@@ -442,8 +442,8 @@ export function KimiCalcPanel({
 
       {!hasResult && !loading && !error && (
         <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-          Kimi применит методику расчёта (расчёт → подбор → ценообразование) и
-          вернёт решение строками «параметр — значение — обоснование». Спорное
+          Методика расчёта (расчёт → подбор → ценообразование) вернёт решение
+          строками «параметр — значение — обоснование». Спорное
           (точная модель, бренд, наценка) пометит на проверку инженеру.
         </p>
       )}

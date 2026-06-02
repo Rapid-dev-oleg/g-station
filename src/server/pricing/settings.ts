@@ -1,11 +1,14 @@
 /**
- * Параметры ценообразования и подбора — из таблицы Settings (singleton).
+ * Параметры ценообразования и подбора.
  *
- * Чтобы НЕ хардкодить в коде: наценку клиенту, курс USD, приоритет брендов.
- * Менеджер правит через UI /settings, без пересборки.
+ * Чтобы НЕ хардкодить в коде:
+ *  - наценку клиенту и курсы — из таблицы Settings (singleton);
+ *  - приоритет брендов и сайты — из RuleConfig (`brand-priority`), тем же
+ *    механизмом, что и правила расчёта (3.10/5.1/...). Правится через seed /
+ *    Prisma Studio, версионируется, без пересборки.
  *
- * Использует существующие поля Settings.defaultMarkup / defaultRateUsd.
- * Приоритет брендов / сайты — пока в defaults (можно вынести в Settings позже).
+ * Хардкод-DEFAULT остаётся ТОЛЬКО как страховка на пустую БД (первый запуск
+ * до сидинга) — рабочее значение всегда приходит из БД.
  */
 
 import { db } from '@/server/db';
@@ -43,13 +46,29 @@ export async function getPricingSettings(): Promise<PricingSettings> {
   const now = Date.now();
   if (cached && now - cached.at < TTL_MS) return cached.value;
 
-  const row = await db.settings.findUnique({ where: { id: 'singleton' } });
+  const [row, brand] = await Promise.all([
+    db.settings.findUnique({ where: { id: 'singleton' } }),
+    db.ruleConfig.findFirst({
+      where: { ruleId: 'brand-priority', active: true },
+      orderBy: { effectiveFrom: 'desc' },
+    }),
+  ]);
+
+  // Бренды/сайты — из RuleConfig (payload), DEFAULT только если записи ещё нет.
+  const bp = (brand?.payload ?? null) as { brandPriority?: unknown; brandSites?: unknown } | null;
+  const brandPriority = Array.isArray(bp?.brandPriority) && bp!.brandPriority.length
+    ? (bp!.brandPriority as string[])
+    : DEFAULT.brandPriority;
+  const brandSites = bp?.brandSites && typeof bp.brandSites === 'object'
+    ? (bp.brandSites as Record<string, string>)
+    : DEFAULT.brandSites;
+
   const merged: PricingSettings = {
     clientMarkup: row?.defaultMarkup ?? DEFAULT.clientMarkup,
     usdRub: row?.defaultRateUsd ?? DEFAULT.usdRub,
     eurRub: DEFAULT.eurRub,
-    brandPriority: DEFAULT.brandPriority,
-    brandSites: DEFAULT.brandSites,
+    brandPriority,
+    brandSites,
   };
   cached = { value: merged, at: now };
   return merged;

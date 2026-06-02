@@ -24,11 +24,31 @@ export function scrubMeta<T extends Partial<Meta>>(meta: T): T {
 }
 
 /**
- * То же для `input` — но глубже: ИИ часто возвращает `system_pressure: null`,
- * `jockey_Q: null`, `fire_params: { fire_duration: null, ... }` — AJV видит
- * «must be object», потому что Measured ожидается объектом, не null.
- * Рекурсивно убираем null-значения и null-поля внутри вложенных объектов.
- * Поле `value: null` внутри Measured ОСТАВЛЯЕМ — оно разрешено схемой.
+ * Поля input, которые по схеме являются Measured (`{ value, unit, source, note }`).
+ * Для них объект-обёртка легитимна (и `value: null` разрешён). Все ОСТАЛЬНЫЕ поля —
+ * скаляры (enum/boolean/integer): если ИИ обернул их в `{ value: ... }` (так делает
+ * агентный парсер), обёртку надо РАЗВЕРНУТЬ в скаляр, иначе AJV ругается
+ * «must be string/boolean». Набор включает и детей fire_params.
+ */
+const MEASURED_KEYS = new Set([
+  'Q',
+  'H',
+  'system_pressure',
+  'inlet_pressure',
+  'jockey_Q',
+  'jockey_H',
+  'fire_duration',
+  'fire_flow_rate',
+  'stream_flow',
+  'replenishment_time',
+]);
+
+/**
+ * Чистит `input` для валидации схемы:
+ *  - убирает null-значения и null-поля (ИИ часто шлёт `jockey_Q: null`);
+ *  - Measured-поля (Q, H, jockey_Q/H, дети fire_params) оставляет объектами;
+ *  - скалярные поля, ошибочно обёрнутые в `{ value, ... }`, РАЗВОРАЧИВАЕТ в скаляр
+ *    (reservation_scheme/jockey_required/collector_material/… от агентного парсера).
  */
 export function scrubInput<T extends Record<string, unknown>>(obj: T): T {
   const out: Record<string, unknown> = {};
@@ -39,11 +59,22 @@ export function scrubInput<T extends Record<string, unknown>>(obj: T): T {
       continue;
     }
     if (typeof val === 'object') {
-      // Measured (есть свойство value) — сохраняем как есть, value: null валиден.
-      if ('value' in (val as object)) {
-        out[key] = val;
+      const wrapped = 'value' in (val as object);
+      if (wrapped && MEASURED_KEYS.has(key)) {
+        // Measured: оставляем value (null валиден), но чистим null в unit/source/
+        // note — схема требует там строку, а ИИ часто шлёт null.
+        const m = val as Record<string, unknown>;
+        const cleaned: Record<string, unknown> = { value: m.value ?? null };
+        for (const p of ['unit', 'source', 'note'] as const) {
+          if (m[p] !== null && m[p] !== undefined) cleaned[p] = m[p];
+        }
+        out[key] = cleaned;
+      } else if (wrapped) {
+        // Обёртка скаляра {value, unit, source, note} → разворачиваем в значение.
+        const inner = (val as { value: unknown }).value;
+        if (inner !== null && inner !== undefined) out[key] = inner; // null → поле отсутствует
       } else {
-        out[key] = scrubInput(val as Record<string, unknown>);
+        out[key] = scrubInput(val as Record<string, unknown>); // вложенный объект (fire_params)
       }
       continue;
     }

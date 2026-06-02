@@ -14,13 +14,7 @@ import type { Dossier, StationInput, Meta } from '@/lib/dossier/types';
 import { db } from '@/server/db';
 import { runKimiAgent } from '@/server/ai/kimi-agent';
 import { askKimi } from '@/server/ai/kimi';
-import { findCollectorPrice, collectorWeldingWorkRub } from '@/lib/pricing/collectors';
-import {
-  findCollectorInDb,
-  findJockeyPipingInDb,
-  findPumpInDbBySku,
-} from '@/server/pricing/equipment';
-import { processEquipmentItem, priceEquipment, priceEquipmentViaAgent } from '@/server/pricing/processor';
+import { priceEquipment } from '@/server/pricing/processor';
 import { getPricingSettings } from '@/server/pricing/settings';
 
 /** Скил расчёта по типу системы — из реестра SystemType (fallback на дефолт). */
@@ -30,99 +24,6 @@ async function skillForType(typeCode: string): Promise<string> {
     select: { skillName: true },
   });
   return t?.skillName ?? 'pump-station-calc';
-}
-
-/** Число насосов по схеме (из строки items «Схема»). */
-function pumpCountFromItems(items: CalcItem[]): number {
-  const scheme = items.find((i) => /схема/i.test(i.param))?.value ?? '';
-  const m = scheme.match(/(\d)\s*\/\s*(\d)/);
-  if (m) return Number(m[1]) + Number(m[2]);
-  return 2;
-}
-
-interface PumpFound {
-  model?: string;
-  article?: string;
-  supplier?: string;
-  priceRub?: number;
-  note?: string;
-  /** URL страницы оборудования (на сайте производителя/магазина). */
-  url?: string;
-  /** Уровень варианта: optimum — точно под рабочую точку, reserve — с запасом,
-   *  economy — самый дешёвый из подходящих. */
-  tier?: 'optimum' | 'reserve' | 'economy';
-}
-
-/**
- * Находит конкретную модель насоса и цену через ПРОСТОЙ веб-поиск Kimi-агента
- * (одна задача — стабильно укладывается в таймаут, в отличие от «подбор+смета»).
- */
-async function findPumpOptions(p: {
-  pumpClass: string;
-  motor: string;
-  q?: number;
-  h?: number;
-}): Promise<PumpFound[]> {
-  try {
-    const { output } = await runKimiAgent({
-      prompt:
-        `Подбери в интернете (web search, 2-3 запроса) НЕСКОЛЬКО вариантов насоса ` +
-        `для пожарной/водяной станции под рабочую точку Q=${p.q ?? '?'} м³/ч, ` +
-        `H=${p.h ?? '?'} м, класс «${p.pumpClass}», мотор ${p.motor}.\n` +
-        `Верни 3 варианта (если есть на рынке):\n` +
-        `  • "optimum" — точно под рабочую точку, минимальный избыток;\n` +
-        `  • "reserve" — на типоразмер выше (запас по Q или H 15–30%);\n` +
-        `  • "economy" — дешевле optimum при сохранении рабочей точки.\n` +
-        `ПРИОРИТЕТ ИСТОЧНИКОВ — официальные сайты производителей в РФ:\n` +
-        `  • CNP → https://www.cnprussia.ru (приоритет №1; site:cnprussia.ru)\n` +
-        `  • Wilo → wilo.com/ru\n` +
-        `  • Grundfos → grundfos.ru\n` +
-        `  • Wellmix → wellmix.ru\n` +
-        `Бренд по умолчанию — CNP. Альтернативы — Wilo/Grundfos/Wellmix.\n` +
-        `Верни СТРОГО JSON-массивом:\n` +
-        '```json\n' +
-        '[\n' +
-        '  {"tier":"optimum","model":"...","article":"...","priceRub":число,"supplier":"...","url":"https://...","note":"..."},\n' +
-        '  {"tier":"reserve","model":"...","article":"...","priceRub":число,"supplier":"...","url":"https://...","note":"..."},\n' +
-        '  {"tier":"economy","model":"...","article":"...","priceRub":число,"supplier":"...","url":"https://...","note":"..."}\n' +
-        ']\n' +
-        '```\n' +
-        `URL ОБЯЗАТЕЛЕН для каждого — конкретная страница товара (не главная). ` +
-        `Цену бери из найденного, не выдумывай; не нашёл вариант — пропусти его в массиве.`,
-      timeoutMs: 8 * 60 * 1000,
-    });
-    const fence = output.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const a = output.indexOf('[');
-    const z = output.lastIndexOf(']');
-    const cands = [fence?.[1], a >= 0 && z > a ? output.slice(a, z + 1) : null].filter(Boolean) as string[];
-    for (const c of cands) {
-      try {
-        const parsed = JSON.parse(c.trim());
-        const arr: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
-        const out: PumpFound[] = [];
-        for (const v of arr) {
-          if (!v || typeof v !== 'object') continue;
-          const o = v as Record<string, unknown>;
-          out.push({
-            tier: (['optimum', 'reserve', 'economy'] as const).find((t) => t === o.tier) ?? undefined,
-            model: o.model ? String(o.model) : undefined,
-            article: o.article ? String(o.article) : undefined,
-            supplier: o.supplier ? String(o.supplier) : undefined,
-            priceRub: num(o.priceRub),
-            note: o.note ? String(o.note) : undefined,
-            url: o.url ? String(o.url) : undefined,
-          });
-        }
-        if (out.length > 0) return out;
-      } catch {
-        /* next */
-      }
-    }
-    return [];
-  } catch (e) {
-    console.warn('[kimi-calc] подбор насоса не удался:', e);
-    return [];
-  }
 }
 
 /** Карточка для расчёта: вход станции + назначение из dossier. */
@@ -395,145 +296,23 @@ export async function calcSystemViaKimi(
       (it) => !/точная модель|производител|бренд|коэффициент наценк/i.test(it.param),
     );
 
-    // ── Фаза 2: ПРОСТОЙ веб-поиск цены насоса (смету собираем в коде ниже). ──
-    // Полный «подбор + смета + JSON» одним агентом не укладывался в таймаут;
-    // здесь агент делает только то, что стабильно — находит модель и цену.
-    const pumpClass = items.find((i) => /класс насоса/i.test(i.param))?.value ?? '';
-    const motor = items.find((i) => /мотор/i.test(i.param))?.value ?? '';
-    const q = card.input.Q?.value ?? undefined;
-    const h = card.input.H?.value ?? undefined;
-    const pumpOptions = await findPumpOptions({
-      pumpClass,
-      motor,
-      q: q ?? undefined,
-      h: h ?? undefined,
-    });
-
-    // ─── Сборка сметы: цикл по equipment[] из расчёта Kimi ───
-    // НЕТ захардкоженного списка позиций. Если Kimi не вернул equipment —
-    // упадём на минимальный набор (насос + коллектор + ШУ) для обратной совместимости.
-    const qty = pumpCountFromItems(items);
-    const bom: BomLine[] = [];
+    // ── Этап C: подбор моделей и цен — ОДИН агентный проход по всему составу. ──
+    // Агент (MCP к БД → веб → оценка) возвращает строку на КАЖДУЮ позицию
+    // equipment[], включая основной насос. Инвариант «позиция → строка BOM»
+    // (estimate, если цены нет) гарантируется внутри priceEquipment — насос
+    // больше не теряется. Кода-методики/перехвата насоса/хардкода нет.
     const equipment: EquipmentReq[] = calcParsed?.equipment ?? [];
     const settings = await getPricingSettings();
-
-    // НАСОС (категория pump): 3 варианта optimum/reserve/economy через веб + lookup в БД.
-    // Эта позиция остаётся обработана отдельно: для неё специальный multi-variant поиск.
-    const pumpEq = equipment.find((e) => /^pump$/i.test(e.category)) ?? {
-      category: 'pump',
-      name: 'Насос основной',
-      qty,
-    };
-    if (pumpOptions.length > 0) {
-      const lines: BomLine[] = [];
-      for (const opt of pumpOptions) {
-        const dbPump = await findPumpInDbBySku(opt.article ?? opt.model);
-        const useDb = dbPump?.priceRub != null;
-        const priceRub = useDb ? dbPump!.priceRub : opt.priceRub;
-        const article = useDb ? dbPump!.sku : opt.article;
-        const supplier = useDb ? dbPump!.manufacturer : opt.supplier;
-        const noteParts = [
-          useDb && opt.priceRub != null
-            ? `веб-альтернатива: ${opt.priceRub.toLocaleString('ru-RU')} ₽ ${opt.supplier ?? ''}`
-            : '',
-          opt.note,
-        ].filter(Boolean);
-        lines.push({
-          name: `Насос ${opt.model ?? pumpClass}`,
-          article,
-          supplier,
-          priceRub: priceRub ?? undefined,
-          qty: pumpEq.qty ?? qty,
-          sum: priceRub != null ? priceRub * (pumpEq.qty ?? qty) : undefined,
-          note: noteParts.join(' · ') || undefined,
-          source: useDb ? 'db' : 'web',
-          sourceUrl: !useDb ? opt.url : undefined,
-          tier: opt.tier,
-        });
-      }
-      const main = lines.find((l) => l.tier === 'optimum') ?? lines[0];
-      const alternatives = lines.filter((l) => l !== main);
-      bom.push({ ...main, alternatives });
+    if (equipment.length === 0) {
+      console.warn('[kimi-calc] фаза 1 не вернула equipment[] — смета пустая, без хардкод-набора');
     }
-
-    // ВСЕ ОСТАЛЬНЫЕ ПОЗИЦИИ — диспатч через processEquipmentItem (БД→веб→оценка).
-    // Если equipment[] пустой — добавим хотя бы коллектор/ШУ из items (старая логика).
-    if (equipment.length > 0) {
-      // Все позиции кроме основного насоса — агент ценит через MCP-инструменты БД
-      // (search_catalog/find_collector/…), web только на дыры. Если агент не
-      // справился — fallback на код-путь (БД/формула + батч-веб).
-      const viaAgent = await priceEquipmentViaAgent(equipment);
-      bom.push(...(viaAgent ?? (await priceEquipment(equipment))));
-    } else {
-      // Fallback: минимальный набор по items (если equipment[] не пришёл).
-      const collectorMaterial = items.find((i) => /материал коллектор/i.test(i.param))?.value;
-      const collectorDn = items.find((i) => /коллектор/i.test(i.param))?.value;
-      const collectorCode = calcParsed?.code ?? collectorDn ?? '';
-      const cMatch = (collectorCode || '').match(/(\d+)(?:\/(\d+))?[-\s](\d+)(?:[-\s](\d+))?/);
-      const dbCollector = cMatch
-        ? await findCollectorInDb({
-            dnSuction: +cMatch[1],
-            dnDischarge: cMatch[2] ? +cMatch[2] : undefined,
-            nPumps: +cMatch[3],
-            dnNozzle: cMatch[4] ? +cMatch[4] : undefined,
-            material: collectorMaterial ?? undefined,
-          })
-        : null;
-      if (dbCollector?.priceRub != null) {
-        bom.push({
-          name: dbCollector.name,
-          article: dbCollector.sku,
-          supplier: dbCollector.manufacturer,
-          priceRub: dbCollector.priceRub,
-          qty: 1,
-          sum: dbCollector.priceRub,
-          note: dbCollector.note,
-          source: 'db',
-        });
-      } else if (collectorCode) {
-        const md = findCollectorPrice(collectorCode, collectorMaterial);
-        if (md) {
-          bom.push({
-            name: 'Материалы коллектора',
-            article: collectorCode,
-            priceRub: md.priceRub,
-            qty: 1,
-            sum: md.priceRub,
-            note: md.exact ? `md-прайс: ${md.source}` : `ориентир: ${md.source}`,
-            source: 'estimate',
-          });
-        }
-        const dnSucMatch = collectorCode.match(/(\d+)/);
-        const dnSuc = dnSucMatch ? +dnSucMatch[1] : 100;
-        const weld = collectorWeldingWorkRub(dnSuc);
-        bom.push({
-          name: 'Работы (сварка коллектора/рамы, расключение)',
-          priceRub: weld,
-          qty: 1,
-          sum: weld,
-          note: `по DN${dnSuc} (методика)`,
-          source: 'estimate',
-        });
-      }
-      // ШУ через веб (без хардкода 185 000).
-      const shu = await processEquipmentItem({
-        category: 'shu',
-        name: 'Шкаф управления',
-        qty: 1,
-        req: { motor_kW: motor, start_type: 'прямой' },
-      });
-      if (shu) bom.push(shu);
-    }
+    const bom: BomLine[] = await priceEquipment(equipment);
 
     const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
     const markup = settings.clientMarkup;
     const clientPrice = Math.round(total * markup);
 
-    const output =
-      calcOut +
-      (pumpOptions.length > 0
-        ? `\n\n=== ПОДБОР (веб, варианты) ===\n${JSON.stringify(pumpOptions, null, 2)}`
-        : '');
+    const output = calcOut;
     const data: KimiCalcData = {
       items,
       bom,

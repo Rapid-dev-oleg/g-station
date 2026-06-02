@@ -328,6 +328,30 @@ async function main() {
     },
   });
 
+  // brand-priority v1 — приоритет брендов и официальные сайты РФ для веб-подбора.
+  // Раньше это был хардкод в трёх местах (settings.ts DEFAULT + findPumpOptions +
+  // processor). Теперь конфиг в БД, читается getPricingSettings(), прокидывается
+  // в промпт агента-подборщика. CNP — приоритет №1 (бренд по умолчанию).
+  await db.ruleConfig.upsert({
+    where: { ruleId_version: { ruleId: 'brand-priority', version: 'v1' } },
+    update: {},
+    create: {
+      ruleId: 'brand-priority',
+      version: 'v1',
+      notes:
+        'Приоритет брендов и сайты для веб-подбора оборудования. CNP №1. Правится без релиза. Будущий источник №0 для насоса — подборщик CNP (v3.cnppump.ltd).',
+      payload: {
+        brandPriority: ['CNP', 'Wilo', 'Grundfos', 'Wellmix'],
+        brandSites: {
+          CNP: 'https://www.cnprussia.ru',
+          Wilo: 'https://wilo.com/ru',
+          Grundfos: 'https://grundfos.ru',
+          Wellmix: 'https://wellmix.ru',
+        },
+      },
+    },
+  });
+
   console.log('Сид выполнен: admin, типы систем, категории, производители, нормы, настройки, правила.');
 }
 

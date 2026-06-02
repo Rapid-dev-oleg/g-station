@@ -136,6 +136,7 @@ model Settings {
   aiModel        String? // выбранная модель OpenRouter для парсинга документов
   openrouterKey  String? // ключ OpenRouter API
   kimiKey        String? // ключ Kimi (api.kimi.com) для CLI-агента и парсинга сканов
+  calcAgent      String? // бэкенд агента-расчётчика: 'kimi' (по умолч.) | 'claude'
   updatedAt      DateTime @updatedAt
 }
 

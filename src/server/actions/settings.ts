@@ -26,16 +26,18 @@ export async function updatePricingSettings(input: {
   return { ok: true };
 }
 
-/** Сохранить настройки ИИ: ключ OpenRouter, модель и ключ Kimi. */
+/** Сохранить настройки ИИ: ключ OpenRouter, модель, ключ Kimi и движок расчёта. */
 export async function updateAiSettings(input: {
   openrouterKey: string;
   aiModel: string;
   kimiKey?: string;
+  calcAgent?: string;
 }): Promise<{ ok: boolean }> {
   const data = {
     openrouterKey: input.openrouterKey.trim() || null,
     aiModel: input.aiModel.trim() || null,
     kimiKey: input.kimiKey?.trim() || null,
+    calcAgent: input.calcAgent === 'claude' ? 'claude' : 'kimi',
   };
   await db.settings.upsert({
     where: { id: 'singleton' },

@@ -45,3 +45,34 @@ export async function getKimiConfig(): Promise<KimiConfig> {
       .filter(Boolean),
   };
 }
+
+/**
+ * Выбранный бэкенд агента-расчётчика: 'claude' | 'kimi'.
+ * Приоритет: Settings.calcAgent (правится в /settings) → env CALC_AGENT → 'kimi'.
+ */
+export async function getCalcAgent(): Promise<'kimi' | 'claude'> {
+  let fromDb: string | null = null;
+  try {
+    const s = await db.settings.findUnique({ where: { id: 'singleton' } });
+    fromDb = (s as { calcAgent?: string | null } | null)?.calcAgent ?? null;
+  } catch {
+    // БД недоступна — упадём на env.
+  }
+  const v = (fromDb || process.env.CALC_AGENT || 'kimi').toLowerCase();
+  return v === 'claude' ? 'claude' : 'kimi';
+}
+
+/**
+ * Нейтральное сообщение об ошибке агента для показа пользователю — БЕЗ упоминания
+ * конкретного движка/модели. Сырые детали (403, stderr) пишутся только в лог.
+ */
+export function genericAgentError(detail: string): string {
+  const d = detail.toLowerCase();
+  if (/403|usage limit|quota|access_terminated|rate.?limit|429/.test(d)) {
+    return 'Превышен лимит запросов к сервису расчёта. Попробуйте позже или смените движок расчёта в Настройках.';
+  }
+  if (/таймаут|timeout|killed|убит/.test(d)) {
+    return 'Расчёт занял слишком долго и был прерван. Попробуйте ещё раз.';
+  }
+  return 'Не удалось выполнить расчёт. Попробуйте ещё раз.';
+}

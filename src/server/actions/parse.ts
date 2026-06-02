@@ -368,11 +368,13 @@ async function autoSubmit({
 }: AutoSubmitParams): Promise<AutoSubmitOutcome> {
   // 1. Проект: существующий или новый.
   let project: { id: string };
+  let createdNewProject = false;
   if (projectId) {
     const existing = await db.project.findUnique({ where: { id: projectId } });
     if (!existing) return { ok: false, errors: ['Проект не найден'] };
     project = existing;
   } else {
+    createdNewProject = true;
     const clientId = await resolveClientId(parsed.client, parsed.matchedClient);
     const objectName = parsed.meta.object_name?.trim() || 'Объект не указан';
     const projectName = parsed.meta.object_name
@@ -425,6 +427,11 @@ async function autoSubmit({
   }
 
   if (systemIds.length === 0) {
+    // Не оставляем пустой проект-сирота, если сами его только что создали
+    // (иначе одна неудачная загрузка плодит проект без систем).
+    if (createdNewProject) {
+      await db.project.delete({ where: { id: project.id } }).catch(() => {});
+    }
     return { ok: false, errors: errors.length ? errors : ['Не создано ни одной системы'] };
   }
 

@@ -69,6 +69,7 @@ export default async function SettingsPage() {
           initialKey={settings?.openrouterKey ?? ''}
           initialModel={settings?.aiModel ?? ''}
           initialKimiKey={settings?.kimiKey ?? ''}
+          initialCalcAgent={settings?.calcAgent ?? 'kimi'}
         />
       </div>
 

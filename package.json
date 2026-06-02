@@ -16,11 +16,13 @@
     "ab:collector": "tsx scripts/ab-rule-collector.ts",
     "ab:3.9-a": "tsx scripts/ab-rule-3.9-a.ts",
     "ab:3.10": "tsx scripts/ab-rule-3.10.ts",
-    "kimi:calc": "tsx scripts/kimi-calc.ts"
+    "kimi:calc": "tsx scripts/kimi-calc.ts",
+    "tunnel": "node --env-file=.env scripts/tunnel.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@ngrok/ngrok": "^1.7.0",
     "@prisma/client": "^6.19.3",
     "ajv": "8.17.1",
     "ajv-formats": "3.0.1",

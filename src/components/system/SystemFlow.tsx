@@ -12,8 +12,8 @@ import type { KimiCalcData } from '@/server/actions/kimi-calc';
 import wiz from '@/components/wizard/Wizard.module.css';
 
 const STEPS = [
-  { key: 'input', title: 'Вход', hint: 'Карточка параметров из ТЗ — что распознал Kimi, инженер правит.' },
-  { key: 'calc', title: 'Расчёт', hint: 'Kimi считает станцию по методике скила pump-station-calc.' },
+  { key: 'input', title: 'Вход', hint: 'Карточка параметров из ТЗ — что распознано, инженер правит.' },
+  { key: 'calc', title: 'Расчёт', hint: 'Станция считается по методике.' },
   { key: 'approve', title: 'Утверждение', hint: 'Фиксация расчёта в снапшот — из него формируется ТКП.' },
 ] as const;
 
@@ -179,7 +179,7 @@ export function SystemFlow({
               <>
                 <p style={{ fontSize: 14, marginTop: 0, color: 'var(--muted)' }}>
                   Расчёт ещё не утверждён. Вернитесь к шагу «Расчёт», выполните
-                  расчёт через Kimi и нажмите «Утвердить расчёт».
+                  расчёт и нажмите «Утвердить расчёт».
                 </p>
                 <Button variant="secondary" onClick={() => setStep(1)}>
                   ← К расчёту

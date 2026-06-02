@@ -25,14 +25,17 @@ export function AiSettings({
   initialKey,
   initialModel,
   initialKimiKey = '',
+  initialCalcAgent = 'kimi',
 }: {
   initialKey: string;
   initialModel: string;
   initialKimiKey?: string;
+  initialCalcAgent?: string;
 }) {
   const [apiKey, setApiKey] = useState(initialKey);
   const [model, setModel] = useState(initialModel || AI_MODELS[0].id);
   const [kimiKey, setKimiKey] = useState(initialKimiKey);
+  const [calcAgent, setCalcAgent] = useState(initialCalcAgent === 'claude' ? 'claude' : 'kimi');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<string | null>(null);
@@ -41,7 +44,7 @@ export function AiSettings({
   async function save() {
     setSaving(true);
     setSaved(false);
-    await updateAiSettings({ openrouterKey: apiKey, aiModel: model, kimiKey });
+    await updateAiSettings({ openrouterKey: apiKey, aiModel: model, kimiKey, calcAgent });
     setSaving(false);
     setSaved(true);
   }
@@ -103,6 +106,24 @@ export function AiSettings({
           placeholder="sk-kimi-..."
           autoComplete="off"
         />
+      </div>
+
+      <div style={FIELD}>
+        <label style={LABEL}>Движок расчёта</label>
+        <select
+          style={CONTROL}
+          value={calcAgent}
+          onChange={(e) => {
+            setCalcAgent(e.target.value);
+            setSaved(false);
+          }}
+        >
+          <option value="kimi">Kimi</option>
+          <option value="claude">Claude</option>
+        </select>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+          Чем считать станцию и собирать смету. Переключите, если текущий движок недоступен.
+        </p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

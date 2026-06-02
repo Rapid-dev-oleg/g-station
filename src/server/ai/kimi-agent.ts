@@ -17,7 +17,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { getKimiConfig } from './kimi-config';
+import { getKimiConfig, getCalcAgent, genericAgentError } from './kimi-config';
+import { runClaudeAgent } from './claude-agent';
 
 const execFileAsync = promisify(execFile);
 
@@ -87,9 +88,15 @@ export interface KimiAgentResult {
  * автоматически одобряя действия (`--print` подразумевает `--yolo`).
  */
 export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentResult> {
+  // Переключатель бэкенда (из Настроек): claude → считаем через Claude Code CLI.
+  // Тот же контракт, MCP и скилы.
+  if ((await getCalcAgent()) === 'claude') {
+    return runClaudeAgent(params);
+  }
+
   const cfg = await getKimiConfig();
   if (!cfg.apiKey) {
-    throw new Error('Ключ Kimi не задан — укажите его в Настройках или MOONSHOT_API_KEY');
+    throw new Error('Сервис расчёта не настроен — укажите ключ в Настройках');
   }
 
   const workspace = params.workspace ?? cfg.workspace;
@@ -152,7 +159,9 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
       ]
         .filter(Boolean)
         .join(' | ');
-      throw new Error(`Kimi CLI: ${detail || (e as Error).message}`);
+      // Детали — только в лог; наружу нейтральное сообщение без упоминания движка.
+      console.warn('[agent:kimi]', detail || (e as Error).message);
+      throw new Error(genericAgentError(detail));
     }
   } finally {
     await rm(dir, { recursive: true, force: true });
