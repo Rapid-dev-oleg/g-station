@@ -71,7 +71,18 @@ const LABELS: Record<string, string> = {
   'на-берегу': 'На берегу',
 };
 
-const lbl = (v?: string | null) => (v ? LABELS[v] ?? v : '—');
+/** Скаляр из значения, которое агент мог завернуть в measured-объект {value,…}. */
+const sval = (v?: unknown): string => {
+  const s = v && typeof v === 'object' && 'value' in v ? (v as { value?: unknown }).value : v;
+  return s == null ? '' : String(s);
+};
+
+const lbl = (v?: unknown) => {
+  // Защита: агент мог завернуть enum в measured-объект {value,…} — берём .value,
+  // иначе React упадёт «not valid as a React child».
+  const s = sval(v);
+  return s ? LABELS[s] ?? s : '—';
+};
 
 /**
  * Обязательные поля ВХОДА — только то, что не выводится расчётом.
@@ -682,7 +693,7 @@ export function IntakeFlow({
               required
               placeholder="— выберите назначение —"
               options={PURPOSE_OPTIONS}
-              value={input.purpose ?? ''}
+              value={sval(input.purpose)}
               onChange={(e) =>
                 setInput((prev) => ({
                   ...prev,
@@ -694,7 +705,7 @@ export function IntakeFlow({
               label="Схема резервирования"
               placeholder="— определит расчёт —"
               options={RESERVATION_OPTIONS}
-              value={input.reservation_scheme ?? ''}
+              value={sval(input.reservation_scheme)}
               onChange={(e) =>
                 setInput((prev) => ({
                   ...prev,

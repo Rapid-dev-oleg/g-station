@@ -412,6 +412,32 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
 /** Собирает ParsedDocument из JSON модели/агента: клиент, системы, свёртка
  *  компонентов, маппинг типа по реестру. Общий хвост для текстового и
  *  агентного путей разбора. */
+/** measured-объект → его .value (иначе значение как есть). */
+function unwrapScalar(v: unknown): unknown {
+  return v && typeof v === 'object' && !Array.isArray(v) && 'value' in v
+    ? (v as { value: unknown }).value
+    : v;
+}
+
+/** Схлопывает скалярные поля input, ошибочно завёрнутые агентом в measured-объект. */
+function flattenScalarFields(input: Record<string, unknown>): void {
+  const TOP_SCALARS = [
+    'purpose', 'reservation_scheme', 'collector_material', 'station_enclosure',
+    'installation_place', 'climate_execution', 'start_type', 'working_pumps',
+    'reserve_pumps', 'jockey_required',
+  ];
+  for (const k of TOP_SCALARS) if (k in input) input[k] = unwrapScalar(input[k]);
+
+  const fp = input.fire_params as Record<string, unknown> | undefined;
+  if (fp) for (const k of ['streams_count']) if (k in fp) fp[k] = unwrapScalar(fp[k]);
+
+  const rv = input.reservoirs as Record<string, unknown> | undefined;
+  if (rv) for (const k of ['required', 'count', 'material', 'volume_given']) if (k in rv) rv[k] = unwrapScalar(rv[k]);
+
+  const ps = input.power_supply as Record<string, unknown> | undefined;
+  if (ps) for (const k of ['category', 'inputs', 'avr', 'voltage']) if (k in ps) ps[k] = unwrapScalar(ps[k]);
+}
+
 function assembleParsed(
   parsed: Record<string, unknown>,
   registry: TypeRegistryEntry[],
@@ -444,6 +470,10 @@ function assembleParsed(
   const knownCodes = new Set(registry.map((t) => t.code));
   const systems: ParsedSystem[] = rawSystems.map((s, i) => {
     const input = (s.input ?? {}) as Partial<StationInput>;
+    // Агент иногда оборачивает скалярные enum/целые поля в measured-объект
+    // {value,unit,source,note} вместо плоского значения — схлопываем, иначе UI
+    // (lbl/Param/select) получит объект и React упадёт «not valid as a React child».
+    flattenScalarFields(input);
     const purpose = input.purpose as string | undefined;
     // Код типа от модели принимаем только если он есть в реестре READY-типов;
     // иначе определяем по назначению через реестр.
