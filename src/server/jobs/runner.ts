@@ -48,6 +48,10 @@ const Q: QueueState = (g.__gstationQueue ??= {
   controllers: {},
   cancelRequested: new Set(),
 });
+// Синглтон мог пережить HMR/обновление кода со старой формой — дозаполняем поля,
+// чтобы отмена не падала на undefined.
+Q.controllers ??= {};
+Q.cancelRequested ??= new Set();
 
 /** Регистрирует обработчик типа задачи ('parse' | 'calc' | …). */
 export function registerJobHandler(type: string, fn: JobHandler): void {
@@ -55,14 +59,22 @@ export function registerJobHandler(type: string, fn: JobHandler): void {
 }
 
 /**
- * Запрос на остановку задачи. Если задача выполняется — прерывает её AbortController
- * (агент получает signal → execFile убивает дочерний процесс). Если ещё в очереди —
- * помечается, и воркер пропустит её при выборке. Возвращает true, если задача была
- * активна (queued|running) и снятие имеет смысл.
+ * Запрос на остановку задачи. Если задача реально выполняется в ЭТОМ процессе —
+ * прерывает её AbortController (агент получает signal → execFile убивает дочерний
+ * процесс), и воркер сам переведёт её в 'cancelled'. Возвращает true в этом случае.
+ *
+ * Возвращает false, если живого процесса для задачи нет (ещё в очереди ИЛИ «зомби»
+ * running от прошлого процесса сервера): тогда финализировать статус в БД должен
+ * вызывающий (см. cancelJob).
  */
-export function requestCancel(jobId: string): void {
+export function requestCancel(jobId: string): boolean {
   Q.cancelRequested.add(jobId);
-  Q.controllers[jobId]?.abort();
+  const ac = Q.controllers[jobId];
+  if (ac) {
+    ac.abort();
+    return true;
+  }
+  return false;
 }
 
 /**

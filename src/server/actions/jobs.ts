@@ -118,10 +118,12 @@ export async function getJobForSystem(systemId: string): Promise<JobView | null>
 export async function cancelJob(id: string): Promise<{ ok: boolean }> {
   const job = await db.job.findUnique({ where: { id }, select: { status: true } });
   if (!job || (job.status !== 'queued' && job.status !== 'running')) return { ok: false };
-  // Сигнал воркеру: прервать AbortController (running) и/или пропустить (queued).
-  requestCancel(id);
-  // Для ещё не стартовавшей задачи сразу отражаем статус в БД (воркер её пропустит).
-  if (job.status === 'queued') {
+  // Сигнал воркеру: прерывает живой AbortController. Возвращает true, только если
+  // задача реально выполняется в этом процессе — тогда воркер сам закроет её.
+  const liveAborted = requestCancel(id);
+  // Нет живого процесса (queued или «зомби» running от прошлого сервера) —
+  // финализируем статус прямо здесь, иначе задача висела бы вечно.
+  if (!liveAborted) {
     await db.job
       .update({ where: { id }, data: { status: 'cancelled', finishedAt: new Date(), message: 'Остановлено' } })
       .catch(() => {});
