@@ -15,6 +15,7 @@ import {
   IconPlus,
 } from '@/components/ui';
 import { ProjectStatusControl } from '@/components/projects/ProjectStatusControl';
+import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton';
 import { formatRub } from '@/lib/format';
 import { projectStatusLabel, systemStatusLabel } from '@/lib/format/labels';
 import type { Dossier } from '@/lib/dossier/types';
@@ -81,6 +82,11 @@ export default async function ProjectCardPage({
                 Система вручную
               </Button>
             </Link>
+            <DeleteProjectButton
+              projectId={project.id}
+              projectName={project.name}
+              systemsCount={project.systems.length}
+            />
           </>
         }
       />

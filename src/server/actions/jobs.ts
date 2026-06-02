@@ -76,6 +76,19 @@ export async function enqueueParse(
   }
   const lockedProjectId = (formData.get('projectId') as string | null)?.trim() || undefined;
   const label = files.map((f) => f.filename).join(', ').slice(0, 120);
+
+  // Дедуп: если тот же пакет уже в очереди/разбирается — не плодим вторую
+  // задачу (иначе из одного парсинга создаётся два проекта).
+  const active = await db.job.findFirst({
+    where: { type: 'parse', label, status: { in: ['queued', 'running'] } },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (active) {
+    const { rm } = await import('node:fs/promises');
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+    return { ok: true, jobId: active.id };
+  }
+
   const jobId = await enqueueJob({
     type: 'parse',
     label,
