@@ -6,7 +6,7 @@
  */
 
 import { db } from '@/server/db';
-import { enqueueJob } from '@/server/jobs/runner';
+import { enqueueJob, requestCancel } from '@/server/jobs/runner';
 import { ensureJobHandlers } from '@/server/jobs/handlers';
 import { stagePackageToDir } from '@/server/actions/parse';
 
@@ -108,6 +108,25 @@ export async function getJob(id: string): Promise<JobView | null> {
 export async function getJobForSystem(systemId: string): Promise<JobView | null> {
   const j = await db.job.findFirst({ where: { systemId }, orderBy: { createdAt: 'desc' } });
   return j ? toView(j) : null;
+}
+
+/**
+ * Остановить задачу. Если выполняется — прерывает агента (убивается дочерний
+ * процесс CLI). Если ещё в очереди — снимается до старта. Идемпотентно: для уже
+ * завершённой задачи ничего не делает.
+ */
+export async function cancelJob(id: string): Promise<{ ok: boolean }> {
+  const job = await db.job.findUnique({ where: { id }, select: { status: true } });
+  if (!job || (job.status !== 'queued' && job.status !== 'running')) return { ok: false };
+  // Сигнал воркеру: прервать AbortController (running) и/или пропустить (queued).
+  requestCancel(id);
+  // Для ещё не стартовавшей задачи сразу отражаем статус в БД (воркер её пропустит).
+  if (job.status === 'queued') {
+    await db.job
+      .update({ where: { id }, data: { status: 'cancelled', finishedAt: new Date(), message: 'Остановлено' } })
+      .catch(() => {});
+  }
+  return { ok: true };
 }
 
 /** Список задач (последние N) — для общего экрана/индикатора. */

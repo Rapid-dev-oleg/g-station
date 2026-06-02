@@ -17,6 +17,9 @@ export interface JobContext {
   jobId: string;
   /** Обновить прогресс (0..100) и текущий шаг. */
   progress: (pct: number, message?: string) => Promise<void>;
+  /** Прерывается при остановке задачи пользователем — прокидывается в агент (execFile),
+   *  чтобы убить дочерний процесс, а не ждать таймаута. */
+  signal: AbortSignal;
 }
 
 export interface JobOutput {
@@ -27,14 +30,39 @@ export interface JobOutput {
 
 export type JobHandler = (input: unknown, ctx: JobContext) => Promise<JobOutput>;
 
-type QueueState = { running: boolean; handlers: Record<string, JobHandler>; staleReset: boolean };
+type QueueState = {
+  running: boolean;
+  handlers: Record<string, JobHandler>;
+  staleReset: boolean;
+  /** AbortController выполняемой сейчас задачи (по jobId). */
+  controllers: Record<string, AbortController>;
+  /** jobId, для которых запрошена остановка (ещё в очереди или в момент старта). */
+  cancelRequested: Set<string>;
+};
 
 const g = globalThis as unknown as { __gstationQueue?: QueueState };
-const Q: QueueState = (g.__gstationQueue ??= { running: false, handlers: {}, staleReset: false });
+const Q: QueueState = (g.__gstationQueue ??= {
+  running: false,
+  handlers: {},
+  staleReset: false,
+  controllers: {},
+  cancelRequested: new Set(),
+});
 
 /** Регистрирует обработчик типа задачи ('parse' | 'calc' | …). */
 export function registerJobHandler(type: string, fn: JobHandler): void {
   Q.handlers[type] = fn;
+}
+
+/**
+ * Запрос на остановку задачи. Если задача выполняется — прерывает её AbortController
+ * (агент получает signal → execFile убивает дочерний процесс). Если ещё в очереди —
+ * помечается, и воркер пропустит её при выборке. Возвращает true, если задача была
+ * активна (queued|running) и снятие имеет смысл.
+ */
+export function requestCancel(jobId: string): void {
+  Q.cancelRequested.add(jobId);
+  Q.controllers[jobId]?.abort();
 }
 
 /**
@@ -105,10 +133,24 @@ async function pump(): Promise<void> {
       const job = await db.job.findFirst({ where: { status: 'queued' }, orderBy: { createdAt: 'asc' } });
       if (!job) break;
 
+      // Сняли, пока ждал в очереди — не запускаем вовсе.
+      if (Q.cancelRequested.has(job.id)) {
+        Q.cancelRequested.delete(job.id);
+        await db.job
+          .update({ where: { id: job.id }, data: { status: 'cancelled', finishedAt: new Date(), message: 'Остановлено' } })
+          .catch(() => {});
+        continue;
+      }
+
       await db.job.update({
         where: { id: job.id },
         data: { status: 'running', startedAt: new Date(), progress: 5, message: 'Старт…' },
       });
+
+      const ac = new AbortController();
+      Q.controllers[job.id] = ac;
+      // Остановку могли запросить ровно в момент старта — учитываем гонку.
+      if (Q.cancelRequested.has(job.id)) ac.abort();
 
       const handler = Q.handlers[job.type];
       const progress = async (pct: number, message?: string) => {
@@ -122,7 +164,7 @@ async function pump(): Promise<void> {
 
       try {
         if (!handler) throw new Error(`Нет обработчика для задачи «${job.type}»`);
-        const out = await handler(job.input, { jobId: job.id, progress });
+        const out = await handler(job.input, { jobId: job.id, progress, signal: ac.signal });
         await db.job.update({
           where: { id: job.id },
           data: {
@@ -136,14 +178,21 @@ async function pump(): Promise<void> {
           },
         });
       } catch (e) {
+        // Прервано пользователем (abort) → 'cancelled', а не 'error'.
+        const cancelled = ac.signal.aborted || Q.cancelRequested.has(job.id);
         await db.job.update({
           where: { id: job.id },
-          data: {
-            status: 'error',
-            finishedAt: new Date(),
-            error: (e instanceof Error ? e.message : String(e)).slice(0, 800),
-          },
+          data: cancelled
+            ? { status: 'cancelled', finishedAt: new Date(), message: 'Остановлено', error: null }
+            : {
+                status: 'error',
+                finishedAt: new Date(),
+                error: (e instanceof Error ? e.message : String(e)).slice(0, 800),
+              },
         });
+      } finally {
+        delete Q.controllers[job.id];
+        Q.cancelRequested.delete(job.id);
       }
     }
   } finally {

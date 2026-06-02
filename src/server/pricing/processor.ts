@@ -81,7 +81,7 @@ function parseAgentBom(output: string): { idx?: number; line: BomLine }[] {
  * которые агент пропустил/не нашёл, добиваются estimate из equipment[]. Насос
  * НИКОГДА не теряется. Никогда не кидает и не возвращает null.
  */
-export async function priceEquipment(equipment: EquipmentReq[]): Promise<BomLine[]> {
+export async function priceEquipment(equipment: EquipmentReq[], signal?: AbortSignal): Promise<BomLine[]> {
   if (equipment.length === 0) return [];
   const s = await getPricingSettings();
   const sitesLine = Object.entries(s.brandSites)
@@ -95,6 +95,7 @@ export async function priceEquipment(equipment: EquipmentReq[]): Promise<BomLine
   try {
     const { output } = await runKimiAgent({
       timeoutMs: 8 * 60 * 1000,
+      signal,
       prompt:
         'Подбери конкретные модели и цены для позиций насосной станции. ' +
         'У тебя есть MCP-инструменты к нашей БД — используй их ПЕРЕД веб-поиском:\n' +

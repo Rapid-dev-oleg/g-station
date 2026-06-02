@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, Button } from '@/components/ui';
 import { saveCalcEdits, type BomLine, type CalcItem, type KimiCalcData } from '@/server/actions/kimi-calc';
-import { enqueueCalc, getJob, getJobForSystem } from '@/server/actions/jobs';
+import { enqueueCalc, getJob, getJobForSystem, cancelJob } from '@/server/actions/jobs';
 
 const rub = (n?: number) =>
   n == null ? '—' : n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
@@ -175,6 +175,8 @@ export function KimiCalcPanel({
   const [jobMsg, setJobMsg] = useState<string | null>(null);
   const router = useRouter();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const jobIdRef = useRef<string | null>(null);
+  const [stopping, setStopping] = useState(false);
 
   const hasResult = items.length > 0 || rawOutput;
 
@@ -183,6 +185,8 @@ export function KimiCalcPanel({
   // поэтому переживает уход со страницы — на возврате поллинг возобновляется.
   function startPolling(jobId: string) {
     if (pollRef.current) clearInterval(pollRef.current);
+    jobIdRef.current = jobId;
+    setStopping(false);
     setLoading(true);
     pollRef.current = setInterval(async () => {
       const j = await getJob(jobId);
@@ -197,6 +201,10 @@ export function KimiCalcPanel({
         stopPolling();
         setLoading(false);
         setError(j.error ?? 'Расчёт не удался');
+      } else if (j.status === 'cancelled') {
+        stopPolling();
+        setLoading(false);
+        setJobMsg('Остановлено');
       }
     }, 3000);
   }
@@ -231,6 +239,15 @@ export function KimiCalcPanel({
     setLoading(true);
     const { jobId } = await enqueueCalc(systemId);
     startPolling(jobId);
+  }
+
+  async function stop() {
+    const id = jobIdRef.current;
+    if (!id) return;
+    setStopping(true);
+    setJobMsg('Останавливаю…');
+    await cancelJob(id).catch(() => {});
+    // Финальный статус ('cancelled') подтвердит ближайший полл.
   }
 
   function editValue(idx: number, value: string) {
@@ -271,6 +288,25 @@ export function KimiCalcPanel({
               ? 'Пересчитать'
               : 'Рассчитать'}
         </Button>
+        {loading && (
+          <button
+            type="button"
+            onClick={() => void stop()}
+            disabled={stopping}
+            style={{
+              fontSize: 13,
+              color: '#b91c1c',
+              border: '1px solid #fecaca',
+              background: '#fef2f2',
+              borderRadius: 6,
+              padding: '6px 12px',
+              cursor: stopping ? 'default' : 'pointer',
+              opacity: stopping ? 0.6 : 1,
+            }}
+          >
+            {stopping ? 'Останавливаю…' : 'Остановить'}
+          </button>
+        )}
         {savedAt && (
           <span style={{ fontSize: 13, color: 'var(--success, #16a34a)' }}>
             правки сохранены {savedAt}

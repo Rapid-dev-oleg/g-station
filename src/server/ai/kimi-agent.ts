@@ -76,6 +76,8 @@ export interface KimiAgentParams {
   /** Доп. директории в скоуп агента (--add-dir) — напр. папка с файлами ТЗ,
    *  которые агент читает сам (read_media/shell), без локального извлечения. */
   addDirs?: string[];
+  /** Сигнал остановки: при abort Node убивает дочерний процесс CLI (а не ждёт таймаута). */
+  signal?: AbortSignal;
 }
 
 export interface KimiAgentResult {
@@ -146,6 +148,7 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
         maxBuffer: 50 * 1024 * 1024,
         cwd: workspace,
         env: { ...process.env },
+        signal: params.signal,
       });
       return { output: stdout.trim() };
     } catch (e) {

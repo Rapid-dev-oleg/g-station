@@ -223,6 +223,7 @@ async function structureViaChat(output: string): Promise<ParsedCalc | null> {
 export async function calcSystemViaKimi(
   systemId: string,
   force = false,
+  signal?: AbortSignal,
 ): Promise<KimiCalcResult> {
   const system = await db.system.findUnique({ where: { id: systemId } });
   if (!system) return { ok: false, error: 'Система не найдена' };
@@ -288,6 +289,7 @@ export async function calcSystemViaKimi(
         'Карточка:\n' +
         JSON.stringify(card, null, 2),
       timeoutMs: 8 * 60 * 1000,
+      signal,
     });
 
     // Структурируем характеристики (фаза 1).
@@ -306,7 +308,7 @@ export async function calcSystemViaKimi(
     if (equipment.length === 0) {
       console.warn('[kimi-calc] фаза 1 не вернула equipment[] — смета пустая, без хардкод-набора');
     }
-    const bom: BomLine[] = await priceEquipment(equipment);
+    const bom: BomLine[] = await priceEquipment(equipment, signal);
 
     const total = bom.reduce((s, b) => s + (b.sum ?? 0), 0);
     const markup = settings.clientMarkup;

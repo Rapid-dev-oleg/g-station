@@ -481,6 +481,7 @@ function assembleParsed(
 export async function parseDocumentViaAgent(
   dir: string,
   fileNames: string[],
+  signal?: AbortSignal,
 ): Promise<ParsedDocument> {
   const registry = await loadTypeRegistry();
   const prompt =
@@ -529,6 +530,7 @@ export async function parseDocumentViaAgent(
     addDirs: [dir],
     prompt,
     timeoutMs: 20 * 60 * 1000, // тяжёлые сканы ПД (десятки МБ) дольше 10 мин
+    signal,
   });
 
   let parsed: Record<string, unknown>;

@@ -20,7 +20,7 @@ export function ensureJobHandlers(): void {
     const p = input as { dir: string; files: ParsedFileInfo[]; ownerId?: string; lockedProjectId?: string };
     const mb = p.files.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
     const etaSec = Math.round(120 + mb * 9); // ~84 МБ → ~14.5 мин
-    const resp = await runWithEta(ctx, etaSec, () => runParseJob(p));
+    const resp = await runWithEta(ctx, etaSec, () => runParseJob({ ...p, signal: ctx.signal }));
     if (!resp.ok) throw new Error(resp.error); // провал → задача 'error'
     let projectId: string | undefined;
     let systemId: string | undefined;
@@ -40,7 +40,7 @@ export function ensureJobHandlers(): void {
   registerJobHandler('calc', async (input, ctx) => {
     const { systemId } = input as { systemId: string };
     // Расчёт+подбор через Kimi+MCP — ориентир ~9 мин.
-    const r = await runWithEta(ctx, 540, () => calcSystemViaKimi(systemId, true));
+    const r = await runWithEta(ctx, 540, () => calcSystemViaKimi(systemId, true, ctx.signal));
     if (!r.ok) throw new Error(r.error || 'Расчёт не удался');
     return {
       systemId,

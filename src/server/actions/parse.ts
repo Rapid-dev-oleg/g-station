@@ -174,14 +174,16 @@ export async function runParseJob(params: {
   ownerId?: string;
   lockedProjectId?: string;
   progress?: (pct: number, message?: string) => Promise<void>;
+  signal?: AbortSignal;
 }): Promise<ParseResponse> {
-  const { dir, files, ownerId, lockedProjectId, progress } = params;
+  const { dir, files, ownerId, lockedProjectId, progress, signal } = params;
   let parsed: ParsedDocument;
   try {
     await progress?.(20, `Агент читает файлы (${files.length} шт.)…`);
     parsed = await parseDocumentViaAgent(
       dir,
       files.map((f) => f.filename),
+      signal,
     );
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка разбора документа' };

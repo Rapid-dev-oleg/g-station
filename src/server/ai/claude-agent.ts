@@ -86,6 +86,7 @@ export async function runClaudeAgent(params: KimiAgentParams): Promise<KimiAgent
         maxBuffer: 50 * 1024 * 1024,
         cwd: workspace,
         env: { ...process.env },
+        signal: params.signal,
       });
       return { output: stdout.trim() };
     } catch (e) {
