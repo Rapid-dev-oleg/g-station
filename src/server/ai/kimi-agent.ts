@@ -45,15 +45,31 @@ function buildConfigToml(apiKey: string, baseUrl: string, skillsDirs: string[]):
     `base_url = ${JSON.stringify(baseUrl)}`,
     `api_key = ${JSON.stringify(apiKey)}`,
     '',
+    // OAuth-авторизация (kimi login → ~/.kimi/credentials/kimi-code.json).
+    // Для managed:kimi-code это ОСНОВНОЙ способ входа: при наличии oauth-блока
+    // CLI берёт токен из файла и игнорирует api_key (тот всё равно обязателен по
+    // схеме конфига). Без блока CLI ходит по api_key и на протухшем ключе — 401.
+    '[providers."managed:kimi-code".oauth]',
+    'storage = "file"',
+    'key = "oauth/kimi-code"',
+    '',
     // Веб-поиск и загрузка страниц — для подбора продукции (артикулы, цены,
-    // наличие у поставщиков). Тем же ключом (в дефолтном конфиге они на oauth).
+    // наличие у поставщиков). Авторизация — тем же OAuth-токеном kimi-code.
     '[services.moonshot_search]',
     'base_url = "https://api.kimi.com/coding/v1/search"',
     `api_key = ${JSON.stringify(apiKey)}`,
     '',
+    '[services.moonshot_search.oauth]',
+    'storage = "file"',
+    'key = "oauth/kimi-code"',
+    '',
     '[services.moonshot_fetch]',
     'base_url = "https://api.kimi.com/coding/v1/fetch"',
     `api_key = ${JSON.stringify(apiKey)}`,
+    '',
+    '[services.moonshot_fetch.oauth]',
+    'storage = "file"',
+    'key = "oauth/kimi-code"',
     '',
   ].join('\n');
 }

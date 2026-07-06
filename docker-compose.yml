@@ -48,6 +48,11 @@ services:
       # Источник для ПЕРВОГО засева (read-only): репозиторий с методикой.
       # entrypoint копирует его в volume, только если volume пуст.
       - ${KIMI_WORKSPACE_HOST:-../gidrostroy}:/seed:ro
+      # OAuth-креды kimi (kimi login → credentials/kimi-code.json). Каталог
+      # ЗАПИСЫВАЕМЫЙ — CLI обновляет access_token по refresh_token и пишет туда.
+      # Провайдер managed:kimi-code читает их (см. oauth-блок в kimi-agent.ts).
+      # На хосте: /opt/kimi-home/.kimi (т.е. ../kimi-home/.kimi от compose-файла).
+      - ${KIMI_HOME_HOST:-../kimi-home/.kimi}:/root/.kimi
 
 volumes:
   gstation-db-data:
