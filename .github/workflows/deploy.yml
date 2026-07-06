@@ -1,0 +1,38 @@
+# Автодеплой: push в master → GitHub заходит на сервер по SSH и пересобирает
+# Docker Compose. Секреты задаются в Settings → Secrets and variables → Actions:
+#   DEPLOY_HOST     — IP или домен сервера
+#   DEPLOY_USER     — SSH-пользователь (например root)
+#   DEPLOY_PORT     — SSH-порт (обычно 22)
+#   DEPLOY_PATH     — путь к репозиторию на сервере (например /opt/g-station)
+#   DEPLOY_SSH_KEY  — приватный ключ (полностью, включая BEGIN/END)
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}   # можно запустить вручную из вкладки Actions
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false   # не обрывать идущий деплой
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true   # остановиться на первой же ошибке
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            echo "→ Обновляю код (origin/master)"
+            git fetch origin master
+            git reset --hard origin/master
+            echo "→ Пересборка и запуск"
+            bash scripts/server-deploy.sh
