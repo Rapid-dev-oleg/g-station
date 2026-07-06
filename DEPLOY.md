@@ -45,6 +45,16 @@ docker compose exec app npx prisma db seed   # сид: admin, типы, прав
 Endpoint по умолчанию `https://api.kimi.com/coding/v1` (переопределяется
 `KIMI_BASE_URL`). Модель `kimi-for-coding`.
 
+**Важно: авторизация агента идёт по OAuth, а не по `api_key`.** Провайдер
+`managed:kimi-code` берёт токен из `~/.kimi/credentials/kimi-code.json`
+(результат `kimi login`); `api_key` в конфиге обязателен по схеме, но при
+наличии oauth-блока игнорируется. Поэтому на сервере эти креды монтируются
+в контейнер томом `KIMI_HOME_HOST` (по умолчанию `../kimi-home/.kimi` →
+на проде `/opt/kimi-home/.kimi`). Каталог **записываемый** — CLI сам обновляет
+`access_token` по `refresh_token`. Без этого файла агент падает с `401`.
+Обновить креды: заменить `/opt/kimi-home/.kimi/credentials/kimi-code.json`
+на сервере (перезапуск не нужен, CLI читает файл на каждом запуске).
+
 ## Скилы
 
 Kimi CLI находит скилы в (по приоритету):
