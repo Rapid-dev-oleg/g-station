@@ -60,6 +60,29 @@ Kimi CLI находит скилы в (по приоритету):
 **Применить конкретный скил:** передаётся параметром `skill` в `runKimiAgent`
 (подставляется директива «Используй skill `<name>`» в начало промпта).
 
+## Автодеплой (push в master → пересборка на сервере)
+
+Настроен GitHub Actions: `.github/workflows/deploy.yml`. На каждый `git push`
+в `master` (или запуск вручную во вкладке **Actions**) GitHub заходит на сервер
+по SSH и выполняет `scripts/server-deploy.sh` (`git reset --hard origin/master`
++ `docker compose up -d --build`). Схему БД накатывает сам `docker-entrypoint.sh`.
+
+**Прод-сервер:** `root@87.199.208.244:22`, проект в `/opt/g-station`, методика
+в `/opt/gidrostroy` (`../gidrostroy` относительно compose). Приложение —
+`http://87.199.208.244:3007`. Логин по умолчанию: `admin@gidrostroy.local` /
+`admin123` (сменить после первого входа).
+
+**Секреты GitHub** (Settings → Secrets and variables → Actions): `DEPLOY_HOST`,
+`DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_PATH`, `DEPLOY_SSH_KEY` (приватный ключ,
+чей публичный лежит в `~/.ssh/authorized_keys` сервера).
+
+**Доступ сервера к приватному репозиторию:** на сервере сгенерирован ключ
+`~/.ssh/id_ed25519`, его публичная часть добавлена в репозиторий как read-only
+**deploy key** — поэтому `git fetch` на сервере работает без токенов.
+
+**Ручной передеплой без пуша:** во вкладке Actions → Deploy → «Run workflow»,
+либо на сервере `cd /opt/g-station && bash scripts/server-deploy.sh`.
+
 ## Обновление методики без пересборки
 
 Скилы и KNOWLEDGE смонтированы из `gidrostroy` как volume — правки в
