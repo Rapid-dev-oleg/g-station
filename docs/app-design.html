@@ -1,0 +1,520 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>g-station — структура приложения</title></head><body>
+<style>
+  :root{
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+
+    --bg:#eceff3; --surface:#ffffff; --surface-2:#f5f8fa;
+    --ink:#141a21; --text:#28313d; --muted:#5b6979; --faint:#8b98a7;
+    --line:#d8dfe7; --line-strong:#c3cdd7;
+    --hydro:#136a86; --hydro-bright:#2a90b3; --hydro-wash:#e6eff2;
+    --ember:#cf6027; --ember-wash:#f6e7dc;
+    --good:#2f8a58; --warn:#b9841c; --crit:#bd4238;
+    --shadow:0 1px 2px rgba(20,26,33,.05),0 8px 24px -16px rgba(20,26,33,.25);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d1117; --surface:#161d26; --surface-2:#1b2530;
+      --ink:#eef3f8; --text:#cfd8e2; --muted:#93a1b1; --faint:#6a7787;
+      --line:#27313d; --line-strong:#37434f;
+      --hydro:#42a8ca; --hydro-bright:#63c1e1; --hydro-wash:#132a34;
+      --ember:#e5854a; --ember-wash:#28201a;
+      --good:#41a06a; --warn:#cf9a34; --crit:#d05a50;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px -18px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eceff3; --surface:#ffffff; --surface-2:#f5f8fa;
+    --ink:#141a21; --text:#28313d; --muted:#5b6979; --faint:#8b98a7;
+    --line:#d8dfe7; --line-strong:#c3cdd7;
+    --hydro:#136a86; --hydro-bright:#2a90b3; --hydro-wash:#e6eff2;
+    --ember:#cf6027; --ember-wash:#f6e7dc;
+    --good:#2f8a58; --warn:#b9841c; --crit:#bd4238;
+    --shadow:0 1px 2px rgba(20,26,33,.05),0 8px 24px -16px rgba(20,26,33,.25);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1117; --surface:#161d26; --surface-2:#1b2530;
+    --ink:#eef3f8; --text:#cfd8e2; --muted:#93a1b1; --faint:#6a7787;
+    --line:#27313d; --line-strong:#37434f;
+    --hydro:#42a8ca; --hydro-bright:#63c1e1; --hydro-wash:#132a34;
+    --ember:#e5854a; --ember-wash:#28201a;
+    --good:#41a06a; --warn:#cf9a34; --crit:#d05a50;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px -18px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  body,.page{margin:0}
+  .page{background:var(--bg);color:var(--text);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:44px 44px;background-position:-1px -1px;background-attachment:fixed;}
+  .page::before{content:"";position:fixed;inset:0;background:var(--bg);opacity:.86;z-index:0;pointer-events:none}
+  .wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 24px}
+
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--hydro);font-weight:600}
+  h1,h2,h3{color:var(--ink);text-wrap:balance;font-weight:680;letter-spacing:-.01em;margin:0}
+  h1{font-size:clamp(1.9rem,4.4vw,3rem);letter-spacing:-.03em;line-height:1.05}
+  h2{font-size:clamp(1.35rem,2.6vw,1.85rem);letter-spacing:-.02em}
+  h3{font-size:1.05rem}
+  p{margin:0 0 .9em}
+  .lede{font-size:1.12rem;color:var(--muted);max-width:64ch}
+  a{color:var(--hydro-bright);text-decoration:none}
+
+  /* header */
+  .masthead{padding:64px 0 40px;border-bottom:2px solid var(--ink)}
+  .brandrow{display:flex;align-items:center;gap:12px;margin-bottom:26px;flex-wrap:wrap}
+  .glyph{width:34px;height:34px;border-radius:7px;background:linear-gradient(135deg,var(--hydro),var(--ember));display:grid;place-items:center;color:#fff;font-family:var(--mono);font-weight:700;font-size:1rem}
+  .brandrow b{color:var(--ink);font-weight:680}
+  .brandrow .sep{color:var(--faint)}
+  .metaline{font-family:var(--mono);font-size:.78rem;color:var(--faint)}
+  .masthead h1{margin:8px 0 18px}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+  .toc a{font-family:var(--mono);font-size:.76rem;color:var(--muted);border:1px solid var(--line);
+    padding:5px 10px;border-radius:5px;background:var(--surface);transition:.15s}
+  .toc a:hover{border-color:var(--hydro);color:var(--hydro)}
+  .toc a span{color:var(--hydro);margin-right:6px}
+
+  /* sections */
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;gap:16px;align-items:baseline;margin-bottom:26px}
+  .sec-num{font-family:var(--mono);font-size:.85rem;color:var(--ember);font-weight:600;padding-top:4px}
+  .sec-head p{margin:6px 0 0}
+
+  .cards{display:grid;gap:16px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:20px;box-shadow:var(--shadow)}
+  .grid-2{grid-template-columns:repeat(2,1fr)}
+  .grid-3{grid-template-columns:repeat(3,1fr)}
+  .grid-4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:820px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+
+  .tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.7rem;font-weight:600;
+    letter-spacing:.03em;padding:3px 8px;border-radius:5px;border:1px solid var(--line-strong);color:var(--muted);white-space:nowrap}
+  .tag.fire{color:var(--ember);border-color:var(--ember);background:var(--ember-wash)}
+  .tag.hydro{color:var(--hydro);border-color:var(--hydro);background:var(--hydro-wash)}
+  .tag.now{color:var(--good);border-color:var(--good)}
+  .tag.soon{color:var(--warn);border-color:var(--warn)}
+  .tag.todo{color:var(--faint)}
+  .tag.gate{color:var(--ember);border-color:var(--ember);background:var(--ember-wash)}
+
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
+  th{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface-2)}
+  tr:last-child td{border-bottom:none}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
+  .rowtot td{font-weight:680;color:var(--ink);background:var(--surface-2)}
+
+  /* pipeline */
+  .pipe{display:flex;flex-direction:column;gap:0}
+  .stage{display:grid;grid-template-columns:120px 1fr;gap:18px;position:relative}
+  .stage-rail{display:flex;flex-direction:column;align-items:center}
+  .stage-dot{width:38px;height:38px;border-radius:9px;background:var(--surface);border:1.5px solid var(--hydro);
+    color:var(--hydro);display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:.95rem;box-shadow:var(--shadow)}
+  .stage-line{flex:1;width:2px;background:var(--line-strong);margin:6px 0}
+  .stage:last-child .stage-line{display:none}
+  .stage-body{padding-bottom:22px}
+  .stage-body .card{border-left:3px solid var(--hydro)}
+  .stage-kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--hydro);margin-bottom:4px}
+  .io{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .io span{font-family:var(--mono);font-size:.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);padding:3px 8px;border-radius:5px}
+  .io span b{color:var(--ink);font-weight:600}
+  .gatebar{margin-top:12px;padding:10px 12px;border:1px dashed var(--ember);border-radius:7px;background:var(--ember-wash);
+    font-size:.86rem;color:var(--text);display:flex;gap:10px;align-items:flex-start}
+  .phase-band{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:2px 0 14px}
+  .phase-band .eyebrow{color:var(--ember)}
+  .phase-band .rule{flex:1;height:1px;background:var(--line-strong)}
+
+  /* architecture stack */
+  .stack{display:grid;gap:12px}
+  .layer{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center;background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:14px 16px;box-shadow:var(--shadow)}
+  .layer .lname{font-family:var(--mono);font-size:.8rem;font-weight:600;color:var(--hydro)}
+  .layer .lbits{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-family:var(--mono);font-size:.74rem;color:var(--text);background:var(--surface-2);border:1px solid var(--line);padding:4px 9px;border-radius:6px}
+  .chip.acc{border-color:var(--hydro);color:var(--hydro)}
+  .chip.new{border-color:var(--ember);color:var(--ember);background:var(--ember-wash)}
+  .conn{display:grid;place-items:center;color:var(--faint);font-size:1.1rem;padding:1px 0}
+  @media(max-width:640px){.layer{grid-template-columns:1fr;gap:8px}.stage{grid-template-columns:56px 1fr}}
+
+  /* funnel */
+  .funnel{display:grid;gap:8px}
+  .fstage{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start;background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+  .fstage.core{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember) inset}
+  .fnum{font-family:var(--mono);font-weight:700;color:var(--muted);font-size:1.05rem;text-align:center}
+  .fstage.core .fnum{color:var(--ember)}
+  .fstage h3{font-size:.98rem;margin-bottom:3px}
+  .fstage p{margin:0;font-size:.86rem;color:var(--muted)}
+
+  /* wireframes */
+  .wire{background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+  .wire-top{display:flex;align-items:center;gap:6px;padding:9px 12px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .wire-top i{width:9px;height:9px;border-radius:50%;background:var(--line-strong);display:block}
+  .wire-top span{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-left:6px}
+  .wire-body{padding:14px;display:grid;gap:9px}
+  .ph{background:var(--surface-2);border:1px solid var(--line);border-radius:6px}
+  .ph.line{height:11px}
+  .ph.line.s{width:55%}.ph.line.m{width:78%}
+  .ph.block{height:46px}
+  .ph.label{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:6px 8px;height:auto;background:transparent;border:none}
+  .wrow{display:flex;gap:9px}.wrow>*{flex:1}
+  .pillrow{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{font-family:var(--mono);font-size:.68rem;padding:3px 8px;border-radius:20px;border:1px solid var(--line-strong);color:var(--muted)}
+  .pill.on{background:var(--hydro-wash);border-color:var(--hydro);color:var(--hydro)}
+  .pill.fire{background:var(--ember-wash);border-color:var(--ember);color:var(--ember)}
+
+  .note{font-size:.9rem;color:var(--muted)}
+  ul.clean{margin:.4em 0;padding-left:1.15em}
+  ul.clean li{margin:.35em 0}
+  .kicker-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .opt{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+  .opt .oi{font-family:var(--mono);color:var(--ember);font-weight:700;font-size:.9rem;padding-top:2px}
+  footer.foot{padding:36px 0 60px;color:var(--faint);font-family:var(--mono);font-size:.76rem}
+  @media(prefers-reduced-motion:no-preference){.toc a{transition:.15s ease}}
+</style>
+
+<div class="page">
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="brandrow">
+      <span class="glyph">G</span>
+      <b>g-station</b><span class="sep">·</span>
+      <span>ООО «Гидрострой-НН»</span><span class="sep">×</span><span>НейроСофт</span>
+    </div>
+    <div class="eyebrow">Design-документ · структура приложения</div>
+    <h1>Автоматизация расчёта ТКП насосных станций</h1>
+    <p class="lede">Как устроено приложение по данным клиента: сквозной пайплайн расчёта,
+      архитектура, модель данных, роли и встраивание в воронку продаж. Документ для разбора
+      и оптимизации структуры — до реализации.</p>
+    <div class="metaline">Ревизия структуры · июль 2026 · пилот G-FIRE</div>
+    <nav class="toc">
+      <a href="#peri"><span>01</span>Периметр</a>
+      <a href="#pipe"><span>02</span>Пайплайн ТКП</a>
+      <a href="#arch"><span>03</span>Архитектура</a>
+      <a href="#data"><span>04</span>Модель данных</a>
+      <a href="#roles"><span>05</span>Роли и воркспейсы</a>
+      <a href="#funnel"><span>06</span>Воронка</a>
+      <a href="#screens"><span>07</span>Экраны</a>
+      <a href="#opt"><span>08</span>Оптимизация</a>
+    </nav>
+  </header>
+
+  <!-- 01 -->
+  <section id="peri">
+    <div class="sec-head"><div class="sec-num">01</div>
+      <div><h2>Периметр и дерево систем</h2>
+      <p class="note">Автоматизируем расчёт ТКП по продукции собственного производства (префикс <b class="mono">G</b>). Пилот — пожаротушение.</p></div>
+    </div>
+    <div class="tblwrap" style="margin-bottom:16px">
+      <table>
+        <thead><tr><th>Тип системы</th><th>Серия</th><th>ТКП / мес*</th><th>Приоритет</th></tr></thead>
+        <tbody>
+          <tr><td>Пожаротушение</td><td><span class="tag fire">G-FIRE</span></td><td class="num">~12</td><td><span class="tag fire">1 · пилот</span></td></tr>
+          <tr><td>Хозпит-водоснабжение</td><td><span class="tag">G-WATER · G-POWER</span></td><td class="num">~9</td><td><span class="tag">2</span></td></tr>
+          <tr><td>КНС / ЛОС</td><td><span class="tag">G-DRAIN · G-CLEAN</span></td><td class="num">~8</td><td><span class="tag">3</span></td></tr>
+          <tr class="rowtot"><td>Итого</td><td></td><td class="num">~29</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">*Среднемесячно за апрель–июнь 2026 (данные клиента). G-FIRE выбран пилотом:
+      наибольший объём, наименьшая вариативность, жёсткая нормативная база
+      (<span class="mono">СП 10.13130.2020</span>, <span class="mono">СП 8.13130.2009</span>, <span class="mono">НПБ 88-2001*</span>) —
+      параметры в таблицах, не в экспертном суждении.</p>
+    <div class="cards grid-3" style="margin-top:18px">
+      <div class="card"><div class="eyebrow">Логика ТКП</div><p style="margin-top:8px" class="mono note">расход → давление → подбор насоса по каталогу → спецификация → стоимость</p></div>
+      <div class="card"><div class="eyebrow">Подход к ТЗ</div><p style="margin-top:8px" class="note">Живой итеративный документ: первая версия на реальных запросах → фидбэк инженеров → правки. Не статичное ТЗ на старте.</p></div>
+      <div class="card"><div class="eyebrow">Развитие</div><p style="margin-top:8px" class="note">Пилот на G-FIRE → тираж на G-WATER/G-POWER → G-DRAIN/G-CLEAN. Новый тип = данные (реестр), не переписывание кода.</p></div>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section id="pipe">
+    <div class="sec-head"><div class="sec-num">02</div>
+      <div><h2>Сквозной пайплайн ТКП</h2>
+      <p class="note">Один конвейер для всех типов станций: 5 шагов = 3 этапа для клиента. Исполняет LLM-агент по скилу <span class="mono">pump-station-calc</span>. Экспертные развилки выносятся инженеру (супервизинг).</p></div>
+    </div>
+    <div class="pipe">
+      <div class="phase-band"><span class="eyebrow">Этап 1 · Парсинг</span><span class="rule"></span></div>
+      <div class="stage">
+        <div class="stage-rail"><div class="stage-dot">1</div><div class="stage-line"></div></div>
+        <div class="stage-body"><div class="card">
+          <div class="stage-kicker">Вход + карточка</div>
+          <h3>Разбор пакета документов</h3>
+          <p class="note">Загрузка ТЗ/опросного/проекта «как есть». Извлечение текста и картинок, определение типа станции и сценария, сборка карточки параметров. Каждое число помечено провенансом: <span class="mono">из документа / выведено / допущение</span>.</p>
+          <div class="io"><span><b>in:</b> docx · pdf · xlsx · txt</span><span><b>out:</b> карточка (Q, H, схема, жокей, исполнение, резервуары)</span></div>
+          <div class="gatebar"><span class="tag gate">Гейт 1</span><span>Инженер правит извлечённую карточку и допущения перед расчётом.</span></div>
+        </div></div>
+      </div>
+
+      <div class="phase-band"><span class="eyebrow">Этап 2 · Расчёт «что нужно»</span><span class="rule"></span></div>
+      <div class="stage">
+        <div class="stage-rail"><div class="stage-dot">2</div><div class="stage-line"></div></div>
+        <div class="stage-body"><div class="card">
+          <div class="stage-kicker">Целевые характеристики</div>
+          <h3>Расчёт по нормативам и формулам</h3>
+          <p class="note">Рабочая точка Q/H (запас 5–10 %), запас пожарной воды (объём резервуаров), схема резервирования и число насосов, диаметр коллектора, мощность двигателя, тип пуска.</p>
+          <div class="io"><span><b>норм:</b> СП 10/8, НПБ 88</span><span><b>out:</b> требования к станции, независимые от бренда</span></div>
+        </div></div>
+      </div>
+
+      <div class="phase-band"><span class="eyebrow">Этап 3 · Подбор «чем закроем»</span><span class="rule"></span></div>
+      <div class="stage">
+        <div class="stage-rail"><div class="stage-dot">3</div><div class="stage-line"></div></div>
+        <div class="stage-body"><div class="card">
+          <div class="stage-kicker">Спецификация</div>
+          <h3>Подбор оборудования</h3>
+          <p class="note">Класс и конструктив насоса, жокей, коллектор, шкаф управления (ШУФ/ШУФС), корпус и резервуары. Сверка по каталогу/прайсу через MCP к БД. Точная модель и бренд — за инженером.</p>
+          <div class="io"><span><b>src:</b> каталог · прайсы · веб-поиск</span><span><b>out:</b> спецификация оборудования</span></div>
+        </div></div>
+      </div>
+      <div class="stage">
+        <div class="stage-rail"><div class="stage-dot">4</div><div class="stage-line"></div></div>
+        <div class="stage-body"><div class="card">
+          <div class="stage-kicker">Ценообразование</div>
+          <h3>Себестоимость и цена</h3>
+          <p class="note">Расчёт себестоимости и клиентской цены по прайсам, курсу валют и наценке.</p>
+          <div class="gatebar"><span class="tag gate">Гейт 2</span><span>Инженер подтверждает курс, скидки, бренд насоса, коэффициент наценки.</span></div>
+        </div></div>
+      </div>
+      <div class="stage">
+        <div class="stage-rail"><div class="stage-dot">5</div></div>
+        <div class="stage-body"><div class="card">
+          <div class="stage-kicker">Выход</div>
+          <h3>ТКП, смета, валидация</h3>
+          <p class="note">Шифр изделия, техпредложение серии G-Fire, смета, чек-лист валидации. Результат — «расчётное дело» (единый JSON-контракт всех этапов).</p>
+          <div class="io"><span><b>out:</b> расчётное дело · ТП · смета · PDF КП</span></div>
+          <div class="gatebar"><span class="tag gate">Гейт 3</span><span>Инженер проверяет черновик по чек-листу. Гейты схлопываются по мере роста качества.</span></div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section id="arch">
+    <div class="sec-head"><div class="sec-num">03</div>
+      <div><h2>Архитектура приложения</h2>
+      <p class="note">Слои сверху вниз. <span class="chip acc">синим</span> — текущее, <span class="chip new">оранжевым</span> — предстоит по плану клиента.</p></div>
+    </div>
+    <div class="stack">
+      <div class="layer"><div class="lname">Клиент</div><div class="lbits"><span class="chip">Браузер</span><span class="chip">Next.js UI (App Router)</span><span class="chip">поллинг задач</span></div></div>
+      <div class="conn">↓</div>
+      <div class="layer"><div class="lname">Приложение</div><div class="lbits"><span class="chip acc">Next.js 15 · server actions</span><span class="chip acc">middleware · auth (next-auth)</span><span class="chip new">роли: рук./инж./менедж.</span><span class="chip new">воркспейсы (мультитенант)</span></div></div>
+      <div class="conn">↓</div>
+      <div class="layer"><div class="lname">Очередь задач</div><div class="lbits"><span class="chip acc">Job (parse · calc)</span><span class="chip acc">прогресс в БД</span><span class="chip new">до 5 параллельно</span></div></div>
+      <div class="conn">↓</div>
+      <div class="layer"><div class="lname">Агент-расчётчик</div><div class="lbits"><span class="chip acc">Kimi CLI (OAuth)</span><span class="chip acc">/ Claude</span><span class="chip acc">скил pump-station-calc</span><span class="chip new">супервизинг-гейты</span></div></div>
+      <div class="conn">↓</div>
+      <div class="layer"><div class="lname">Данные</div><div class="lbits"><span class="chip acc">MCP db-server</span><span class="chip acc">PostgreSQL · Prisma</span><span class="chip acc">методика: скилы + KNOWLEDGE (volume)</span></div></div>
+      <div class="conn">↓</div>
+      <div class="layer"><div class="lname">Внешние</div><div class="lbits"><span class="chip new">доверенные СП/ГОСТ</span><span class="chip new">веб-поиск оборудования</span><span class="chip new">каталоги производителей (URL)</span><span class="chip new">Битрикс24</span><span class="chip new">телефония · Билайн</span><span class="chip new">Telegram-боты</span></div></div>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section id="data">
+    <div class="sec-head"><div class="sec-num">04</div>
+      <div><h2>Модель данных</h2>
+      <p class="note">Текущие сущности (Prisma) сгруппированы по назначению. <span class="tag now">есть</span> — в схеме, <span class="tag todo">план</span> — предложение под задачи клиента.</p></div>
+    </div>
+    <div class="cards grid-2">
+      <div class="card">
+        <div class="kicker-row"><span class="eyebrow">Доступ</span></div>
+        <ul class="clean note">
+          <li><b class="mono">User</b> · role (сейчас ENGINEER/ADMIN)</li>
+          <li><span class="tag todo">план</span> <b class="mono">Workspace</b> — компания/воркспейс, <span class="mono">tenantId</span> на всех сущностях</li>
+          <li><span class="tag todo">план</span> роли <b class="mono">DIRECTOR · ENGINEER · MANAGER</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="kicker-row"><span class="eyebrow">Проекты и расчёт</span></div>
+        <ul class="clean note">
+          <li><b class="mono">Client</b> · <b class="mono">Project</b> (status) · <b class="mono">System</b></li>
+          <li><b class="mono">System.dossier</b> — «расчётное дело» (JSONB, валид. ajv)</li>
+          <li><b class="mono">kimiCalc</b> + hash — кеш расчёта агента; <b class="mono">approvedSnapshot</b> — заморозка утверждённого</li>
+          <li><span class="tag todo">план</span> <b class="mono">Lead / Deal</b> — если часть воронки ведём у себя</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="kicker-row"><span class="eyebrow">Каталог и номенклатура</span></div>
+        <ul class="clean note">
+          <li><b class="mono">Manufacturer</b> · <b class="mono">ProductCategory</b></li>
+          <li><b class="mono">PriceList</b> · <b class="mono">CatalogItem</b> (sku, attributes, price)</li>
+          <li><span class="tag todo">план</span> URL каталогов производителя для авто-поиска</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="kicker-row"><span class="eyebrow">Нормы и правила</span></div>
+        <ul class="clean note">
+          <li><b class="mono">Norm</b> (СП/ГОСТ: code, title, url)</li>
+          <li><b class="mono">RuleConfig</b> — декларативные правила подбора (версионируемые)</li>
+          <li><span class="tag todo">план</span> <b class="mono">Source</b> + рейтинг достоверности 1–10 (порог &gt;7)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="kicker-row"><span class="eyebrow">Типы систем · движок</span></div>
+        <ul class="clean note">
+          <li><b class="mono">SystemType</b> — реестр типов (fire/water/…): триггеры, назначения, модуль скила</li>
+          <li><b class="mono">Job</b> — фоновая задача (parse/calc), прогресс, результат</li>
+          <li>новый тип станции = строка в реестре + модуль-типа в скиле</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="kicker-row"><span class="eyebrow">Настройки</span></div>
+        <ul class="clean note">
+          <li><b class="mono">Settings</b> (singleton) — реквизиты, курсы, наценка, ключи, бэкенд агента</li>
+          <li><span class="tag todo">план</span> вынести из singleton → на воркспейс (мультитенант)</li>
+          <li><span class="tag todo">план</span> дашборд параметров воронки (порог скоринга, квалификация)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section id="roles">
+    <div class="sec-head"><div class="sec-num">05</div>
+      <div><h2>Роли и мультикомпанийность</h2>
+      <p class="note">Фундамент, который клиент просит заложить сразу. Внутри компании — фактически две компании с раздельными данными; перспектива — продавать продукт другим.</p></div>
+    </div>
+    <div class="cards grid-2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="eyebrow">Мультитенантность · открытый вопрос</div>
+        <p class="note" style="margin-top:8px">Уровень изоляции нужно решить до наращивания данных:</p>
+        <ul class="clean note">
+          <li><b>Воркспейс + row-level</b> в одной БД (<span class="mono">tenantId</span> на сущностях) — проще эксплуатировать, дешевле масштабировать на новых клиентов.</li>
+          <li><b>Отдельная БД</b> на компанию — сильнее изоляция, дороже в обслуживании.</li>
+        </ul>
+        <p class="note">Рекомендация: воркспейс + row-level, заложить <span class="mono">tenantId</span> с самого начала (ретрофит дороже).</p>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Матрица прав · черновик</div>
+        <div class="tblwrap" style="margin-top:8px">
+          <table>
+            <thead><tr><th>Область</th><th>Рук.</th><th>Инж.</th><th>Менедж.</th></tr></thead>
+            <tbody>
+              <tr><td>Заявки / сделки</td><td class="mono">все</td><td class="mono">—</td><td class="mono">свои</td></tr>
+              <tr><td>Расчёт ТКП · гейты</td><td class="mono">✓</td><td class="mono">✓</td><td class="mono">чтение</td></tr>
+              <tr><td>Номенклатура · прайсы</td><td class="mono">✓</td><td class="mono">✓</td><td class="mono">—</td></tr>
+              <tr><td>Аналитика · скоринг</td><td class="mono">✓</td><td class="mono">—</td><td class="mono">свои</td></tr>
+              <tr><td>Настройки воронки</td><td class="mono">✓</td><td class="mono">—</td><td class="mono">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top:8px">Менеджер — основной пользователь воронки; инженер — расчёта; руководитель — контроль и настройки.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section id="funnel">
+    <div class="sec-head"><div class="sec-num">06</div>
+      <div><h2>Встраивание в воронку продаж</h2>
+      <p class="note">Битрикс24 — система воронки; наш модуль встраивает AI по стадиям. <span class="tag fire">Стадия 3 (ТКП)</span> — стык с ядром расчёта и фокус пилота. Остальное — фаза 3.</p></div>
+    </div>
+    <div class="funnel">
+      <div class="fstage"><div class="fnum">1</div><div><h3>Новая</h3><p>Автоквалификация заявки (тип/объём/регион/бюджет), отсев нецелевых с тендерных площадок, маршрутизация, автоназначение менеджера, автозаполнение карточки из ЕГРЮЛ/тендеров.</p></div></div>
+      <div class="fstage"><div class="fnum">2</div><div><h3>Сбор информации · выход на ЛПР</h3><p>Автопоиск контактов ЛПР, обогащение карточки (ИНН → отрасль, тендеры, аффилированные), AI-бот первичного сбора техданных.</p></div></div>
+      <div class="fstage core"><div class="fnum">3</div><div><h3>Подготовка КП <span class="tag fire">ядро расчёта</span></h3><p>Автогенерация ТКП (подбор оборудования, спецификация, стоимость), актуальные цены/сроки поставщиков, проверка на нормы (СП/СНиП/ГОСТ), генерация PDF КП.</p></div></div>
+      <div class="fstage"><div class="fnum">4</div><div><h3>КП отправлено · согласование</h3><p>Автоотправка КП, follow-up (день 3/7/14), AI-анализ ответа (согласовано/правки/отказ), автофиксация статуса.</p></div></div>
+      <div class="fstage"><div class="fnum">5</div><div><h3>Согласие · документы</h3><p>Автогенерация договора, пакет (договор, счёт на аванс, спецификация), маршрутизация на согласование, контроль аванса.</p></div></div>
+      <div class="fstage"><div class="fnum">6</div><div><h3>Договор подписан · реализация</h3><p>Задачи производству по авансу, заявка на закупку из спецификации, уведомления о статусе, УПД.</p></div></div>
+      <div class="fstage"><div class="fnum">7</div><div><h3>Отгружено</h3><p>Уведомление об отгрузке, NPS через 2 недели, отчёт по проекту, AI-классификация рекламаций.</p></div></div>
+      <div class="fstage"><div class="fnum">∞</div><div><h3>Сквозной AI-контроль</h3><p>Скоринг сделки, анализ звонков (транскрипция/тональность) и переписки, контроль активности (брошенные сделки), вероятность закрытия, автоприоритизация портфеля.</p></div></div>
+    </div>
+  </section>
+
+  <!-- 07 -->
+  <section id="screens">
+    <div class="sec-head"><div class="sec-num">07</div>
+      <div><h2>Ключевые экраны</h2>
+      <p class="note">Черновые схемы под три роли — чтобы обсуждать структуру интерфейса, не дизайн.</p></div>
+    </div>
+    <div class="cards grid-3">
+      <div>
+        <div class="wire">
+          <div class="wire-top"><i></i><i></i><i></i><span>Расчёт ТКП · инженер</span></div>
+          <div class="wire-body">
+            <div class="ph label">КАРТОЧКА → РАСЧЁТ → ПОДБОР → СМЕТА</div>
+            <div class="pillrow"><span class="pill on">парсинг</span><span class="pill fire">гейт 1</span><span class="pill">расчёт</span><span class="pill fire">гейт 2</span><span class="pill">выход</span></div>
+            <div class="ph block"></div>
+            <div class="wrow"><div class="ph line m"></div><div class="ph line s"></div></div>
+            <div class="ph line"></div><div class="ph line m"></div>
+            <div class="ph label">провенанс: из документа / выведено / допущение</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:10px;text-align:center">Пошаговый степпер с гейтами супервизинга.</p>
+      </div>
+      <div>
+        <div class="wire">
+          <div class="wire-top"><i></i><i></i><i></i><span>Воронка · менеджер</span></div>
+          <div class="wire-body">
+            <div class="pillrow"><span class="pill on">новая</span><span class="pill">ЛПР</span><span class="pill fire">КП</span><span class="pill">согл.</span><span class="pill">отгр.</span></div>
+            <div class="wrow"><div class="ph block"></div><div class="ph block"></div><div class="ph block"></div></div>
+            <div class="ph label">скоринг сделки · вероятность закрытия</div>
+            <div class="ph line m"></div><div class="ph line"></div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:10px;text-align:center">Канбан сделок, синхрон с Битрикс24.</p>
+      </div>
+      <div>
+        <div class="wire">
+          <div class="wire-top"><i></i><i></i><i></i><span>Номенклатура · рук./инж.</span></div>
+          <div class="wire-body">
+            <div class="ph label">ПРОИЗВОДИТЕЛИ · КАТЕГОРИИ · КАТАЛОГИ</div>
+            <div class="wrow"><div class="ph line m"></div><div class="pill on">+ URL</div></div>
+            <div class="ph block"></div>
+            <div class="ph line"></div><div class="ph line s"></div>
+            <div class="ph label">источники: норма &gt; каталог &gt; веб (рейтинг &gt;7)</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:10px;text-align:center">Управление номенклатурой и доверенными источниками.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 -->
+  <section id="opt">
+    <div class="sec-head"><div class="sec-num">08</div>
+      <div><h2>Что оптимизировать в структуре</h2>
+      <p class="note">Решения, снижающие сложность и удешевляющие масштаб на другие типы систем.</p></div>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="opt"><div class="oi">A</div><div>
+        <h3>Один путь расчёта — LLM</h3>
+        <p class="note">Убрать TS-движок (<span class="mono">src/lib/engine</span> + потребители в UI): сейчас два параллельных расчёта дублируют методику. Останется единый Kimi-путь. Открыто: чем заменить регрессию качества (<span class="mono">npm run verify</span>, 49 кейсов) — эталонным прогоном с метриками.</p>
+      </div></div></div>
+      <div class="card"><div class="opt"><div class="oi">B</div><div>
+        <h3>Единый контракт «расчётное дело»</h3>
+        <p class="note">Держать <span class="mono">System.dossier</span> (JSONB + JSON-схема) единственным объектом, который течёт через все этапы и гейты. Уже так — закрепить как правило, не плодить параллельных форматов.</p>
+      </div></div></div>
+      <div class="card"><div class="opt"><div class="oi">C</div><div>
+        <h3>Типы систем — данными, не кодом</h3>
+        <p class="note">Реестр <span class="mono">SystemType</span> + модуль-типа скила: добавление G-WATER/G-DRAIN = строка реестра + md-модуль. Ядро конвейера не трогаем — так тираж на новые типы дешёвый.</p>
+      </div></div></div>
+      <div class="card"><div class="opt"><div class="oi">D</div><div>
+        <h3>Мультитенантность с первого дня</h3>
+        <p class="note">Заложить <span class="mono">tenantId</span>/воркспейс на все сущности сразу и вынести <span class="mono">Settings</span> из singleton. Ретрофит изоляции позже — дорого и рискованно.</p>
+      </div></div></div>
+      <div class="card"><div class="opt"><div class="oi">E</div><div>
+        <h3>Единая абстракция источников</h3>
+        <p class="note">Норма / каталог / веб-поиск — один интерфейс «доверенный источник» с рейтингом 1–10 и приоритетом. Переиспользуется в проверке норм (#10), скоринге источников (#11) и веб-поиске оборудования (#14).</p>
+      </div></div></div>
+      <div class="card"><div class="opt"><div class="oi">F</div><div>
+        <h3>Чёткая граница с Битрикс24</h3>
+        <p class="note">Воронка и коммуникации живут в Битриксе; наш модуль отвечает за ТКП (стадия 3), номенклатуру и расчёт. Синхронизация — через API-прокладку. Не дублировать CRM у себя без нужды.</p>
+      </div></div></div>
+      <div class="card"><div class="opt"><div class="oi">G</div><div>
+        <h3>Гейты как конфиг, а не хардкод</h3>
+        <p class="note">Супервизинг-проверки — настраиваемые чекпоинты, которые схлопываются по мере роста качества расчёта. Один механизм на все типы, управляется из настроек.</p>
+      </div></div></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    g-station · design-документ структуры · Гидрострой-НН × НейроСофт · черновик для разбора и оптимизации
+  </footer>
+
+</div>
+</div>
+</body></html>
