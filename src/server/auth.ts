@@ -1,13 +1,13 @@
 /**
  * Конфигурация Auth.js v5 (next-auth beta).
  * Вход по email+пароль (CredentialsProvider), JWT-сессия.
- * В токен/сессию кладутся id и role пользователя.
+ * В токен/сессию кладутся id и флаг isSuperAdmin (роли внутри воркспейса — в БД,
+ * через Membership; проверяются точечно на страницах воркспейса).
  */
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
-import type { Role } from '@prisma/client';
 import { db } from '@/server/db';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -26,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+        if (!user || !user.isActive) return null;
 
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
@@ -35,7 +35,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          isSuperAdmin: user.isSuperAdmin,
         };
       },
     }),
@@ -44,14 +44,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id ?? token.sub ?? '';
-        token.role = user.role;
+        token.isSuperAdmin = user.isSuperAdmin ?? false;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
-        session.user.role = token.role;
+        session.user.isSuperAdmin = token.isSuperAdmin;
       }
       return session;
     },
@@ -70,13 +70,14 @@ export async function requireUser() {
 }
 
 /**
- * Требует роль ADMIN.
+ * Требует платформенного супер-админа (НейроСофт).
  * Редиректит на /login без сессии, бросает ошибку при недостатке прав.
+ * Используется на странице управления доступом (/admin) и в её server actions.
  */
-export async function requireAdmin() {
+export async function requireSuperAdmin() {
   const user = await requireUser();
-  if (user.role !== ('ADMIN' satisfies Role)) {
-    throw new Error('Доступ запрещён: требуется роль ADMIN');
+  if (!user.isSuperAdmin) {
+    throw new Error('Доступ запрещён: требуются права супер-администратора');
   }
   return user;
 }

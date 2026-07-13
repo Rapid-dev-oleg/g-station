@@ -11,8 +11,11 @@ datasource db {
 }
 
 enum Role {
-  ENGINEER
+  // ADMIN — устаревшее (legacy), не используется; убрать отдельной миграцией.
   ADMIN
+  DIRECTOR
+  ENGINEER
+  MANAGER
 }
 
 enum ProjectStatus {
@@ -37,15 +40,47 @@ enum SystemStatus {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
   name         String
   passwordHash String
-  role         Role        @default(ENGINEER)
-  createdAt    DateTime    @default(now())
+  // legacy-поле (не используется; роль теперь в Membership). Оставлено, чтобы
+  // миграция была аддитивной (прод гоняет db push без --accept-data-loss).
+  role         Role         @default(ENGINEER)
+  // Платформенный супер-админ (НейроСофт) — вне воркспейсов, открывает /admin.
+  isSuperAdmin Boolean      @default(false)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
   projects     Project[]
-  systems      System[]    @relation("SystemEngineer")
+  systems      System[]     @relation("SystemEngineer")
   priceLists   PriceList[]
+}
+
+// Воркспейс = компания-арендатор. Мультитенантность: данные делятся по воркспейсу
+// (изоляция арендуемых сущностей — следующий этап; пока введены воркспейсы и роли).
+model Workspace {
+  id          String       @id @default(cuid())
+  name        String
+  inn         String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+}
+
+// Участие пользователя в воркспейсе с ролью. Роль — на воркспейс (человек может
+// состоять в нескольких компаниях с разными правами).
+model Membership {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  role        Role      @default(ENGINEER)
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
 }
 
 model Client {

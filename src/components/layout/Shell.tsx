@@ -8,14 +8,15 @@ import styles from './Shell.module.css';
 export async function Shell({ children }: { children: ReactNode }) {
   const session = await auth();
   const user = session?.user;
+  const isSuperAdmin = !!user?.isSuperAdmin;
 
   return (
     <div className={styles.shell}>
-      <Sidebar />
+      <Sidebar isSuperAdmin={isSuperAdmin} />
       <div className={styles.main}>
         <Header
-          userName={user?.name ?? 'Инженер'}
-          userRole={user?.role === 'ADMIN' ? 'Администратор' : 'Инженер'}
+          userName={user?.name ?? 'Пользователь'}
+          userRole={isSuperAdmin ? 'Супер-админ' : 'Пользователь'}
         />
         <div className={styles.content}>{children}</div>
       </div>

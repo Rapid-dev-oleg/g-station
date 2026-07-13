@@ -25,7 +25,7 @@ const NAV = [
   { href: '/methodology', label: 'Методика', icon: <IconBook /> },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const pathname = usePathname() ?? '/';
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -53,6 +53,17 @@ export function Sidebar() {
           </Link>
         ))}
         <div className={styles.navGroup}>Система</div>
+        {isSuperAdmin && (
+          <Link
+            href="/admin"
+            className={clsx(styles.link, pathname.startsWith('/admin') && styles.linkActive)}
+          >
+            <span className={styles.linkIcon}>
+              <IconBuilding />
+            </span>
+            Управление доступом
+          </Link>
+        )}
         <Link
           href="/settings"
           className={clsx(styles.link, pathname.startsWith('/settings') && styles.linkActive)}

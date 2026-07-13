@@ -9,16 +9,29 @@ import bcrypt from 'bcryptjs';
 const db = new PrismaClient();
 
 async function main() {
-  // ── ADMIN ──
-  await db.user.upsert({
+  // ── СУПЕР-АДМИН + дефолтный воркспейс ──
+  const admin = await db.user.upsert({
     where: { email: 'admin@gidrostroy.local' },
-    update: {},
+    update: { isSuperAdmin: true, isActive: true },
     create: {
       email: 'admin@gidrostroy.local',
       name: 'Администратор',
       passwordHash: bcrypt.hashSync('admin123', 10),
-      role: 'ADMIN',
+      isSuperAdmin: true,
     },
+  });
+
+  // Дефолтный воркспейс «Гидрострой-НН» + участие админа как руководителя.
+  // Фиксированный id 'default' — для идемпотентности сида/бэкфилла.
+  const workspace = await db.workspace.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default', name: 'Гидрострой-НН' },
+  });
+  await db.membership.upsert({
+    where: { userId_workspaceId: { userId: admin.id, workspaceId: workspace.id } },
+    update: { role: 'DIRECTOR' },
+    create: { userId: admin.id, workspaceId: workspace.id, role: 'DIRECTOR' },
   });
 
   // ── Типы систем (реестр: скил + модуль + схема + триггеры/назначения/компоненты) ──
