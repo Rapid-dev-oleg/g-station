@@ -5,6 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { FIRE_FIELDS } from '../src/lib/schema/fire-fields';
 
 const db = new PrismaClient();
 
@@ -95,6 +96,14 @@ async function main() {
   for (const t of types) {
     await db.systemType.upsert({ where: { code: t.code }, update: t, create: t });
   }
+
+  // ── Схема ввода (field-spec) G-FIRE — конструктор схем, Фаза 1 ──
+  // Текущая карточка пожарной станции как данные (активная версия 1).
+  await db.typeSchema.upsert({
+    where: { typeCode_version: { typeCode: 'fire', version: 1 } },
+    update: { fields: FIRE_FIELDS as object, status: 'active' },
+    create: { typeCode: 'fire', version: 1, fields: FIRE_FIELDS as object, status: 'active' },
+  });
 
   // ── Категории каталога ──
   const categories = [

@@ -144,6 +144,26 @@ model SystemType {
   purposes    Json? // допустимые назначения станции этого типа (string[])
   components  Json? // что считать компонентом станции, а не системой (string[])
   systems     System[]
+  schemas     TypeSchema[]
+}
+
+// Версионная схема ввода типа (field-spec) — «опросный лист как данные».
+// Из fields рисуется динамическая форма ревью и формируется опросный лист для
+// агента. Одна версия со status='active' — текущая (конструктор схем, Фаза 1).
+model TypeSchema {
+  id        String     @id @default(cuid())
+  type      SystemType @relation(fields: [typeCode], references: [code], onDelete: Cascade)
+  typeCode  String
+  version   Int
+  // Field[] (см. src/lib/schema/types.ts): key, label, dataType, unit, options,
+  // required, default, hint, visibleIf, provenance, вложенные fields.
+  fields    Json
+  status    String     @default("draft") // draft | active | archived
+  note      String?
+  createdAt DateTime   @default(now())
+
+  @@unique([typeCode, version])
+  @@index([typeCode, status])
 }
 
 // Система = одна насосная станция. dossier — расчётное дело целиком (JSONB).
