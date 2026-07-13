@@ -12,6 +12,7 @@ import { askAi } from './index';
 import { askKimi, kimiAvailable, type KimiImage } from './kimi';
 import { runKimiAgent } from './kimi-agent';
 import { db } from '@/server/db';
+import type { FieldSpec } from '@/lib/schema/types';
 import type {
   Meta,
   Scenario,
@@ -215,13 +216,43 @@ ${lines.join('\n')}
 У каждой системы проставь "station_type" = код типа из списка выше.`;
 }
 
+/**
+ * Опросные листы НОВЫХ типов (station_type ≠ fire) из активных схем конструктора
+ * (TypeSchema.fields как field-spec). Для fire список полей зашит в SYSTEM_PROMPT
+ * и НЕ трогается (нулевой риск регресса). Пусто, если новых типов со схемой нет.
+ */
+async function buildTypeChecklists(): Promise<string> {
+  const schemas = await db.typeSchema.findMany({
+    where: { status: 'active', typeCode: { not: 'fire' } },
+    include: { type: true },
+  });
+  if (schemas.length === 0) return '';
+  const render = (fields: FieldSpec[], indent = '  '): string[] =>
+    (fields ?? []).flatMap((f) => {
+      const meta = [f.unit && `ед. ${f.unit}`, f.required && 'обязательное', f.hint].filter(Boolean).join('; ');
+      const line = `${indent}• ${f.key} — ${f.label}${meta ? ` (${meta})` : ''}`;
+      const opts = f.dataType === 'enum' && f.options ? [`${indent}   варианты: ${f.options.map((o) => o.value).join(', ')}`] : [];
+      const nested = (f.dataType === 'group' || f.dataType === 'array') && f.fields ? render(f.fields, indent + '  ') : [];
+      return [line, ...opts, ...nested];
+    });
+  const blocks = schemas.map((s) =>
+    `Тип "${s.typeCode}" (${s.type.name}) — извлекай в "input" поля:\n${render(s.fields as unknown as FieldSpec[]).join('\n')}`,
+  );
+  return `ОПРОСНЫЙ ЛИСТ ПО ТИПАМ (для station_type ≠ fire — извлекай ровно эти поля;
+каждое числовое — объектом с "source"; отсутствующее обязательное → в "missing"):
+
+${blocks.join('\n\n')}
+`;
+}
+
 /** Строит пользовательский промпт: реестр типов + перечень полей + текст ТЗ. */
-function buildPrompt(text: string, registry: TypeRegistryEntry[]): string {
+function buildPrompt(text: string, registry: TypeRegistryEntry[], checklists = ''): string {
   return `Извлеки из пакета документов ВСЕ независимые насосные системы объекта.
 
 ${SPLIT_PRINCIPLE}
 
 ${buildIdentificationBlock(registry)}
+${checklists ? '\n' + checklists + '\n' : ''}
 
 Верни массив "systems": по одному элементу на КАЖДУЮ независимую систему.
 Если система одна — массив из одного элемента. Общие данные объекта и
@@ -377,7 +408,8 @@ export async function parseDocument(source: ParseSource | string): Promise<Parse
 
   // Реестр типов из БД — управляет идентификацией и парсингом (см. SystemType).
   const registry = await loadTypeRegistry();
-  const prompt = buildPrompt(hasText ? src.text! : '', registry);
+  const checklists = await buildTypeChecklists();
+  const prompt = buildPrompt(hasText ? src.text! : '', registry, checklists);
 
   let content: string;
   if (kimiAvailable()) {
