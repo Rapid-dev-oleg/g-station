@@ -156,3 +156,98 @@ export async function getCalcType(code: string): Promise<{
     activeFields: (active?.fields as unknown as FieldSpec[]) ?? null,
   };
 }
+
+// ─── Редактор полей схемы (B2): черновик → публикация версии ────────────────
+
+const DATA_TYPES = new Set(['measured', 'number', 'enum', 'boolean', 'text', 'textarea', 'group', 'array']);
+
+/** Валидация field-spec: непустые key/label, уникальные ключи на уровне,
+ *  корректный dataType, enum имеет options, group/array — вложенные fields. */
+function validateFields(fields: FieldSpec[], path = 'поля'): string | null {
+  if (!Array.isArray(fields) || fields.length === 0) return `${path}: добавьте хотя бы одно поле`;
+  const seen = new Set<string>();
+  for (const f of fields) {
+    const key = (f.key ?? '').trim();
+    if (!key) return `${path}: у поля пустой ключ`;
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) return `${path}: ключ «${key}» — латиница/цифры/подчёркивание, не с цифры`;
+    if (seen.has(key)) return `${path}: дублируется ключ «${key}»`;
+    seen.add(key);
+    if (!(f.label ?? '').trim()) return `${path}: у поля «${key}» пустая подпись`;
+    if (!DATA_TYPES.has(f.dataType)) return `${path}: у поля «${key}» неизвестный тип «${f.dataType}»`;
+    if (f.dataType === 'enum' && (!f.options || f.options.length === 0)) return `${path}: enum-поле «${key}» без вариантов`;
+    if ((f.dataType === 'group' || f.dataType === 'array')) {
+      const nested = validateFields(f.fields ?? [], `${path} › ${key}`);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+const revalidateSchema = (code: string) => {
+  revalidatePath('/admin/types');
+  revalidatePath(`/admin/types/${code}/schema`);
+};
+
+export async function getSchemaDraft(code: string): Promise<{
+  code: string;
+  name: string;
+  activeVersion: number | null;
+  hasDraft: boolean;
+  working: FieldSpec[];
+}> {
+  await requireSuperAdmin();
+  const t = await db.systemType.findUnique({ where: { code }, include: { schemas: true } });
+  if (!t) throw new Error('Тип не найден');
+  const active = t.schemas.find((s) => s.status === 'active') ?? null;
+  const draft = t.schemas.find((s) => s.status === 'draft') ?? null;
+  return {
+    code: t.code,
+    name: t.name,
+    activeVersion: active?.version ?? null,
+    hasDraft: !!draft,
+    working: ((draft ?? active)?.fields as unknown as FieldSpec[]) ?? [],
+  };
+}
+
+/** Сохранить черновик схемы (создаёт draft-версию или обновляет существующую). */
+export async function saveDraftSchema(code: string, fields: FieldSpec[], note?: string): Promise<ActionResult> {
+  await requireSuperAdmin();
+  const err = validateFields(fields);
+  if (err) return { ok: false, error: err };
+  const t = await db.systemType.findUnique({ where: { code }, include: { schemas: true } });
+  if (!t) return { ok: false, error: 'Тип не найден' };
+  const draft = t.schemas.find((s) => s.status === 'draft');
+  if (draft) {
+    await db.typeSchema.update({ where: { id: draft.id }, data: { fields: fields as object, note: note ?? null } });
+  } else {
+    const maxV = t.schemas.reduce((m, s) => Math.max(m, s.version), 0);
+    await db.typeSchema.create({ data: { typeCode: code, version: maxV + 1, fields: fields as object, status: 'draft', note: note ?? null } });
+  }
+  revalidateSchema(code);
+  return { ok: true };
+}
+
+/** Опубликовать черновик: текущая active → archived, draft → active. */
+export async function publishSchema(code: string): Promise<ActionResult> {
+  await requireSuperAdmin();
+  const t = await db.systemType.findUnique({ where: { code }, include: { schemas: true } });
+  if (!t) return { ok: false, error: 'Тип не найден' };
+  const draft = t.schemas.find((s) => s.status === 'draft');
+  if (!draft) return { ok: false, error: 'Нет черновика для публикации' };
+  const err = validateFields(draft.fields as unknown as FieldSpec[]);
+  if (err) return { ok: false, error: err };
+  await db.$transaction([
+    db.typeSchema.updateMany({ where: { typeCode: code, status: 'active' }, data: { status: 'archived' } }),
+    db.typeSchema.update({ where: { id: draft.id }, data: { status: 'active' } }),
+  ]);
+  revalidateSchema(code);
+  return { ok: true };
+}
+
+/** Удалить черновик (вернуться к активной версии). */
+export async function discardDraft(code: string): Promise<ActionResult> {
+  await requireSuperAdmin();
+  await db.typeSchema.deleteMany({ where: { typeCode: code, status: 'draft' } });
+  revalidateSchema(code);
+  return { ok: true };
+}
