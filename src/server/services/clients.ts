@@ -1,24 +1,21 @@
 /**
  * Чтение клиентов для Server Components (без 'use server').
+ * Изолировано по активному воркспейсу.
  */
 
-import { db } from '@/server/db';
+import { workspaceDb } from '@/server/workspace-db';
 
-/** Все клиенты, отсортированные по краткому имени. */
-export function getClients() {
-  return db.client.findMany({
-    orderBy: { shortName: 'asc' },
-  });
+/** Все клиенты активного воркспейса, отсортированные по краткому имени. */
+export async function getClients() {
+  const db = await workspaceDb();
+  return db.client.findMany({ orderBy: { shortName: 'asc' } });
 }
 
-/** Клиент по id с его проектами. Возвращает null, если не найден. */
-export function getClientById(id: string) {
+/** Клиент по id (в своём воркспейсе) с его проектами. null, если не найден. */
+export async function getClientById(id: string) {
+  const db = await workspaceDb();
   return db.client.findUnique({
     where: { id },
-    include: {
-      projects: {
-        orderBy: { updatedAt: 'desc' },
-      },
-    },
+    include: { projects: { orderBy: { updatedAt: 'desc' } } },
   });
 }

@@ -27,7 +27,7 @@ import {
   type ParsedClient,
   type ParsedDocument,
 } from '@/server/ai/parse-document';
-import { db } from '@/server/db';
+import { scopedDb, requireWorkspace, type ScopedDb } from '@/server/workspace-db';
 
 // ─── Типы ответов ────────────────────────────────────────────────────────
 
@@ -155,11 +155,13 @@ export async function parseUploadedDocument(
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка приёма файлов' };
   }
   const lockedProjectId = (formData.get('projectId') as string | null)?.trim() || undefined;
+  const { workspaceId } = await requireWorkspace();
   return runParseJob({
     dir: pkg.dir,
     files: pkg.files,
     ownerId,
     lockedProjectId,
+    workspaceId,
   });
 }
 
@@ -173,10 +175,14 @@ export async function runParseJob(params: {
   files: ParsedFileInfo[];
   ownerId?: string;
   lockedProjectId?: string;
+  /** Воркспейс, в котором создаются данные (фон — сессии нет, передаётся явно). */
+  workspaceId: string;
   progress?: (pct: number, message?: string) => Promise<void>;
   signal?: AbortSignal;
 }): Promise<ParseResponse> {
-  const { dir, files, ownerId, lockedProjectId, progress, signal } = params;
+  const { dir, files, ownerId, lockedProjectId, workspaceId, progress, signal } = params;
+  if (!workspaceId) return { ok: false, error: 'Не задан воркспейс задачи' };
+  const sdb = scopedDb(workspaceId);
   let parsed: ParsedDocument;
   try {
     await progress?.(20, `Агент читает файлы (${files.length} шт.)…`);
@@ -192,7 +198,7 @@ export async function runParseJob(params: {
   }
 
   await progress?.(75, 'Сборка карточки и создание проекта…');
-  const matchedClient = await matchClient(parsed.client);
+  const matchedClient = await matchClient(sdb, parsed.client);
   const result: ParseResult = { ...parsed, files, matchedClient };
 
   // Автосабмит: несколько систем / единственная полная / загрузка в проект.
@@ -203,7 +209,7 @@ export async function runParseJob(params: {
 
   if (ownerId && (multi || singleComplete || lockedProjectId)) {
     try {
-      const submitted = await autoSubmit({ ownerId, parsed: result, projectId: lockedProjectId });
+      const submitted = await autoSubmit(sdb, { ownerId, parsed: result, projectId: lockedProjectId });
       if (submitted.ok) {
         const redirect =
           submitted.systemIds.length === 1
@@ -239,13 +245,14 @@ export async function parseAndAutoSubmit(
  * и кавычек. Возвращает найденного клиента или null.
  */
 export async function matchClient(
+  sdb: ScopedDb,
   parsed: ParsedClient | null,
 ): Promise<ParseResult['matchedClient']> {
   if (!parsed) return null;
 
   // 1. Точное совпадение по ИНН.
   if (parsed.inn) {
-    const byInn = await db.client.findFirst({ where: { inn: parsed.inn } });
+    const byInn = await sdb.client.findFirst({ where: { inn: parsed.inn } });
     if (byInn) {
       return {
         id: byInn.id,
@@ -262,7 +269,7 @@ export async function matchClient(
   const target = norm(parsed.shortName);
   const fullTarget = parsed.fullName ? norm(parsed.fullName) : null;
 
-  const candidates = await db.client.findMany({
+  const candidates = await sdb.client.findMany({
     where: {
       OR: [
         { shortName: { contains: parsed.shortName, mode: 'insensitive' } },
@@ -303,12 +310,12 @@ const FALLBACK_CLIENT_SHORT_NAME = 'Без клиента';
  * нет реквизитов заказчика, но Project.clientId по схеме обязателен.
  * Идемпотентно: ищет по shortName, создаёт если нет.
  */
-async function ensureFallbackClient(): Promise<string> {
-  const existing = await db.client.findFirst({
+async function ensureFallbackClient(sdb: ScopedDb): Promise<string> {
+  const existing = await sdb.client.findFirst({
     where: { shortName: FALLBACK_CLIENT_SHORT_NAME },
   });
   if (existing) return existing.id;
-  const created = await db.client.create({
+  const created = await sdb.client.create({
     data: {
       shortName: FALLBACK_CLIENT_SHORT_NAME,
       note: 'Технический клиент-фолбэк для автосабмита (когда реквизиты не извлечены)',
@@ -324,13 +331,14 @@ async function ensureFallbackClient(): Promise<string> {
  *  - нет данных → фолбэк-клиент «Без клиента».
  */
 async function resolveClientId(
+  sdb: ScopedDb,
   parsed: ParsedClient | null,
   matched: ParseResult['matchedClient'],
 ): Promise<string> {
   if (matched) return matched.id;
 
   if (parsed && parsed.shortName.trim()) {
-    const created = await db.client.create({
+    const created = await sdb.client.create({
       data: {
         shortName: parsed.shortName.trim(),
         fullName: parsed.fullName?.trim() || null,
@@ -344,7 +352,7 @@ async function resolveClientId(
     return created.id;
   }
 
-  return ensureFallbackClient();
+  return ensureFallbackClient(sdb);
 }
 
 interface AutoSubmitParams {
@@ -363,26 +371,25 @@ type AutoSubmitOutcome =
  * существующий) и ВСЕ системы из ТЗ (parsed.systems). Расчёт не запускается —
  * системы создаются со статусом INPUT, инженер считает через Kimi в степпере.
  */
-async function autoSubmit({
-  ownerId,
-  parsed,
-  projectId,
-}: AutoSubmitParams): Promise<AutoSubmitOutcome> {
+async function autoSubmit(
+  sdb: ScopedDb,
+  { ownerId, parsed, projectId }: AutoSubmitParams,
+): Promise<AutoSubmitOutcome> {
   // 1. Проект: существующий или новый.
   let project: { id: string };
   let createdNewProject = false;
   if (projectId) {
-    const existing = await db.project.findUnique({ where: { id: projectId } });
+    const existing = await sdb.project.findUnique({ where: { id: projectId } });
     if (!existing) return { ok: false, errors: ['Проект не найден'] };
     project = existing;
   } else {
     createdNewProject = true;
-    const clientId = await resolveClientId(parsed.client, parsed.matchedClient);
+    const clientId = await resolveClientId(sdb, parsed.client, parsed.matchedClient);
     const objectName = parsed.meta.object_name?.trim() || 'Объект не указан';
     const projectName = parsed.meta.object_name
       ? `${parsed.meta.object_name.trim()} — насосные станции`
       : `Расчёт из ТЗ (${new Date().toLocaleDateString('ru-RU')})`;
-    project = await db.project.create({
+    project = await sdb.project.create({
       data: {
         name: projectName,
         objectName,
@@ -415,7 +422,7 @@ async function autoSubmit({
       errors.push(`${sys.systemName}: ${check.errors.join('; ')}`);
       continue;
     }
-    const created = await db.system.create({
+    const created = await sdb.system.create({
       data: {
         name: sys.systemName,
         projectId: project.id,
@@ -432,7 +439,7 @@ async function autoSubmit({
     // Не оставляем пустой проект-сирота, если сами его только что создали
     // (иначе одна неудачная загрузка плодит проект без систем).
     if (createdNewProject) {
-      await db.project.delete({ where: { id: project.id } }).catch(() => {});
+      await sdb.project.deleteMany({ where: { id: project.id } }).catch(() => {});
     }
     return { ok: false, errors: errors.length ? errors : ['Не создано ни одной системы'] };
   }
@@ -491,13 +498,15 @@ export type CommitResponse =
 export async function commitIntake(
   data: CommitIntakeInput,
 ): Promise<CommitResponse> {
+  const { workspaceId } = await requireWorkspace();
+  const sdb = scopedDb(workspaceId);
   // Клиент без привязки невозможен в схеме — проект требует clientId.
   // Если клиент не задан, но создаётся новый проект — это ошибка потока.
   let clientId: string | null = null;
   if (data.client.mode === 'existing') {
     clientId = data.client.id;
   } else if (data.client.mode === 'new') {
-    const created = await db.client.create({
+    const created = await sdb.client.create({
       data: {
         shortName: data.client.data.shortName,
         fullName: data.client.data.fullName,
@@ -512,7 +521,7 @@ export async function commitIntake(
   } else {
     // Режим none + новый проект — используем фолбэк-клиента.
     if (data.project.mode === 'new') {
-      clientId = await ensureFallbackClient();
+      clientId = await ensureFallbackClient(sdb);
     }
   }
 
@@ -527,7 +536,7 @@ export async function commitIntake(
         errors: ['Для создания нового проекта нужно выбрать или создать клиента'],
       };
     }
-    const project = await db.project.create({
+    const project = await sdb.project.create({
       data: {
         name: data.project.name,
         objectName: data.project.objectName,
@@ -559,7 +568,7 @@ export async function commitIntake(
     return { ok: false, errors: check.errors };
   }
 
-  const system = await db.system.create({
+  const system = await sdb.system.create({
     data: {
       name: data.systemName,
       projectId,

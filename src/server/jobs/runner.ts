@@ -120,6 +120,8 @@ export async function enqueueJob(params: {
   input?: unknown;
   projectId?: string;
   systemId?: string;
+  /** Воркспейс-владелец задачи (для изоляции списка задач). */
+  workspaceId?: string;
 }): Promise<string> {
   await resetStaleJobs();
   const job = await db.job.create({
@@ -129,6 +131,7 @@ export async function enqueueJob(params: {
       input: (params.input ?? null) as object,
       projectId: params.projectId,
       systemId: params.systemId,
+      workspaceId: params.workspaceId,
       status: 'queued',
     },
   });

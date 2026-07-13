@@ -66,6 +66,10 @@ model Workspace {
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   memberships Membership[]
+  clients     Client[]
+  projects    Project[]
+  systems     System[]
+  jobs        Job[]
 }
 
 // Участие пользователя в воркспейсе с ролью. Роль — на воркспейс (человек может
@@ -95,8 +99,13 @@ model Client {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   projects    Project[]
+  // Мультитенантность: воркспейс-владелец. nullable для аддитивной миграции;
+  // в коде фактически обязателен (проставляется из активного воркспейса).
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
 
   @@index([shortName])
+  @@index([workspaceId])
 }
 
 model Project {
@@ -110,11 +119,14 @@ model Project {
   owner      User          @relation(fields: [ownerId], references: [id])
   ownerId    String
   systems    System[]
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
   @@index([clientId])
   @@index([status])
+  @@index([workspaceId])
 }
 
 // Тип системы — справочник; логика типа в коде-модуле (контракт типа).
@@ -151,10 +163,13 @@ model System {
   approvedSnapshot Json? // замороженные утверждённые данные (для ТКП/сметы)
   totalCost   Float? // зеркало dossier для списков
   clientPrice Float?
+  workspace   Workspace?   @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([projectId])
+  @@index([workspaceId])
 }
 
 // Глобальные настройки (одна запись).
@@ -269,6 +284,8 @@ model Job {
   error      String?
   projectId  String?
   systemId   String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   startedAt  DateTime?
@@ -276,4 +293,5 @@ model Job {
 
   @@index([status])
   @@index([createdAt])
+  @@index([workspaceId])
 }

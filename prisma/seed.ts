@@ -34,6 +34,14 @@ async function main() {
     create: { userId: admin.id, workspaceId: workspace.id, role: 'DIRECTOR' },
   });
 
+  // Бэкфилл мультитенантности: существующие данные без воркспейса → дефолтный.
+  // Идемпотентно (только где workspaceId ещё null).
+  const ws = { workspaceId: null } as const;
+  await db.client.updateMany({ where: ws, data: { workspaceId: workspace.id } });
+  await db.project.updateMany({ where: ws, data: { workspaceId: workspace.id } });
+  await db.system.updateMany({ where: ws, data: { workspaceId: workspace.id } });
+  await db.job.updateMany({ where: ws, data: { workspaceId: workspace.id } });
+
   // ── Типы систем (реестр: скил + модуль + схема + триггеры/назначения/компоненты) ──
   // Источник знаний — скил pump-station-calc: триггеры и назначения из
   // типы/пожарные.md §1, состав компонентов — типы/пожарные.md §5 + шаг1-вход.md §1.4.

@@ -1,11 +1,12 @@
 'use server';
 
 /**
- * Server actions для клиентов — мутации.
+ * Server actions для клиентов — мутации. Данные изолированы по воркспейсу
+ * (workspaceDb сам подмешивает workspaceId и фильтрует по нему).
  */
 
 import { revalidatePath } from 'next/cache';
-import { db } from '@/server/db';
+import { workspaceDb } from '@/server/workspace-db';
 
 /** Поля карточки клиента (всё кроме краткого имени — опционально). */
 export interface ClientInput {
@@ -18,24 +19,27 @@ export interface ClientInput {
   note?: string;
 }
 
-/** Создаёт клиента. */
+/** Создаёт клиента в активном воркспейсе. */
 export async function createClient(input: ClientInput) {
+  const db = await workspaceDb();
   const client = await db.client.create({ data: input });
   revalidatePath('/clients');
   return { id: client.id };
 }
 
-/** Обновляет клиента. */
+/** Обновляет клиента (только в своём воркспейсе). */
 export async function updateClient(id: string, input: Partial<ClientInput>) {
-  await db.client.update({ where: { id }, data: input });
+  const db = await workspaceDb();
+  await db.client.updateMany({ where: { id }, data: input });
   revalidatePath('/clients');
   revalidatePath(`/clients/${id}`);
   return { id };
 }
 
-/** Удаляет клиента. */
+/** Удаляет клиента (только в своём воркспейсе). */
 export async function deleteClient(id: string) {
-  await db.client.delete({ where: { id } });
+  const db = await workspaceDb();
+  await db.client.deleteMany({ where: { id } });
   revalidatePath('/clients');
   return { id };
 }

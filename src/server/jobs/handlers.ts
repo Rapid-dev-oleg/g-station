@@ -17,10 +17,12 @@ export function ensureJobHandlers(): void {
   // ETA по суммарному размеру файлов (тяжёлые сканы дольше). Результат —
   // ParseResponse (redirect на созданный проект/систему или review).
   registerJobHandler('parse', async (input, ctx) => {
-    const p = input as { dir: string; files: ParsedFileInfo[]; ownerId?: string; lockedProjectId?: string };
+    const p = input as { dir: string; files: ParsedFileInfo[]; ownerId?: string; lockedProjectId?: string; workspaceId?: string };
     const mb = p.files.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
     const etaSec = Math.round(120 + mb * 9); // ~84 МБ → ~14.5 мин
-    const resp = await runWithEta(ctx, etaSec, () => runParseJob({ ...p, signal: ctx.signal }));
+    const resp = await runWithEta(ctx, etaSec, () =>
+      runParseJob({ ...p, workspaceId: p.workspaceId ?? '', signal: ctx.signal }),
+    );
     if (!resp.ok) throw new Error(resp.error); // провал → задача 'error'
     let projectId: string | undefined;
     let systemId: string | undefined;

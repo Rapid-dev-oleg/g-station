@@ -15,7 +15,7 @@ import { formatRubShort } from '@/lib/format';
 import { projectStatusLabel } from '@/lib/format/labels';
 import { getClients } from '@/server/services/clients';
 import { getProjects } from '@/server/services/projects';
-import { db } from '@/server/db';
+import { workspaceDb } from '@/server/workspace-db';
 import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +23,7 @@ export const dynamic = 'force-dynamic';
 type ProjectRow = Awaited<ReturnType<typeof getProjects>>[number];
 
 export default async function DashboardPage() {
+  const db = await workspaceDb();
   const [clients, projects, priceAgg] = await Promise.all([
     getClients(),
     getProjects(),
