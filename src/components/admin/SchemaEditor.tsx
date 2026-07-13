@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Card, Badge, Input, Select, Textarea } from '@/components/ui';
+import { Button, Card, Badge, Input, Select, Modal } from '@/components/ui';
 import { DynamicForm } from '@/components/schema/DynamicForm';
-import type { FieldSpec, FieldDataType } from '@/lib/schema/types';
+import type { FieldSpec, FieldDataType, FieldOption } from '@/lib/schema/types';
 import {
   saveDraftSchema, publishSchema, discardDraft, type ActionResult,
 } from '@/server/actions/calc-types';
@@ -22,15 +22,62 @@ const TYPE_OPTS = [
 ];
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(TYPE_OPTS.map((o) => [o.value, o.label.split(' (')[0]]));
 
-const optsToText = (opts?: { value: string; label: string }[]) =>
-  (opts ?? []).map((o) => (o.value === o.label ? o.value : `${o.value} | ${o.label}`)).join('\n');
-const textToOpts = (t: string) =>
-  t.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
-    const [v, lab] = l.split('|').map((s) => s.trim());
-    return { value: v, label: lab || v };
-  });
 const parseVal = (s: string): string | number | boolean =>
   s === 'true' ? true : s === 'false' ? false : /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : s;
+
+const linkBtn: CSSProperties = { border: 'none', background: 'none', cursor: 'pointer', color: 'var(--hydro,#1668a8)', fontSize: 13, padding: 0 };
+
+// ─── Список вариантов (для enum) — строки с попап-редактированием ───────────
+
+function OptionsEditor({ options, onChange }: { options: FieldOption[]; onChange: (o: FieldOption[]) => void }) {
+  const [modal, setModal] = useState<{ index: number; value: string; label: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const commit = () => {
+    if (!modal) return;
+    const value = modal.value.trim();
+    if (!value) { setErr('Укажите значение'); return; }
+    if (options.some((o, i) => o.value === value && i !== modal.index)) { setErr(`Значение «${value}» уже есть`); return; }
+    const opt: FieldOption = { value, label: modal.label.trim() || value };
+    onChange(modal.index === -1 ? [...options, opt] : options.map((o, i) => (i === modal.index ? opt : o)));
+    setModal(null); setErr(null);
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: '#667', marginBottom: 6 }}>Варианты выбора</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {options.length === 0 && <span style={{ color: '#aaa', fontSize: 13 }}>Нет вариантов — добавьте.</span>}
+        {options.map((o, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--line,#dde)', borderRadius: 6, padding: '6px 10px' }}>
+            <span style={{ flex: 1 }}>{o.label}</span>
+            <span style={{ fontFamily: 'monospace', color: '#889', fontSize: 12 }}>{o.value}</span>
+            <button style={linkBtn} onClick={() => { setErr(null); setModal({ index: i, value: o.value, label: o.label }); }}>Изменить</button>
+            <button style={{ ...linkBtn, color: '#c33' }} onClick={() => onChange(options.filter((_, j) => j !== i))}>Удалить</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <Button size="sm" variant="secondary" onClick={() => { setErr(null); setModal({ index: -1, value: '', label: '' }); }}>+ Добавить вариант</Button>
+      </div>
+      {modal && (
+        <Modal open onClose={() => setModal(null)} title={modal.index === -1 ? 'Новый вариант' : 'Изменить вариант'}
+          footer={<>
+            <Button variant="ghost" onClick={() => setModal(null)}>Отмена</Button>
+            <Button onClick={commit}>Сохранить</Button>
+          </>}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {err && <div style={{ color: '#c33', fontSize: 13 }}>{err}</div>}
+            <Input label="Значение (value)" value={modal.value} autoFocus hint="Хранится в данных (латиница/код)"
+              onChange={(e) => setModal({ ...modal, value: e.target.value })} />
+            <Input label="Подпись" value={modal.label} hint="Как показывать в форме (если пусто — значение)"
+              onChange={(e) => setModal({ ...modal, label: e.target.value })} />
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
 
 // ─── Одно поле ─────────────────────────────────────────────────────────────
 
@@ -89,8 +136,7 @@ function FieldRow({ field, onChange, onDelete, onUp, onDown, canUp, canDown, dep
           <Input label="Подсказка" value={field.hint ?? ''} onChange={(e) => set({ hint: e.target.value })} />
 
           {field.dataType === 'enum' && (
-            <Textarea label="Варианты (по строке: value | подпись)" rows={4} value={optsToText(field.options)}
-              onChange={(e) => set({ options: textToOpts(e.target.value) })} />
+            <OptionsEditor options={field.options ?? []} onChange={(o) => set({ options: o })} />
           )}
 
           {/* Условная видимость */}
