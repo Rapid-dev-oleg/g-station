@@ -56,12 +56,23 @@ export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
         {isSuperAdmin && (
           <Link
             href="/admin"
-            className={clsx(styles.link, pathname.startsWith('/admin') && styles.linkActive)}
+            className={clsx(styles.link, pathname === '/admin' && styles.linkActive)}
           >
             <span className={styles.linkIcon}>
               <IconBuilding />
             </span>
             Управление доступом
+          </Link>
+        )}
+        {isSuperAdmin && (
+          <Link
+            href="/admin/types"
+            className={clsx(styles.link, pathname.startsWith('/admin/types') && styles.linkActive)}
+          >
+            <span className={styles.linkIcon}>
+              <IconPackage />
+            </span>
+            Типы расчёта
           </Link>
         )}
         <Link
