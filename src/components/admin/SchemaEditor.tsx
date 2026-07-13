@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button, Card, Badge, Input, Select, Textarea } from '@/components/ui';
+import { DynamicForm } from '@/components/schema/DynamicForm';
 import type { FieldSpec, FieldDataType } from '@/lib/schema/types';
 import {
   saveDraftSchema, publishSchema, discardDraft, type ActionResult,
@@ -151,6 +152,8 @@ export function SchemaEditor(props: { code: string; name: string; activeVersion:
   const [error, setError] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(props.hasDraft);
   const [dirty, setDirty] = useState(false);
+  const [preview, setPreview] = useState<Record<string, unknown>>({});
+  const [showPreview, setShowPreview] = useState(true);
 
   const update = (f: FieldSpec[]) => { setFields(f); setDirty(true); };
 
@@ -197,11 +200,21 @@ export function SchemaEditor(props: { code: string; name: string; activeVersion:
             Удалить черновик
           </Button>
         )}
+        <Button variant="ghost" onClick={() => setShowPreview((v) => !v)}>
+          {showPreview ? 'Скрыть предпросмотр' : 'Показать предпросмотр'}
+        </Button>
       </div>
 
-      <Card title="Поля опросного листа" subtitle="Порядок = порядок в форме; тип данных определяет виджет">
-        <FieldList fields={fields} onChange={update} depth={0} />
-      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: showPreview ? 'minmax(0,1.4fr) minmax(0,1fr)' : '1fr', gap: 16, alignItems: 'start' }}>
+        <Card title="Поля опросного листа" subtitle="Порядок = порядок в форме; тип данных определяет виджет">
+          <FieldList fields={fields} onChange={update} depth={0} />
+        </Card>
+        {showPreview && (
+          <Card title="Предпросмотр формы" subtitle="Так поля увидит инженер при заполнении">
+            <DynamicForm fields={fields} value={preview} onChange={setPreview} />
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
