@@ -10,3 +10,6 @@ build
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+# Сгенерированные PDF (делаются из .html)
+docs/*.pdf
