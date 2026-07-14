@@ -264,13 +264,25 @@ model CatalogItem {
 }
 
 // Справочник нормативов (СП/ГОСТ).
+// Нормативная база (библиотека). Версионируется; на нормы ссылаются шаги/поля
+// через токен {{norm:code#anchor}}. content хранит извлечённые таблицы/формулы
+// с якорями (чтобы инструкция тянула конкретное значение). Правка ГОСТа — здесь.
 model Norm {
-  id       String  @id @default(cuid())
-  code     String  @unique
-  title    String
-  category String
-  summary  String?
-  url      String?
+  id         String   @id @default(cuid())
+  code       String   @unique // 'СП 8.13130.2020' — год в коде = версия
+  version    String? // опц. отдельно (для отображения/группировки)
+  status     String   @default("active") // active | superseded | draft
+  title      String
+  category   String
+  summary    String?
+  url        String?
+  // { "<anchor>": {label, table?/formula?/value?} } — адресуемые куски нормы
+  content    Json?
+  supersedes String? // id прежней версии (замещённой)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([status])
 }
 
 // Декларативные правила расчёта (триггеры материала, карта аналогов,
