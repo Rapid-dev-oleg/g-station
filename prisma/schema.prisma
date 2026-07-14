@@ -143,8 +143,9 @@ model SystemType {
   triggers    Json? // ключевые слова идентификации типа из ТЗ (string[])
   purposes    Json? // допустимые назначения станции этого типа (string[])
   components  Json? // что считать компонентом станции, а не системой (string[])
-  systems     System[]
-  schemas     TypeSchema[]
+  systems      System[]
+  schemas      TypeSchema[]
+  instructions Instruction[]
 }
 
 // Версионная схема ввода типа (field-spec) — «опросный лист как данные».
@@ -164,6 +165,42 @@ model TypeSchema {
 
   @@unique([typeCode, version])
   @@index([typeCode, status])
+}
+
+// Инструкция расчёта типа (раздел контракта: calc=4 нормативный расчёт,
+// selection=5 особенности подбора, format=6 оформление). Собирается из
+// адресуемых кусков (InstructionItem) в один markdown под тип → промпт агента.
+// Средняя гранулярность (решение 14.07.2026): не монолит и не блок-DAG.
+model Instruction {
+  id        String            @id @default(cuid())
+  type      SystemType        @relation(fields: [typeCode], references: [code], onDelete: Cascade)
+  typeCode  String
+  section   String // calc | selection | format
+  version   Int               @default(1)
+  status    String            @default("draft") // draft | active | superseded
+  note      String?
+  items     InstructionItem[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @default(now()) @updatedAt
+
+  @@index([typeCode, section, status])
+}
+
+// Адресуемый кусок инструкции. body — markdown с токенами {{norm:код#якорь}}
+// и {{param:ключ}} (резолвятся при сборке через src/lib/schema/resolve.ts).
+// paramKey привязывает кусок к параметру расчёта — по нему ИИ находит и точечно
+// правит («поправь по параметру Q …»). Реюз возможен на уровне кусков.
+model InstructionItem {
+  id            String      @id @default(cuid())
+  instruction   Instruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+  instructionId String
+  paramKey      String? // ключ параметра/темы для адресной правки
+  title         String
+  body          String // markdown + токены
+  order         Int         @default(0)
+
+  @@index([instructionId, order])
+  @@index([paramKey])
 }
 
 // Система = одна насосная станция. dossier — расчётное дело целиком (JSONB).

@@ -101,6 +101,9 @@ export function TypesManager({ types }: { types: CalcTypeRow[] }) {
                   <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/types/${t.code}/schema`)}>
                     Схема{t.activeSchema ? ` · ${t.activeSchema.fieldCount} полей` : ''}{t.draftCount ? ' · черновик' : ''}
                   </Button>
+                  <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/types/${t.code}/instructions`)}>
+                    Инструкции
+                  </Button>
                 </div>
               ),
             },
