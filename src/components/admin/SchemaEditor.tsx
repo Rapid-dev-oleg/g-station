@@ -78,10 +78,80 @@ function OptionsEditor({ options, onChange }: { options: FieldOption[]; onChange
   );
 }
 
+// ─── Условная видимость поля (по-человечески) ──────────────────────────────
+// Вместо ввода ключа+значений — «Показывать: Всегда / Только если [поле] = [знач]»
+// с выпадашками по подписям. equals храним массивом (модель), UI ставит одно.
+
+function VisibilityEditor({ field, siblings, onChange }: {
+  field: FieldSpec;
+  siblings: FieldSpec[];
+  onChange: (patch: Partial<FieldSpec>) => void;
+}) {
+  const cond = !!field.visibleIf?.field;
+  const target = siblings.find((s) => s.key === field.visibleIf?.field);
+  const currentVal = field.visibleIf?.equals?.[0];
+
+  // варианты значения зависят от типа целевого поля
+  const valueOptions =
+    target?.dataType === 'boolean' ? [{ value: 'true', label: 'Да' }, { value: 'false', label: 'Нет' }]
+    : target?.dataType === 'enum' ? (target.options ?? []).map((o) => ({ value: String(o.value), label: o.label }))
+    : null; // прочие типы — свободный ввод
+
+  const defaultFor = (t?: FieldSpec): string | number | boolean =>
+    t?.dataType === 'boolean' ? true : t?.dataType === 'enum' ? (t.options?.[0]?.value ?? '') : '';
+
+  const pickField = (key: string) => {
+    if (!key) { onChange({ visibleIf: undefined }); return; }
+    onChange({ visibleIf: { field: key, equals: [defaultFor(siblings.find((s) => s.key === key))] } });
+  };
+  const pickValue = (raw: string) => {
+    if (!field.visibleIf?.field) return;
+    const v: string | number | boolean =
+      target?.dataType === 'boolean' ? raw === 'true'
+      : target?.dataType === 'enum' ? raw // enum-значение всегда строкой (строгое сравнение)
+      : parseVal(raw);
+    onChange({ visibleIf: { field: field.visibleIf.field, equals: [v] } });
+  };
+
+  const radio = { display: 'flex', gap: 6, alignItems: 'center', fontSize: 14, cursor: 'pointer' } as const;
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: '#889', marginBottom: 6 }}>Показывать поле</div>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={radio}>
+          <input type="radio" name={`vis-${field.key}`} checked={!cond} onChange={() => onChange({ visibleIf: undefined })} />
+          Всегда
+        </label>
+        <label style={radio}>
+          <input type="radio" name={`vis-${field.key}`} checked={cond} disabled={siblings.length === 0}
+            onChange={() => { if (!cond && siblings[0]) pickField(siblings[0].key); }} />
+          Только если
+        </label>
+        {cond && (
+          <>
+            <Select style={{ minWidth: 180 }} value={field.visibleIf?.field ?? ''}
+              options={siblings.map((s) => ({ value: s.key, label: s.label || s.key }))}
+              onChange={(e) => pickField(e.target.value)} />
+            <span style={{ color: '#889' }}>=</span>
+            {valueOptions
+              ? <Select style={{ minWidth: 120 }} value={String(currentVal)} options={valueOptions} onChange={(e) => pickValue(e.target.value)} />
+              : <Input style={{ width: 160 }} value={String(currentVal ?? '')} placeholder="значение" onChange={(e) => pickValue(e.target.value)} />}
+          </>
+        )}
+      </div>
+      {siblings.length === 0 && (
+        <div style={{ fontSize: 12, color: '#aaa', marginTop: 4 }}>Нет других полей для условия — добавьте поля, от которых зависит показ.</div>
+      )}
+    </div>
+  );
+}
+
 // ─── Одно поле ─────────────────────────────────────────────────────────────
 
-function FieldRow({ field, onChange, onDelete, onUp, onDown, canUp, canDown, depth }: {
+function FieldRow({ field, siblings, onChange, onDelete, onUp, onDown, canUp, canDown, depth }: {
   field: FieldSpec;
+  siblings: FieldSpec[];
   onChange: (f: FieldSpec) => void;
   onDelete: () => void;
   onUp: () => void; onDown: () => void; canUp: boolean; canDown: boolean;
@@ -138,17 +208,8 @@ function FieldRow({ field, onChange, onDelete, onUp, onDown, canUp, canDown, dep
             <OptionsEditor options={field.options ?? []} onChange={(o) => set({ options: o })} />
           )}
 
-          {/* Условная видимость */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <Input label="Видно если поле" value={field.visibleIf?.field ?? ''} style={{ flex: 1 }} hint="ключ другого поля (необяз.)"
-              onChange={(e) => {
-                const f = e.target.value.trim();
-                set({ visibleIf: f ? { field: f, equals: field.visibleIf?.equals ?? [true] } : undefined });
-              }} />
-            <Input label="равно (через запятую)" value={(field.visibleIf?.equals ?? []).join(', ')} style={{ flex: 1 }}
-              disabled={!field.visibleIf?.field}
-              onChange={(e) => set({ visibleIf: field.visibleIf?.field ? { field: field.visibleIf.field, equals: e.target.value.split(',').map((s) => parseVal(s.trim())) } : undefined })} />
-          </div>
+          {/* Условная видимость — по-человечески */}
+          <VisibilityEditor field={field} siblings={siblings} onChange={set} />
 
           {isGroup && depth < 2 && (
             <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: '2px solid var(--line,#dde)' }}>
@@ -179,7 +240,7 @@ function FieldList({ fields, onChange, depth }: { fields: FieldSpec[]; onChange:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {fields.map((f, i) => (
-        <FieldRow key={i} field={f} depth={depth}
+        <FieldRow key={i} field={f} depth={depth} siblings={fields.filter((_, j) => j !== i)}
           onChange={(nf) => upd(i, nf)} onDelete={() => del(i)}
           onUp={() => move(i, -1)} onDown={() => move(i, 1)} canUp={i > 0} canDown={i < fields.length - 1} />
       ))}
