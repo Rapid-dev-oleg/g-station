@@ -11,6 +11,7 @@ import type { SystemTypeStatus } from '@prisma/client';
 import { db } from '@/server/db';
 import { requireSuperAdmin } from '@/server/auth';
 import type { FieldSpec } from '@/lib/schema/types';
+import { BASE_TYPE } from '@/server/instructions/spec';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const ok = (): ActionResult => {
@@ -91,6 +92,22 @@ export async function createCalcType(input: { code: string; name: string }): Pro
   await db.systemType.create({
     data: { code, name, status: 'PLANNED', skillName: 'pump-station-calc' },
   });
+  // Стартовая методика нового типа = копия ядра из шаблона «База» (клон-на-создание,
+  // без живой связи — дальше правится под свой тип в одном месте).
+  if (code !== BASE_TYPE) {
+    const base = await db.instruction.findMany({
+      where: { typeCode: BASE_TYPE, status: 'active' },
+      include: { items: { orderBy: { order: 'asc' } } },
+    });
+    for (const b of base) {
+      await db.instruction.create({
+        data: {
+          typeCode: code, section: b.section, status: 'active',
+          items: { create: b.items.map((it) => ({ title: it.title, paramKey: it.paramKey, body: it.body, order: it.order })) },
+        },
+      });
+    }
+  }
   return ok();
 }
 

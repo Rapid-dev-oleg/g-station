@@ -2,30 +2,26 @@
 
 import { useState, useRef, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Button, Card, Badge, Input, Select } from '@/components/ui';
 import { resolveText, type NormLite } from '@/lib/schema/resolve';
 import {
   ensureSection, addItem, updateItem, deleteItem, moveItem, publishSection,
-  type BaseStep,
 } from '@/server/actions/instructions';
 import {
-  SECTIONS, BASE_TYPE, type ActionResult, type InstructionSection, type InstructionItemRow,
+  SECTIONS, type ActionResult, type InstructionSection, type InstructionItemRow,
 } from '@/server/instructions/spec';
 
 interface Props {
   typeCode: string;
   typeName: string;
-  isBase: boolean;
   sections: InstructionSection[];
-  base: BaseStep[];
   params: { key: string; label: string }[];
   norms: { code: string; title: string; anchors: { key: string; label: string }[] }[];
 }
 
 const mono: CSSProperties = { fontFamily: 'var(--font-mono,monospace)' };
 
-export function InstructionEditor({ typeCode, isBase, sections, base, params, norms }: Props) {
+export function InstructionEditor({ typeCode, sections, params, norms }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,22 +45,19 @@ export function InstructionEditor({ typeCode, isBase, sections, base, params, no
   }
 
   const bySection = new Map(sections.map((s) => [s.section, s]));
-  const baseBySection = new Map(base.map((b) => [b.section, b.items]));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <p style={{ margin: 0, color: 'var(--text-muted,#667)' }}>
-        {isBase
-          ? <>Ядро расчёта — <strong>общее для всех типов</strong>. 5 шагов конвейера. Специфику типа заводят в его оверлее.</>
-          : <>Методика = <strong>База (ядро)</strong> + оверлей этого типа. По каждому шагу сверху показана база (read-only), ниже — пункты типа (правятся). При движке «Конструктор» всё это собирается в промпт агента.</>}
-        {' '}Токены: <code style={mono}>{'{{param:ключ}}'}</code>, <code style={mono}>{'{{norm:код#якорь}}'}</code>.
+        Полная методика типа — 5 шагов конвейера, всё правится здесь. Токены:{' '}
+        <code style={mono}>{'{{param:ключ}}'}</code>, <code style={mono}>{'{{norm:код#якорь}}'}</code>.
+        При движке «Конструктор» собирается в промпт агента.
       </p>
 
       {error && <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(200,60,50,.1)', color: '#c33', fontSize: 14 }}>{error}</div>}
 
       {SECTIONS.map((sec) => {
         const instr = bySection.get(sec.key);
-        const baseItems = baseBySection.get(sec.key) ?? [];
         return (
           <Card key={sec.key} title={sec.label} subtitle={sec.hint}
             action={instr
@@ -77,31 +70,8 @@ export function InstructionEditor({ typeCode, isBase, sections, base, params, no
                     <Button size="sm" disabled={busy || instr.items.length === 0} onClick={() => run(() => publishSection(instr.id, typeCode))}>Опубликовать</Button>
                   )}
                 </div>
-              : <Button size="sm" variant="secondary" disabled={busy} onClick={() => run(() => ensureSection(typeCode, sec.key))}>{isBase ? 'Завести шаг' : '+ Оверлей типа'}</Button>}>
-
-            {/* Слой БАЗЫ (read-only) — для оверлей-типов */}
-            {!isBase && baseItems.length > 0 && (
-              <div style={{ marginBottom: instr ? 14 : 0, border: '1px dashed var(--border,#dce0e6)', borderRadius: 10, padding: '10px 12px', background: 'var(--surface-2,#f7f9fb)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <Badge variant="default">База · ядро</Badge>
-                  <span style={{ fontSize: 12, color: '#889' }}>общее для всех типов — <Link href={`/admin/types/${BASE_TYPE}/instructions`} style={{ color: 'var(--hydro,#1668a8)' }}>править в Базе</Link></span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {baseItems.map((b, i) => (
-                    <div key={i} style={{ fontSize: 13 }}>
-                      <strong style={{ color: '#556' }}>{b.title}.</strong>{' '}
-                      <span style={{ color: '#667', whiteSpace: 'pre-wrap' }}>{resolveText(b.body, normMap, paramLabels)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Слой типа (правимый) */}
-            {!isBase && (instr || baseItems.length > 0) && (
-              <div style={{ fontSize: 12, color: '#889', textTransform: 'uppercase', letterSpacing: .5, margin: '2px 0 8px' }}>Специфика типа</div>
-            )}
-            {!instr && <span style={{ color: '#aaa', fontSize: 13 }}>{isBase ? 'Шаг не заведён.' : 'Нет оверлея — база выше применяется как есть.'}</span>}
+              : <Button size="sm" variant="secondary" disabled={busy} onClick={() => run(() => ensureSection(typeCode, sec.key))}>Завести шаг</Button>}>
+            {!instr && <span style={{ color: '#aaa', fontSize: 13 }}>Шаг не заведён.</span>}
             {instr && instr.items.length === 0 && <span style={{ color: '#aaa', fontSize: 13 }}>Нет пунктов — добавьте первый.</span>}
             {instr && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

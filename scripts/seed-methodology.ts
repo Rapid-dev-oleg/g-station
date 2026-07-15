@@ -87,6 +87,7 @@ const FIRE: Sec[] = [
 async function seedType(typeCode: string, secs: Sec[]) {
   let n = 0;
   for (const s of secs) {
+    if (s.items.length === 0) continue;
     await db.instruction.create({
       data: {
         typeCode, section: s.section, status: 'active',
@@ -98,35 +99,39 @@ async function seedType(typeCode: string, secs: Sec[]) {
   return n;
 }
 
+/** Плоская методика типа = ядро (БАЗА) + специфика типа, слитые по каждому шагу. */
+function flatMethodology(specific: Sec[]): Sec[] {
+  const order = ['input', 'calc', 'selection', 'pricing', 'output'];
+  const bySec = (arr: Sec[], key: string) => arr.find((s) => s.section === key)?.items ?? [];
+  return order.map((key) => ({ section: key, items: [...bySec(BASE, key), ...bySec(specific, key)] }));
+}
+
 async function main() {
-  // ── БАЗА ──
+  // ── БАЗА (шаблон ядра для клонирования в новые типы) ──
   await db.systemType.upsert({
     where: { code: BASE_TYPE },
-    update: {},
-    create: { code: BASE_TYPE, name: 'База · Ядро расчёта', description: 'Общий конвейер 5 шагов для всех pump-типов (витрина методики скила).', status: 'PLANNED' },
+    update: { name: 'Шаблон · Ядро расчёта', description: 'Ядро 5 шагов — стартовая методика для новых типов (клонируется при создании).' },
+    create: { code: BASE_TYPE, name: 'Шаблон · Ядро расчёта', description: 'Ядро 5 шагов — стартовая методика для новых типов (клонируется при создании).', status: 'PLANNED' },
   });
   const baseHas = await db.instruction.count({ where: { typeCode: BASE_TYPE } });
   if (baseHas === 0) {
     const n = await seedType(BASE_TYPE, BASE);
-    console.log(`БАЗА: засеяно ${n} пунктов (5 шагов).`);
+    console.log(`ШАБЛОН/БАЗА: засеяно ${n} пунктов ядра (5 шагов).`);
   } else {
-    console.log(`БАЗА: уже есть инструкции (${baseHas}) — не трогаю.`);
+    console.log(`ШАБЛОН/БАЗА: уже есть (${baseHas}) — не трогаю.`);
   }
 
-  // ── ПОЖАРКА (оверлей) ──
+  // ── ПОЖАРКА (плоско: ядро + специфика в одном типе) ──
   const fire = await db.systemType.findUnique({ where: { code: 'fire' } });
   if (!fire) { console.error('тип fire не найден'); await db.$disconnect(); process.exit(1); }
-  const oldFormat = await db.instruction.count({ where: { typeCode: 'fire', section: 'format' } });
-  const fireHas = await db.instruction.count({ where: { typeCode: 'fire' } });
-  if (oldFormat > 0) {
+  // маркер плоского формата — наличие шага 'pricing' (в старом оверлее его не было)
+  const hasPricing = await db.instruction.count({ where: { typeCode: 'fire', section: 'pricing' } });
+  if (hasPricing === 0) {
     await db.instruction.deleteMany({ where: { typeCode: 'fire' } });
-    const n = await seedType('fire', FIRE);
-    console.log(`ПОЖАРКА: старый формат удалён, пересобрано ${n} пунктов оверлея по шагам.`);
-  } else if (fireHas === 0) {
-    const n = await seedType('fire', FIRE);
-    console.log(`ПОЖАРКА: засеяно ${n} пунктов оверлея.`);
+    const n = await seedType('fire', flatMethodology(FIRE));
+    console.log(`ПОЖАРКА: переведена в плоский формат — ${n} пунктов (ядро+специфика по 5 шагам).`);
   } else {
-    console.log(`ПОЖАРКА: уже новый формат (${fireHas}) — не трогаю (правки целы).`);
+    console.log(`ПОЖАРКА: уже плоский формат — не трогаю (правки целы).`);
   }
 
   await db.$disconnect();

@@ -6,7 +6,7 @@
 import { db } from '@/server/db';
 import { resolveText, extractRefs, type NormLite } from '@/lib/schema/resolve';
 import type { FieldSpec } from '@/lib/schema/types';
-import { SECTIONS, BASE_TYPE, type InstructionItemRow } from './spec';
+import { SECTIONS, type InstructionItemRow } from './spec';
 
 /** Карта норм (код → NormLite) для резолва токенов. */
 export async function buildNormMap(): Promise<Map<string, NormLite>> {
@@ -51,22 +51,20 @@ async function activeItemsBySection(typeCode: string): Promise<Map<string, { tit
 }
 
 /**
- * Собирает методику типа в один markdown: по каждому из 5 шагов —
- * сперва пункты БАЗЫ (ядро, общее), затем ОВЕРЛЕЯ типа (специфика), с
- * развёрнутыми токенами норм/параметров. Для типа 'base' — только ядро.
- * Пусто, если ни базы, ни оверлея нет.
+ * Собирает методику типа в один markdown: по каждому из 5 шагов — свои пункты
+ * типа (плоско, всё в типе), с развёрнутыми токенами норм/параметров.
+ * Пусто, если инструкций нет.
  */
 export async function compileInstructions(typeCode: string): Promise<string> {
-  const base = await activeItemsBySection(BASE_TYPE);
-  const overlay = typeCode === BASE_TYPE ? new Map<string, { title: string; body: string }[]>() : await activeItemsBySection(typeCode);
-  if (base.size === 0 && overlay.size === 0) return '';
+  const bySec = await activeItemsBySection(typeCode);
+  if (bySec.size === 0) return '';
 
   const normMap = await buildNormMap();
   const paramLabels = new Map((await paramList(typeCode)).map((p) => [p.key, p.label]));
 
   const parts: string[] = [];
   for (const s of SECTIONS) {
-    const items = [...(base.get(s.key) ?? []), ...(overlay.get(s.key) ?? [])];
+    const items = bySec.get(s.key) ?? [];
     if (items.length === 0) continue;
     parts.push(`## ${s.label}`);
     for (const it of items) {
@@ -83,9 +81,8 @@ export async function compileInstructions(typeCode: string): Promise<string> {
  * пунктов ссылается.
  */
 export async function typeNormUsage(typeCode: string): Promise<{ code: string; refs: number }[]> {
-  const codes = typeCode === BASE_TYPE ? [BASE_TYPE] : [BASE_TYPE, typeCode];
   const items = await db.instructionItem.findMany({
-    where: { instruction: { typeCode: { in: codes } } },
+    where: { instruction: { typeCode } },
     select: { body: true },
   });
   const counts = new Map<string, number>();
