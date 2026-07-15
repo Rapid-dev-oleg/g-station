@@ -6,9 +6,11 @@ import Link from 'next/link';
 import { Button, Card, Badge, Input, Select } from '@/components/ui';
 import { resolveText, type NormLite } from '@/lib/schema/resolve';
 import {
-  SECTIONS, ensureSection, addItem, updateItem, deleteItem, moveItem, publishSection,
-  type ActionResult, type InstructionSection, type InstructionItemRow,
+  ensureSection, addItem, updateItem, deleteItem, moveItem, publishSection,
 } from '@/server/actions/instructions';
+import {
+  SECTIONS, type ActionResult, type InstructionSection, type InstructionItemRow,
+} from '@/server/instructions/spec';
 
 interface Props {
   typeCode: string;
