@@ -18,5 +18,10 @@ fi
 echo "[entrypoint] prisma db push…"
 npx prisma db push --skip-generate
 
+# Витрина инструкций пожарки (перенос методики скила). Идемпотентно: если у
+# fire уже есть инструкции — no-op, правки из браузера не затираются.
+echo "[entrypoint] наполнение витрины пожарки (идемпотентно)…"
+npx tsx scripts/seed-fire-instructions.ts || echo "[entrypoint] seed пожарки пропущен (не критично)"
+
 echo "[entrypoint] старт приложения…"
 exec npm run start
