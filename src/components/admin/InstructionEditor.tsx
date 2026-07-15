@@ -2,7 +2,6 @@
 
 import { useState, useRef, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Button, Card, Badge, Input, Select } from '@/components/ui';
 import { resolveText, type NormLite } from '@/lib/schema/resolve';
 import {
@@ -22,7 +21,7 @@ interface Props {
 
 const mono: CSSProperties = { fontFamily: 'var(--font-mono,monospace)' };
 
-export function InstructionEditor({ typeCode, typeName, sections, params, norms }: Props) {
+export function InstructionEditor({ typeCode, sections, params, norms }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,15 +48,11 @@ export function InstructionEditor({ typeCode, typeName, sections, params, norms 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div>
-        <Link href="/admin/types" style={{ color: '#888', fontSize: 14 }}>← Типы расчёта</Link>
-        <h1 style={{ margin: '6px 0 0' }}>Инструкции — {typeName}</h1>
-        <p style={{ margin: '4px 0 0', color: 'var(--text-muted,#667)' }}>
-          Куски инструкции адресуемы по параметру; в тексте — токены{' '}
-          <code style={mono}>{'{{param:ключ}}'}</code> и <code style={mono}>{'{{norm:код#якорь}}'}</code>.
-          При расчёте нового типа куски собираются и разворачиваются в промпт агента.
-        </p>
-      </div>
+      <p style={{ margin: 0, color: 'var(--text-muted,#667)' }}>
+        Куски инструкции адресуемы по параметру; в тексте — токены{' '}
+        <code style={mono}>{'{{param:ключ}}'}</code> и <code style={mono}>{'{{norm:код#якорь}}'}</code>.
+        При движке «Конструктор» куски собираются и разворачиваются в промпт агента.
+      </p>
 
       {error && <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(200,60,50,.1)', color: '#c33', fontSize: 14 }}>{error}</div>}
 

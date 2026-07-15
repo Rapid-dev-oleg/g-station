@@ -65,6 +65,29 @@ export async function compileInstructions(typeCode: string): Promise<string> {
 }
 
 /**
+ * Какие нормы (коды) реально использует тип — из токенов {{norm:код#…}} во всех
+ * его инструкциях. Для таба «Нормативы» и обзора. Возвращает код → сколько
+ * пунктов ссылается.
+ */
+export async function typeNormUsage(typeCode: string): Promise<{ code: string; refs: number }[]> {
+  const items = await db.instructionItem.findMany({
+    where: { instruction: { typeCode } },
+    select: { body: true },
+  });
+  const counts = new Map<string, number>();
+  for (const it of items) {
+    const codes = new Set(extractRefs(it.body).norms.map((n) => n.code));
+    for (const c of codes) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([code, refs]) => ({ code, refs })).sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/** Число пунктов инструкций у типа (для сводки). */
+export async function instructionItemCount(typeCode: string): Promise<number> {
+  return db.instructionItem.count({ where: { instruction: { typeCode } } });
+}
+
+/**
  * Куски, относящиеся к параметру (для адресной правки через ИИ): по paramKey
  * или по токену {{param:ключ}} в body.
  */

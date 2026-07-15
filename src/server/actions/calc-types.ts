@@ -70,6 +70,7 @@ export async function listCalcTypes(): Promise<CalcTypeRow[]> {
 export interface CalcTypeIdentity {
   name: string;
   status: SystemTypeStatus;
+  calcEngine: string; // skill | constructor
   description?: string;
   skillName?: string;
   typeModule?: string;
@@ -93,8 +94,9 @@ export async function createCalcType(input: { code: string; name: string }): Pro
   return ok();
 }
 
-/** Обновляет идентичность типа (раздел 1: имя, статус, триггеры и т.д.). */
-export async function updateCalcTypeIdentity(code: string, input: CalcTypeIdentity): Promise<ActionResult> {
+/** Обновляет идентичность типа (раздел 1: имя, статус, триггеры и т.д.).
+ *  Движок расчёта (calcEngine) правится отдельно — setCalcEngine. */
+export async function updateCalcTypeIdentity(code: string, input: Omit<CalcTypeIdentity, 'calcEngine'>): Promise<ActionResult> {
   await requireSuperAdmin();
   if (!input.name?.trim()) return { ok: false, error: 'Название не может быть пустым' };
   await db.systemType.update({
@@ -110,6 +112,19 @@ export async function updateCalcTypeIdentity(code: string, input: CalcTypeIdenti
       components: input.components,
     },
   });
+  return ok();
+}
+
+/**
+ * Движок расчёта типа. 'skill' — считает markdown-методика скила (пожарка;
+ * схема/инструкции = витрина, в промпт не идут); 'constructor' — расчёт
+ * собирается из инструкций редактора. Переключать осознанно.
+ */
+export async function setCalcEngine(code: string, engine: 'skill' | 'constructor'): Promise<ActionResult> {
+  await requireSuperAdmin();
+  await db.systemType.update({ where: { code }, data: { calcEngine: engine === 'constructor' ? 'constructor' : 'skill' } });
+  revalidatePath('/admin/types');
+  revalidatePath(`/admin/types/${code}`);
   return ok();
 }
 
@@ -138,6 +153,7 @@ export async function getCalcType(code: string): Promise<{
       code: t.code,
       name: t.name,
       status: t.status,
+      calcEngine: t.calcEngine,
       description: t.description ?? undefined,
       skillName: t.skillName ?? undefined,
       typeModule: t.typeModule ?? undefined,

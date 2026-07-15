@@ -2,7 +2,6 @@
 
 import { useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Button, Card, Badge, Input, Select, Modal } from '@/components/ui';
 import { DynamicForm } from '@/components/schema/DynamicForm';
 import type { FieldSpec, FieldDataType, FieldOption } from '@/lib/schema/types';
@@ -214,16 +213,13 @@ export function SchemaEditor(props: { code: string; name: string; activeVersion:
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <Link href="/admin/types" style={{ color: '#888', fontSize: 14 }}>← Типы расчёта</Link>
-        <h1 style={{ margin: '6px 0 0' }}>Схема ввода — {props.name}</h1>
-        <p style={{ margin: '4px 0 0', color: 'var(--text-muted,#667)' }}>
-          Активная версия: {props.activeVersion ? `v${props.activeVersion}` : 'нет'}{' '}
-          {hasDraft && <Badge variant="warning">черновик</Badge>}{' '}
-          {dirty && <Badge variant="info">несохранённые правки</Badge>}
-          {' · '}{fields.length} полей
-        </p>
-      </div>
+      <p style={{ margin: 0, color: 'var(--text-muted,#667)' }}>
+        Поля ввода — что спрашиваем у ТЗ/инженера. Активная версия:{' '}
+        {props.activeVersion ? `v${props.activeVersion}` : 'нет'}{' '}
+        {hasDraft && <Badge variant="warning">черновик</Badge>}{' '}
+        {dirty && <Badge variant="info">несохранённые правки</Badge>}
+        {' · '}{fields.length} полей
+      </p>
 
       {error && (
         <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(200,60,50,.1)', color: '#c33', fontSize: 14 }}>{error}</div>

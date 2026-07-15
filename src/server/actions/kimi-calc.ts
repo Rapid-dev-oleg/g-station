@@ -28,11 +28,14 @@ async function skillForType(typeCode: string): Promise<string> {
 }
 
 /**
- * Блок инструкций типа для промпта (конструктор схем, Фаза 2). Собирает
- * active-инструкции типа с развёрнутыми токенами норм/параметров. Для fire
- * инструкций нет → пусто → промпт не меняется (расчёт идёт по markdown-скилу).
+ * Блок инструкций типа для промпта (конструктор схем, Фаза 2). Идёт в промпт
+ * ТОЛЬКО если движок типа = 'constructor'. У пожарки движок 'skill' → блок
+ * всегда пуст, расчёт остаётся на markdown-методике скила (даже если инструкции
+ * в редакторе заполнены как витрина). Это защищает пожарку от изменений.
  */
 async function typeInstructionsBlock(typeCode: string): Promise<string> {
+  const type = await db.systemType.findUnique({ where: { code: typeCode }, select: { calcEngine: true } });
+  if (type?.calcEngine !== 'constructor') return '';
   const compiled = await compileInstructions(typeCode);
   if (!compiled) return '';
   return (

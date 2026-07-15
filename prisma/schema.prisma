@@ -135,6 +135,10 @@ model SystemType {
   name        String
   description String?
   status      SystemTypeStatus @default(PLANNED)
+  // Движок расчёта: 'skill' — считает готовая markdown-методика скила (пожарка;
+  // схема/инструкции/нормативы конструктора = витрина, в промпт НЕ идут);
+  // 'constructor' — расчёт собирается из инструкций редактора (compileInstructions).
+  calcEngine  String           @default("skill") // skill | constructor
   // Реестр типа станции (скил «ядро + модуль типа», перенесён в данные).
   // Управляет идентификацией и парсингом ТЗ — см. parse-document.ts.
   skillName   String? // скил расчёта, напр. 'pump-station-calc'

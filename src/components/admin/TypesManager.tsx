@@ -98,11 +98,8 @@ export function TypesManager({ types }: { types: CalcTypeRow[] }) {
               key: 'act', header: '', align: 'right', render: (t) => (
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                   <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>Идентичность</Button>
-                  <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/types/${t.code}/schema`)}>
-                    Схема{t.activeSchema ? ` · ${t.activeSchema.fieldCount} полей` : ''}{t.draftCount ? ' · черновик' : ''}
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/types/${t.code}/instructions`)}>
-                    Инструкции
+                  <Button size="sm" onClick={() => router.push(`/admin/types/${t.code}`)}>
+                    Открыть{t.activeSchema ? ` · ${t.activeSchema.fieldCount} полей` : ''}{t.draftCount ? ' · черновик' : ''}
                   </Button>
                 </div>
               ),

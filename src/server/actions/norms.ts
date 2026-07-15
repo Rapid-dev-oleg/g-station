@@ -8,6 +8,7 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/server/db';
 import { requireSuperAdmin } from '@/server/auth';
+import { typeNormUsage } from '@/server/instructions/compile';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const done = (): ActionResult => {
@@ -97,4 +98,33 @@ export async function deleteNorm(id: string): Promise<ActionResult> {
   await requireSuperAdmin();
   await db.norm.delete({ where: { id } });
   return done();
+}
+
+// ─── Нормативы, используемые типом (таб «Нормативы» страницы типа) ──────────
+
+export interface TypeNormRow {
+  code: string;
+  refs: number; // сколько пунктов инструкций ссылаются
+  inLibrary: boolean; // норма есть в библиотеке
+  title?: string;
+  category?: string;
+  status?: string;
+  anchors: number;
+}
+
+/** Нормы, на которые ссылаются инструкции типа (из токенов), + данные библиотеки. */
+export async function getTypeNorms(typeCode: string): Promise<TypeNormRow[]> {
+  await requireSuperAdmin();
+  const usage = await typeNormUsage(typeCode); // [{ code, refs }]
+  if (usage.length === 0) return [];
+  const lib = await db.norm.findMany({ where: { code: { in: usage.map((u) => u.code) } } });
+  const byCode = new Map(lib.map((n) => [n.code, n]));
+  return usage.map((u) => {
+    const n = byCode.get(u.code);
+    return {
+      code: u.code, refs: u.refs, inLibrary: !!n,
+      title: n?.title, category: n?.category, status: n?.status,
+      anchors: n?.content && typeof n.content === 'object' ? Object.keys(n.content as object).length : 0,
+    };
+  });
 }
