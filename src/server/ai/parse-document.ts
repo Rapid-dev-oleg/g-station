@@ -43,7 +43,7 @@ const toStrArray = (v: unknown): string[] =>
 
 /** Загружает реестр готовых (READY) типов систем из БД. */
 export async function loadTypeRegistry(): Promise<TypeRegistryEntry[]> {
-  const rows = await db.systemType.findMany({ where: { status: 'READY' } });
+  const rows = await db.systemType.findMany({ where: { status: 'READY', code: { not: 'base' } } });
   return rows.map((r) => ({
     code: r.code,
     name: r.name,

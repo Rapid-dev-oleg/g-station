@@ -6,7 +6,7 @@
 import { db } from '@/server/db';
 import { resolveText, extractRefs, type NormLite } from '@/lib/schema/resolve';
 import type { FieldSpec } from '@/lib/schema/types';
-import { SECTIONS, SECTION_KEYS, type InstructionItemRow } from './spec';
+import { SECTIONS, BASE_TYPE, type InstructionItemRow } from './spec';
 
 /** Карта норм (код → NormLite) для резолва токенов. */
 export async function buildNormMap(): Promise<Map<string, NormLite>> {
@@ -35,30 +35,43 @@ export async function paramList(typeCode: string): Promise<{ key: string; label:
   return out;
 }
 
-/**
- * Собирает active-разделы инструкций типа, разворачивает токены норм/параметров
- * → один markdown. Пустая строка, если инструкций нет (fire — не использует).
- */
-export async function compileInstructions(typeCode: string): Promise<string> {
+/** Active-пункты типа, сгруппированные по шагу (section → пункты по order). */
+async function activeItemsBySection(typeCode: string): Promise<Map<string, { title: string; body: string }[]>> {
   const instrs = await db.instruction.findMany({
     where: { typeCode, status: 'active' },
     include: { items: { orderBy: { order: 'asc' } } },
   });
-  if (instrs.length === 0) return '';
+  const m = new Map<string, { title: string; body: string }[]>();
+  for (const instr of instrs) {
+    const arr = m.get(instr.section) ?? [];
+    for (const it of instr.items) arr.push({ title: it.title, body: it.body });
+    m.set(instr.section, arr);
+  }
+  return m;
+}
+
+/**
+ * Собирает методику типа в один markdown: по каждому из 5 шагов —
+ * сперва пункты БАЗЫ (ядро, общее), затем ОВЕРЛЕЯ типа (специфика), с
+ * развёрнутыми токенами норм/параметров. Для типа 'base' — только ядро.
+ * Пусто, если ни базы, ни оверлея нет.
+ */
+export async function compileInstructions(typeCode: string): Promise<string> {
+  const base = await activeItemsBySection(BASE_TYPE);
+  const overlay = typeCode === BASE_TYPE ? new Map<string, { title: string; body: string }[]>() : await activeItemsBySection(typeCode);
+  if (base.size === 0 && overlay.size === 0) return '';
 
   const normMap = await buildNormMap();
   const paramLabels = new Map((await paramList(typeCode)).map((p) => [p.key, p.label]));
 
-  const order = new Map(SECTION_KEYS.map((s, i) => [s, i]));
-  instrs.sort((a, b) => (order.get(a.section) ?? 99) - (order.get(b.section) ?? 99));
-
   const parts: string[] = [];
-  for (const instr of instrs) {
-    const label = SECTIONS.find((s) => s.key === instr.section)?.label ?? instr.section;
-    parts.push(`## ${label}`);
-    for (const item of instr.items) {
-      parts.push(`### ${item.title}`);
-      parts.push(resolveText(item.body, normMap, paramLabels));
+  for (const s of SECTIONS) {
+    const items = [...(base.get(s.key) ?? []), ...(overlay.get(s.key) ?? [])];
+    if (items.length === 0) continue;
+    parts.push(`## ${s.label}`);
+    for (const it of items) {
+      parts.push(`### ${it.title}`);
+      parts.push(resolveText(it.body, normMap, paramLabels));
     }
   }
   return parts.join('\n\n').trim();
@@ -70,8 +83,9 @@ export async function compileInstructions(typeCode: string): Promise<string> {
  * пунктов ссылается.
  */
 export async function typeNormUsage(typeCode: string): Promise<{ code: string; refs: number }[]> {
+  const codes = typeCode === BASE_TYPE ? [BASE_TYPE] : [BASE_TYPE, typeCode];
   const items = await db.instructionItem.findMany({
-    where: { instruction: { typeCode } },
+    where: { instruction: { typeCode: { in: codes } } },
     select: { body: true },
   });
   const counts = new Map<string, number>();

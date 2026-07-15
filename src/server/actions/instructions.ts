@@ -10,8 +10,11 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/server/db';
 import { requireSuperAdmin } from '@/server/auth';
-import { SECTION_KEYS, type ActionResult, type InstructionSection } from '@/server/instructions/spec';
+import { SECTION_KEYS, BASE_TYPE, type ActionResult, type InstructionSection } from '@/server/instructions/spec';
 import { paramList } from '@/server/instructions/compile';
+
+/** Базовые (ядро) пункты по шагам — read-only слой для оверлей-типов. */
+export interface BaseStep { section: string; items: { title: string; body: string }[] }
 
 const done = (code: string): ActionResult => {
   revalidatePath(`/admin/types/${code}/instructions`);
@@ -23,18 +26,7 @@ function anchorsOf(content: unknown): { key: string; label: string }[] {
   return Object.entries(content as Record<string, { label?: string }>).map(([key, v]) => ({ key, label: v?.label ?? key }));
 }
 
-/** Инструкции типа, сгруппированные по разделам (draft-редактор). */
-export async function getInstructions(typeCode: string): Promise<{
-  typeCode: string;
-  typeName: string;
-  sections: InstructionSection[];
-  params: { key: string; label: string }[];
-  norms: { code: string; title: string; anchors: { key: string; label: string }[] }[];
-}> {
-  await requireSuperAdmin();
-  const type = await db.systemType.findUnique({ where: { code: typeCode } });
-  if (!type) throw new Error(`Тип «${typeCode}» не найден`);
-
+async function ownSections(typeCode: string): Promise<InstructionSection[]> {
   const rows = await db.instruction.findMany({
     where: { typeCode },
     include: { items: { orderBy: { order: 'asc' } } },
@@ -49,13 +41,53 @@ export async function getInstructions(typeCode: string): Promise<{
       items: r.items.map((i) => ({ id: i.id, paramKey: i.paramKey, title: i.title, body: i.body, order: i.order })),
     });
   }
-  const sections = SECTION_KEYS.map((s) => bySection.get(s) ?? null).filter(Boolean) as InstructionSection[];
+  return SECTION_KEYS.map((s) => bySection.get(s) ?? null).filter(Boolean) as InstructionSection[];
+}
+
+/**
+ * Инструкции типа для редактора: свои разделы (правимые) + слой БАЗЫ (ядро,
+ * read-only) по шагам. Для самого типа 'base' слой базы пуст (он и есть база).
+ */
+export async function getInstructions(typeCode: string): Promise<{
+  typeCode: string;
+  typeName: string;
+  isBase: boolean;
+  sections: InstructionSection[];
+  base: BaseStep[];
+  params: { key: string; label: string }[];
+  norms: { code: string; title: string; anchors: { key: string; label: string }[] }[];
+}> {
+  await requireSuperAdmin();
+  const type = await db.systemType.findUnique({ where: { code: typeCode } });
+  if (!type) throw new Error(`Тип «${typeCode}» не найден`);
+  const isBase = typeCode === BASE_TYPE;
+
+  const sections = await ownSections(typeCode);
+
+  // слой базы (только active-пункты) — read-only, для оверлей-типов
+  const base: BaseStep[] = [];
+  if (!isBase) {
+    const baseRows = await db.instruction.findMany({
+      where: { typeCode: BASE_TYPE, status: 'active' },
+      include: { items: { orderBy: { order: 'asc' } } },
+    });
+    const m = new Map<string, { title: string; body: string }[]>();
+    for (const r of baseRows) {
+      const arr = m.get(r.section) ?? [];
+      for (const it of r.items) arr.push({ title: it.title, body: it.body });
+      m.set(r.section, arr);
+    }
+    for (const s of SECTION_KEYS) {
+      const items = m.get(s);
+      if (items?.length) base.push({ section: s, items });
+    }
+  }
 
   const params = await paramList(typeCode);
   const norms = (await db.norm.findMany({ where: { status: 'active' }, orderBy: { code: 'asc' } })).map((n) => ({
     code: n.code, title: n.title, anchors: anchorsOf(n.content),
   }));
-  return { typeCode, typeName: type.name, sections, params, norms };
+  return { typeCode, typeName: type.name, isBase, sections, base, params, norms };
 }
 
 /** Создаёт (или возвращает) черновик инструкции раздела. */
