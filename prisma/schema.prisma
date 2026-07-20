@@ -207,6 +207,27 @@ model InstructionItem {
   @@index([paramKey])
 }
 
+// Прогон расчётного конвейера «шаг = скил» (Фаза 3). Шаги исполняются
+// последовательно в ОДНОЙ сессии агента (sessionId) — контекст между шагами
+// сохраняется. steps хранит определения+результаты каждого шага; state —
+// накопленное «расчётное дело». Гейты: между шагами status='paused'.
+model PipelineRun {
+  id          String   @id @default(cuid())
+  systemId    String? // опц. привязка к System
+  typeCode    String
+  sessionId   String? // сессия агента для resume между шагами
+  status      String   @default("running") // running | paused | done | error
+  currentStep Int      @default(0)
+  card        Json // входная карточка (из шага «Вход»)
+  state       Json? // накопленный результат (расчётное дело)
+  steps       Json // [{ key, label, status, output, at }]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([systemId])
+  @@index([status])
+}
+
 // Система = одна насосная станция. dossier — расчётное дело целиком (JSONB).
 model System {
   id          String       @id @default(cuid())
