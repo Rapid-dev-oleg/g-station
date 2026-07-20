@@ -23,7 +23,7 @@ import { runClaudeAgent } from './claude-agent';
 const execFileAsync = promisify(execFile);
 
 /** TOML-конфиг Kimi CLI: ключ из настроек, endpoint, доп. директории скилов. */
-function buildConfigToml(apiKey: string, baseUrl: string, skillsDirs: string[]): string {
+export function buildConfigToml(apiKey: string, baseUrl: string, skillsDirs: string[]): string {
   const dirs = skillsDirs.map((d) => JSON.stringify(d)).join(', ');
   return [
     'default_model = "kimi-code/kimi-for-coding"',
