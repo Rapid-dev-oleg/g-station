@@ -16,7 +16,6 @@ import { runKimiAgent } from '@/server/ai/kimi-agent';
 import { askKimi } from '@/server/ai/kimi';
 import { priceEquipment } from '@/server/pricing/processor';
 import { getPricingSettings } from '@/server/pricing/settings';
-import { compileInstructions } from '@/server/instructions/compile';
 
 /** Скил расчёта по типу системы — из реестра SystemType (fallback на дефолт). */
 async function skillForType(typeCode: string): Promise<string> {
@@ -25,25 +24,6 @@ async function skillForType(typeCode: string): Promise<string> {
     select: { skillName: true },
   });
   return t?.skillName ?? 'pump-station-calc';
-}
-
-/**
- * Блок инструкций типа для промпта (конструктор схем, Фаза 2). Идёт в промпт
- * ТОЛЬКО если движок типа = 'constructor'. У пожарки движок 'skill' → блок
- * всегда пуст, расчёт остаётся на markdown-методике скила (даже если инструкции
- * в редакторе заполнены как витрина). Это защищает пожарку от изменений.
- */
-async function typeInstructionsBlock(typeCode: string): Promise<string> {
-  const type = await db.systemType.findUnique({ where: { code: typeCode }, select: { calcEngine: true } });
-  if (type?.calcEngine !== 'constructor') return '';
-  const compiled = await compileInstructions(typeCode);
-  if (!compiled) return '';
-  return (
-    '\n\nИНСТРУКЦИИ ТИПА (обязательны к применению, приоритет над общими ' +
-    'умолчаниями скила; ссылки на нормы уже развёрнуты):\n' +
-    compiled +
-    '\n'
-  );
 }
 
 /** Карточка для расчёта: вход станции + назначение из dossier. */
@@ -275,8 +255,6 @@ export async function calcSystemViaKimi(
 
   try {
     // ── Фаза 1: расчёт характеристик по скилу (без веба — мало шагов). ──
-    // Для не-fire типов подмешиваем собранные инструкции типа (Фаза 2).
-    const instructionsBlock = await typeInstructionsBlock(system.typeCode);
     const { output: calcOut } = await runKimiAgent({
       skill: await skillForType(system.typeCode),
       prompt:
@@ -308,7 +286,6 @@ export async function calcSystemViaKimi(
         'series/options; для tank — volume_m3/material; для valve — dn/qty.\n\n' +
         'НЕ включай в items строки «Точная модель насоса», «Производитель/бренд», ' +
         '«Коэффициент наценки» — это решение инженера / следующий этап.' +
-        instructionsBlock +
         '\n\nКарточка:\n' +
         JSON.stringify(card, null, 2),
       timeoutMs: 8 * 60 * 1000,

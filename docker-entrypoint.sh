@@ -15,14 +15,10 @@ else
 fi
 
 # Схема БД (миграций в проекте нет — синхронизируем через db push).
+# --accept-data-loss: деплой-модель на db push (не миграции), поэтому удаление
+# полей/таблиц из схемы должно применяться. Изменения схемы ревьюим в diff.
 echo "[entrypoint] prisma db push…"
-npx prisma db push --skip-generate
-
-# Витрина методики (База · ядро 5 шагов + оверлей пожарки). Идемпотентно:
-# база сидится однократно; пожарка мигрирует старый формат → новый, иначе no-op
-# (правки из браузера не затираются).
-echo "[entrypoint] наполнение витрины методики (идемпотентно)…"
-npx tsx scripts/seed-methodology.ts || echo "[entrypoint] seed методики пропущен (не критично)"
+npx prisma db push --skip-generate --accept-data-loss
 
 echo "[entrypoint] старт приложения…"
 exec npm run start
