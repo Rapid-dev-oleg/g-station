@@ -1,12 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Badge } from '@/components/ui';
 import { getCalcType } from '@/server/actions/calc-types';
 import { TypeTabsNav } from '@/components/admin/TypeTabsNav';
 
 export const dynamic = 'force-dynamic';
 
-/** Каркас страницы типа: шапка (имя + движок) + табы Обзор/Схема/Инструкции/Нормативы. */
+/** Каркас страницы типа: шапка (имя) + табы Схема / Степы. */
 export default async function TypeLayout({
   children,
   params,
@@ -18,7 +17,6 @@ export default async function TypeLayout({
   const data = await getCalcType(code);
   if (!data) notFound();
   const { identity } = data;
-  const isConstructor = identity.calcEngine === 'constructor';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -27,9 +25,6 @@ export default async function TypeLayout({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
           <h1 style={{ margin: 0 }}>{identity.name}</h1>
           <code style={{ fontFamily: 'var(--font-mono,monospace)', color: '#889', fontSize: 14 }}>{identity.code}</code>
-          <Badge variant={isConstructor ? 'info' : 'default'} withDot>
-            движок: {isConstructor ? 'Конструктор' : 'Скил'}
-          </Badge>
         </div>
       </div>
       <TypeTabsNav code={code} />

@@ -4,21 +4,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Tabs } from '@/components/ui';
 
 const TABS = [
-  { key: 'overview', label: 'Обзор', suffix: '' },
   { key: 'schema', label: 'Схема', suffix: '/schema' },
-  { key: 'instructions', label: 'Инструкции', suffix: '/instructions' },
-  { key: 'norms', label: 'Нормативы', suffix: '/norms' },
+  { key: 'steps', label: 'Степы', suffix: '/steps' },
 ] as const;
 
-/** Таб-навигация страницы типа: переключает под-роуты, активный — по pathname. */
+/** Таб-навигация страницы типа: Схема (ввод) + Степы (шаг-скилы). */
 export function TypeTabsNav({ code }: { code: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const base = `/admin/types/${code}`;
-  const active =
-    pathname === base || pathname === `${base}/`
-      ? 'overview'
-      : TABS.find((t) => t.suffix && pathname.startsWith(base + t.suffix))?.key ?? 'overview';
+  const active = pathname.startsWith(base + '/steps') ? 'steps' : 'schema';
 
   return (
     <Tabs
