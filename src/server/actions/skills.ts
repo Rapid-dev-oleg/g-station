@@ -15,6 +15,7 @@
 import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, dirname, extname } from 'node:path';
 import type { SkillFile } from './skills-types';
+import { runKimiAgent } from '@/server/ai/kimi-agent';
 
 const WORKSPACE = process.env.KIMI_AGENT_WORKSPACE || process.cwd();
 
@@ -72,6 +73,41 @@ export async function readSkillFile(path: string): Promise<{ path: string; conte
   const abs = guard(path);
   const content = await readFile(abs, 'utf-8');
   return { path, content };
+}
+
+/**
+ * ИИ-правка файла методики по описанию инженера. НЕ сохраняет — возвращает
+ * предложенный текст целиком, инженер сверяет (дифф) и применяет сам.
+ * Напр.: «минимальный свободный напор считать не 10, а 12 м».
+ */
+export async function proposeSkillEdit(
+  path: string,
+  instruction: string,
+): Promise<{ ok: true; content: string } | { ok: false; error: string }> {
+  try {
+    const abs = guard(path);
+    if (!instruction.trim()) return { ok: false, error: 'Опишите правку' };
+    const current = await readFile(abs, 'utf-8');
+    // Через рабочий CLI-агент (OAuth), не чат-API. Текст файла — прямо в промпте,
+    // агенту не нужен доступ к диску → оригинал не трогается при предпросмотре.
+    const prompt =
+      'Ты — редактор текстового файла методики расчёта насосных станций. Тебе дают ' +
+      'ИНСТРУКЦИЮ инженера и ТЕКУЩИЙ файл. Верни ТОЛЬКО полный изменённый файл целиком ' +
+      'между строками-маркерами <<<RESULT>>> и <<<END_RESULT>>> (каждый маркер на своей ' +
+      'строке). Меняй ТОЛЬКО то, что просит инструкция; всё остальное сохрани дословно ' +
+      '(заголовки, нумерацию, формат markdown). Ничего не пиши на диск, никаких пояснений ' +
+      'вне маркеров.\n\n' +
+      `ИНСТРУКЦИЯ ИНЖЕНЕРА:\n${instruction.trim()}\n\n` +
+      `=== ТЕКУЩИЙ ФАЙЛ «${path}» ===\n${current}\n=== КОНЕЦ ФАЙЛА ===`;
+    const { output } = await runKimiAgent({ prompt, timeoutMs: 3 * 60 * 1000 });
+    const m = output.match(/<<<RESULT>>>\n?([\s\S]*?)\n?<<<END_RESULT>>>/);
+    let out = (m ? m[1] : output).trim();
+    out = out.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+    if (!out) return { ok: false, error: 'ИИ вернул пустой результат' };
+    return { ok: true, content: out };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка ИИ-правки' };
+  }
 }
 
 /** Сохранить файл методики (создаёт, если не было). */

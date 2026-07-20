@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
-import { readSkillFile, saveSkillFile } from '@/server/actions/skills';
+import { readSkillFile, saveSkillFile, proposeSkillEdit } from '@/server/actions/skills';
 import type { SkillFile } from '@/server/actions/skills-types';
 
 const ROOT_LABEL: Record<string, string> = {
@@ -17,6 +17,10 @@ export function MethodologyEditor({ files }: { files: SkillFile[] }) {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, startLoad] = useTransition();
   const [saving, startSave] = useTransition();
+  const [instruction, setInstruction] = useState('');
+  const [proposing, startPropose] = useTransition();
+  const [aiProposed, setAiProposed] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const groups = useMemo(() => {
     const m = new Map<string, SkillFile[]>();
@@ -27,13 +31,31 @@ export function MethodologyEditor({ files }: { files: SkillFile[] }) {
   const dirty = content !== original;
 
   function open(path: string) {
-    setStatus(null);
+    setStatus(null); setAiError(null); setAiProposed(false); setInstruction('');
     startLoad(async () => {
       const r = await readSkillFile(path);
       setActive(path);
       setContent(r.content);
       setOriginal(r.content);
     });
+  }
+
+  function propose() {
+    if (!active || !instruction.trim()) return;
+    setAiError(null); setStatus(null);
+    startPropose(async () => {
+      const r = await proposeSkillEdit(active, instruction);
+      if (r.ok) {
+        setContent(r.content);       // предложение в редактор — dirty, сверяет инженер
+        setAiProposed(true);
+      } else {
+        setAiError(r.error);
+      }
+    });
+  }
+
+  function revert() {
+    setContent(original); setAiProposed(false);
   }
 
   function save() {
@@ -103,6 +125,33 @@ export function MethodologyEditor({ files }: { files: SkillFile[] }) {
                 {status}
               </div>
             )}
+
+            {aiProposed && (
+              <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(180,120,20,.1)', border: '1px solid rgba(180,120,20,.3)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span>🤖 ИИ переписал файл по вашему описанию. Проверьте текст выше и <b>сохраните</b>, либо откатите.</span>
+                <Button size="sm" variant="ghost" onClick={revert} style={{ marginLeft: 'auto' }}>Откатить к исходному</Button>
+              </div>
+            )}
+
+            {/* ИИ-помощник: правка скила по описанию */}
+            <div style={{ marginTop: 14, padding: 14, borderRadius: 10, border: '1px solid var(--border,#e3e6ea)', background: 'var(--surface-2,#f7f9fb)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>🤖 ИИ-помощник по правке</div>
+              <Textarea
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                rows={2}
+                placeholder="Опишите правку словами. Напр.: «минимальный свободный напор считать не 10, а 12 м» — ИИ найдёт и поправит в этом файле."
+                style={{ width: '100%', fontSize: 13 }}
+                disabled={proposing}
+              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Button size="sm" onClick={propose} disabled={proposing || !instruction.trim()}>
+                  {proposing ? 'ИИ думает…' : 'Предложить правку'}
+                </Button>
+                <span style={{ fontSize: 12, color: 'var(--text-muted,#667)' }}>ИИ вернёт изменённый файл — вы проверите и сохраните. Без авто-перезаписи.</span>
+              </div>
+              {aiError && <div style={{ fontSize: 13, color: '#dc2626' }}>Ошибка: {aiError}</div>}
+            </div>
           </>
         ) : (
           <div style={{ color: '#94a3b8', padding: 24 }}>Выберите файл слева для редактирования.</div>
