@@ -25,7 +25,7 @@ export function TypesManager({ types }: { types: CalcTypeRow[] }) {
       <div>
         <h1 style={{ margin: 0 }}>Типы расчёта</h1>
         <p style={{ margin: '4px 0 0', color: 'var(--text-muted,#667)' }}>
-          Типы станций и их схемы. Открой тип → вкладки «Схема» и «Степы».
+          Типы станций и их схемы. Открой тип → вкладки «Схема» и «Шаги».
         </p>
       </div>
 

@@ -5,7 +5,7 @@ import { TypeTabsNav } from '@/components/admin/TypeTabsNav';
 
 export const dynamic = 'force-dynamic';
 
-/** Каркас страницы типа: шапка (имя) + табы Схема / Степы. */
+/** Каркас страницы типа: шапка (имя) + табы Схема / Шаги. */
 export default async function TypeLayout({
   children,
   params,

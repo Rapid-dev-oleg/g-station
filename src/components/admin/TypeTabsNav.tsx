@@ -5,10 +5,10 @@ import { Tabs } from '@/components/ui';
 
 const TABS = [
   { key: 'schema', label: 'Схема', suffix: '/schema' },
-  { key: 'steps', label: 'Степы', suffix: '/steps' },
+  { key: 'steps', label: 'Шаги', suffix: '/steps' },
 ] as const;
 
-/** Таб-навигация страницы типа: Схема (ввод) + Степы (шаг-скилы). */
+/** Таб-навигация страницы типа: Схема (ввод) + Шаги (шаг-скилы). */
 export function TypeTabsNav({ code }: { code: string }) {
   const router = useRouter();
   const pathname = usePathname();

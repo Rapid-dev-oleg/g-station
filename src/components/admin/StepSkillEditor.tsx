@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
 import { saveSkillFile, proposeSkillEdit } from '@/server/actions/skills';
 
@@ -13,6 +13,8 @@ import { saveSkillFile, proposeSkillEdit } from '@/server/actions/skills';
 export function StepSkillEditor({
   code, title, path, initialContent, missing,
 }: { code: string; title: string; path: string; initialContent: string; missing: boolean }) {
+  const router = useRouter();
+  const back = () => router.push(`/admin/types/${code}/steps`);
   const [content, setContent] = useState(initialContent);
   const [original, setOriginal] = useState(initialContent);
   const [status, setStatus] = useState<string | null>(missing ? 'Файла ещё нет — создастся при сохранении' : null);
@@ -45,9 +47,9 @@ export function StepSkillEditor({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div>
-        <Link href={`/admin/types/${code}/steps`} style={{ color: '#888', fontSize: 14 }}>← Степы</Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <Button variant="secondary" onClick={back}>← Назад к шагам</Button>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
           <code style={{ fontSize: 12, color: '#889', fontFamily: 'var(--font-mono,monospace)' }}>{path}</code>
         </div>
@@ -89,6 +91,11 @@ export function StepSkillEditor({
           {aiError && <div style={{ fontSize: 13, color: '#dc2626' }}>Ошибка: {aiError}</div>}
         </div>
       </Card>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Button variant="secondary" onClick={back}>← Назад к шагам</Button>
+        {dirty && <span style={{ fontSize: 12.5, color: 'var(--text-muted,#667)' }}>Есть несохранённые изменения</span>}
+      </div>
     </div>
   );
 }

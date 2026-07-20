@@ -5,7 +5,7 @@ import { Card } from '@/components/ui';
 import { STEP_FILES } from '@/lib/pipeline/step-files';
 
 /**
- * Список степов типа = шаги конвейера. Клик по степу → редактор его скила.
+ * Список шагов типа = шаги конвейера. Клик по шагу → редактор его скила.
  * Скилы шагов общие (скил `${skillName}`); специфика типа — в модуле типа.
  */
 export function StepsTab({ code, skillName, typeModule }: { code: string; skillName: string; typeModule: string | null }) {
@@ -36,7 +36,7 @@ export function StepsTab({ code, skillName, typeModule }: { code: string; skillN
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p style={{ margin: 0, color: 'var(--text-muted,#667)' }}>
-        Шаги расчётного конвейера. Открой степ → редактируй его скил (текст методики + ИИ-помощник).
+        Шаги расчётного конвейера. Открой шаг → редактируй его скил (текст методики + ИИ-помощник).
         Шаги общие для типов на скиле <code style={{ fontFamily: 'var(--font-mono,monospace)' }}>{skillName}</code>; специфику типа держит модуль типа.
       </p>
 
