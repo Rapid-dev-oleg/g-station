@@ -16,6 +16,7 @@ import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, dirname, extname } from 'node:path';
 import type { SkillFile } from './skills-types';
 import { runKimiAgent } from '@/server/ai/kimi-agent';
+import { db } from '@/server/db';
 
 const WORKSPACE = process.env.KIMI_AGENT_WORKSPACE || process.cwd();
 
@@ -110,17 +111,57 @@ export async function proposeSkillEdit(
   }
 }
 
-/** Сохранить файл методики (создаёт, если не было). */
+/**
+ * Сохранить файл методики (создаёт, если не было) + снимок версии в БД.
+ * При первой правке снимается «исходная» (текущий файл) — чтобы можно было
+ * откатиться к оригиналу. Живой файл читает агент; версии — история/откат.
+ */
 export async function saveSkillFile(
   path: string,
   content: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+  note?: string,
+): Promise<{ ok: true; version: number } | { ok: false; error: string }> {
   try {
     const abs = guard(path);
+    // базовый снимок (исходная) при первой правке файла
+    const max = await db.skillFileVersion.aggregate({ where: { path }, _max: { version: true } });
+    let base = max._max.version ?? 0;
+    if (base === 0) {
+      try {
+        const current = await readFile(abs, 'utf-8');
+        await db.skillFileVersion.create({ data: { path, version: 1, content: current, note: 'исходная' } });
+        base = 1;
+      } catch { /* файла ещё не было — базовой версии нет */ }
+    }
     await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, content, 'utf-8');
-    return { ok: true };
+    const version = base + 1;
+    await db.skillFileVersion.create({ data: { path, version, content, note: note?.trim() || 'правка' } });
+    return { ok: true, version };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка записи' };
   }
+}
+
+export interface SkillVersionRow {
+  id: string;
+  version: number;
+  note: string | null;
+  createdAt: string;
+}
+
+/** История версий файла (без содержимого) — свежие сверху. */
+export async function listSkillFileVersions(path: string): Promise<SkillVersionRow[]> {
+  const rows = await db.skillFileVersion.findMany({
+    where: { path },
+    orderBy: { version: 'desc' },
+    select: { id: true, version: true, note: true, createdAt: true },
+  });
+  return rows.map((r) => ({ id: r.id, version: r.version, note: r.note, createdAt: r.createdAt.toISOString() }));
+}
+
+/** Содержимое конкретной версии (для просмотра/отката). */
+export async function getSkillFileVersion(id: string): Promise<{ content: string } | null> {
+  const r = await db.skillFileVersion.findUnique({ where: { id }, select: { content: true } });
+  return r ? { content: r.content } : null;
 }

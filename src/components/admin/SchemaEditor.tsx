@@ -259,7 +259,7 @@ export function SchemaEditor(props: { code: string; name: string; activeVersion:
   const [hasDraft, setHasDraft] = useState(props.hasDraft);
   const [dirty, setDirty] = useState(false);
   const [preview, setPreview] = useState<Record<string, unknown>>({});
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
 
   const update = (f: FieldSpec[]) => { setFields(f); setDirty(true); };
 

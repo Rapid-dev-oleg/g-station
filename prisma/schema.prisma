@@ -207,6 +207,21 @@ model InstructionItem {
   @@index([paramKey])
 }
 
+// Версии файла скила/методики (шаги, модуль типа, KNOWLEDGE). Снимок при каждом
+// сохранении (ручном или через ИИ) — история + откат. Живой файл в workspace
+// читает агент; версии хранят прошлые состояния. path — как в actions/skills.
+model SkillFileVersion {
+  id        String   @id @default(cuid())
+  path      String
+  version   Int
+  content   String
+  note      String? // «ручная правка» / «ИИ: …» / «исходная»
+  createdAt DateTime @default(now())
+
+  @@unique([path, version])
+  @@index([path])
+}
+
 // Прогон расчётного конвейера «шаг = скил» (Фаза 3). Шаги исполняются
 // последовательно в ОДНОЙ сессии агента (sessionId) — контекст между шагами
 // сохраняется. steps хранит определения+результаты каждого шага; state —

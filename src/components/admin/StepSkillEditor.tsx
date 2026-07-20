@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
-import { saveSkillFile, proposeSkillEdit } from '@/server/actions/skills';
+import { saveSkillFile, proposeSkillEdit, getSkillFileVersion, type SkillVersionRow } from '@/server/actions/skills';
 
 /**
  * Редактор скила одного степа: текст файла методики + 🤖 ИИ-помощник (описал
@@ -11,8 +11,8 @@ import { saveSkillFile, proposeSkillEdit } from '@/server/actions/skills';
  * влияет на агента. Скилы шагов общие для типов на этом скиле.
  */
 export function StepSkillEditor({
-  code, title, path, initialContent, missing,
-}: { code: string; title: string; path: string; initialContent: string; missing: boolean }) {
+  code, title, path, initialContent, missing, versions,
+}: { code: string; title: string; path: string; initialContent: string; missing: boolean; versions: SkillVersionRow[] }) {
   const router = useRouter();
   const back = () => router.push(`/admin/types/${code}/steps`);
   const [content, setContent] = useState(initialContent);
@@ -23,15 +23,25 @@ export function StepSkillEditor({
   const [proposing, startPropose] = useTransition();
   const [aiProposed, setAiProposed] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [restoring, startRestore] = useTransition();
 
   const dirty = content !== original;
+  const curVersion = versions[0]?.version ?? 0;
 
   function save() {
     setStatus(null);
     startSave(async () => {
-      const r = await saveSkillFile(path, content);
-      if (r.ok) { setOriginal(content); setAiProposed(false); setStatus('Сохранено — агент применит при следующем расчёте'); }
+      const r = await saveSkillFile(path, content, aiProposed ? 'ИИ-правка' : 'ручная правка');
+      if (r.ok) { setOriginal(content); setAiProposed(false); setStatus(`Сохранено (v${r.version}) — агент применит при следующем расчёте`); router.refresh(); }
       else setStatus('Ошибка: ' + r.error);
+    });
+  }
+
+  function openVersion(v: SkillVersionRow) {
+    startRestore(async () => {
+      const r = await getSkillFileVersion(v.id);
+      if (r) { setContent(r.content); setAiProposed(false); setShowHistory(false); setStatus(`Загружена версия v${v.version} — проверьте и сохраните, чтобы применить (создаст новую версию)`); }
     });
   }
 
@@ -56,13 +66,32 @@ export function StepSkillEditor({
       </div>
 
       <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: 'var(--text-muted,#667)' }}>Текст скила этого шага — правь вручную или через ИИ ниже.</span>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {dirty && <Badge>не сохранено</Badge>}
+            {curVersion > 0 && <Badge variant="default">v{curVersion}</Badge>}
+            {dirty && <Badge variant="warning">не сохранено</Badge>}
+            {versions.length > 0 && (
+              <Button size="sm" variant="ghost" onClick={() => setShowHistory((v) => !v)}>
+                История{versions.length ? ` · ${versions.length}` : ''}
+              </Button>
+            )}
             <Button onClick={save} disabled={saving || !dirty}>{saving ? 'Сохраняю…' : 'Сохранить'}</Button>
           </div>
         </div>
+
+        {showHistory && (
+          <div style={{ marginBottom: 12, border: '1px solid var(--border,#e3e6ea)', borderRadius: 10, overflow: 'hidden' }}>
+            {versions.map((v) => (
+              <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', borderTop: '1px solid var(--border-soft,#eef2f6)', fontSize: 13 }}>
+                <Badge variant={v.version === curVersion ? 'success' : 'default'}>v{v.version}</Badge>
+                <span style={{ flex: 1, color: 'var(--text-muted,#667)' }}>{v.note ?? '—'}</span>
+                <span style={{ fontSize: 12, color: '#889', fontVariantNumeric: 'tabular-nums' }}>{new Date(v.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                <Button size="sm" variant="ghost" disabled={restoring} onClick={() => openVersion(v)}>Открыть</Button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={26}
           style={{ width: '100%', fontFamily: 'ui-monospace, monospace', fontSize: 13 }} />

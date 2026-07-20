@@ -1,5 +1,5 @@
 import { getCalcType } from '@/server/actions/calc-types';
-import { readSkillFile } from '@/server/actions/skills';
+import { readSkillFile, listSkillFileVersions } from '@/server/actions/skills';
 import { StepSkillEditor } from '@/components/admin/StepSkillEditor';
 import { STEP_FILES, stepFilePath } from '@/lib/pipeline/step-files';
 import { notFound } from 'next/navigation';
@@ -35,8 +35,9 @@ export default async function StepPage({ params }: { params: Promise<{ code: str
   } catch {
     missing = true;
   }
+  const versions = await listSkillFileVersions(path);
 
   return (
-    <StepSkillEditor code={code} title={title} path={path} initialContent={content} missing={missing} />
+    <StepSkillEditor code={code} title={title} path={path} initialContent={content} missing={missing} versions={versions} />
   );
 }
