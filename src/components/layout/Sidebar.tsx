@@ -16,6 +16,7 @@ import styles from './Sidebar.module.css';
 
 const NAV = [
   { href: '/', label: 'Дашборд', icon: <IconHome /> },
+  { href: '/calc/new', label: 'Новый расчёт (β)', icon: <IconSparkles /> },
   { href: '/intake', label: 'Новый расчёт из ТЗ', icon: <IconSparkles /> },
   { href: '/clients', label: 'Клиенты', icon: <IconBuilding /> },
   { href: '/projects', label: 'Проекты', icon: <IconFolder /> },
