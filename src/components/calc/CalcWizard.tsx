@@ -11,8 +11,9 @@ import { useRouter } from 'next/navigation';
 import { Button, Card, Badge, Select, Input } from '@/components/ui';
 import { DynamicForm } from '@/components/schema/DynamicForm';
 import type { FieldSpec } from '@/lib/schema/types';
-import type { Meta, StationInput } from '@/lib/dossier/types';
-import { parseUploadedDocument, commitIntake } from '@/server/actions/parse';
+import type { Meta } from '@/lib/dossier/types';
+import { parseUploadedDocument } from '@/server/actions/parse';
+import { startPipelineRun } from '@/server/actions/pipeline';
 
 interface TypeOpt { code: string; name: string; status: string; ready: boolean; fields: FieldSpec[] }
 interface ProjectOpt { id: string; name: string; clientName: string }
@@ -56,19 +57,14 @@ export function CalcWizard({ ownerId, types, projects }: { ownerId: string; type
 
   async function next() {
     setBusy(true); setError(null);
-    const res = await commitIntake({
-      ownerId,
-      client: { mode: 'none' },
-      project: projectId
-        ? { mode: 'existing', id: projectId }
-        : { mode: 'new', name: objectName || systemName || 'Новый расчёт', objectName: objectName || systemName || '' },
-      systemName: systemName || 'Новая станция',
-      meta: { ...meta, object_name: objectName || meta.object_name },
-      input: input as unknown as StationInput,
-    });
-    setBusy(false);
-    if (!res.ok) { setError(res.errors.join('; ')); return; }
-    router.push(`/projects/${res.projectId}/systems/${res.systemId}`);
+    try {
+      const card = { станция: systemName || undefined, объект: objectName || meta.object_name || undefined, input };
+      const res = await startPipelineRun({ typeCode, card });
+      router.push(`/calc/runs/${res.id}`);
+    } catch (e) {
+      setBusy(false);
+      setError(e instanceof Error ? e.message : 'Не удалось запустить расчёт');
+    }
   }
 
   return (
