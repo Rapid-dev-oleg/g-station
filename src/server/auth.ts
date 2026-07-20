@@ -4,6 +4,7 @@
  * В токен/сессию кладутся id и флаг isSuperAdmin (роли внутри воркспейса — в БД,
  * через Membership; проверяются точечно на страницах воркспейса).
  */
+import { cache } from 'react';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
@@ -63,11 +64,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
  * Для использования в server actions / services.
  * Редиректит на /login, если сессии нет.
  */
-export async function requireUser() {
+export const requireUser = cache(async () => {
   const session = await auth();
   if (!session?.user) redirect('/login');
   return session.user;
-}
+});
 
 /**
  * Требует платформенного супер-админа (НейроСофт).

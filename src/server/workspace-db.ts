@@ -12,6 +12,7 @@
  * Использовать вместо прямого `db` в request-context (server actions, загрузчики
  * страниц). Фоновый воркер сессии не имеет — там workspaceId передаётся явно.
  */
+import { cache } from 'react';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
 import type { Role } from '@prisma/client';
@@ -70,7 +71,7 @@ export interface WorkspaceCtx {
  * membership. Переключатель воркспейсов для мульти-членства — следующий шаг.
  * Бросает, если аккаунт не привязан ни к одному воркспейсу.
  */
-export async function requireWorkspace(): Promise<WorkspaceCtx> {
+export const requireWorkspace = cache(async (): Promise<WorkspaceCtx> => {
   const user = await requireUser();
   const m = await db.membership.findFirst({
     where: { userId: user.id },
@@ -78,7 +79,7 @@ export async function requireWorkspace(): Promise<WorkspaceCtx> {
   });
   if (!m) throw new Error('Нет доступа: аккаунт не привязан ни к одному воркспейсу');
   return { userId: user.id, workspaceId: m.workspaceId, role: m.role, isSuperAdmin: !!user.isSuperAdmin };
-}
+});
 
 /** Скоуп-клиент для активного воркспейса (request-context). */
 export async function workspaceDb(): Promise<ScopedDb> {
