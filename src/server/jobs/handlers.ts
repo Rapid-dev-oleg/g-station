@@ -6,6 +6,7 @@
 import { registerJobHandler, runWithEta } from './runner';
 import { calcSystemViaKimi } from '@/server/actions/kimi-calc';
 import { runParseJob, type ParsedFileInfo } from '@/server/actions/parse';
+import { runNextStep, getPipelineRun } from '@/server/pipeline/runner';
 
 let registered = false;
 
@@ -39,6 +40,27 @@ export function ensureJobHandlers(): void {
   // Расчёт станции: тяжёлый Kimi-агент (~5–8 мин). Результат calcSystemViaKimi
   // сохраняет в System.kimiCalc сам — поэтому страница системы увидит его и
   // после ухода/возврата.
+  // Конвейер «шаг = скил»: гонит шаги ПОСЛЕДОВАТЕЛЬНО в одной сессии агента
+  // (runNextStep персистит каждый шаг в PipelineRun). Страница прогона поллит
+  // PipelineRun → живой прогресс по шагам. Прогресс задачи — грубый по шагам.
+  registerJobHandler('pipeline', async (input, ctx) => {
+    const { runId } = input as { runId: string };
+    for (;;) {
+      if (ctx.signal.aborted) throw new Error('Остановлено');
+      const run = await getPipelineRun(runId);
+      if (!run) throw new Error('Прогон конвейера не найден');
+      const steps = (run.steps as { key: string; label: string; status: string }[]) ?? [];
+      const nextIdx = steps.findIndex((s) => s.status === 'pending');
+      if (nextIdx === -1) break; // все шаги пройдены
+      const doneCount = steps.filter((s) => s.status === 'done').length;
+      await ctx.progress(Math.round((doneCount / steps.length) * 95), `Шаг ${nextIdx + 1}/${steps.length}: ${steps[nextIdx].label}`);
+      // фоновая задача, не HTTP → щедрый таймаут на шаг (Выход бывает ~11 мин)
+      await runNextStep(runId, { timeoutMs: 15 * 60 * 1000, signal: ctx.signal });
+    }
+    await ctx.progress(100, 'Готово');
+    return { result: { runId } };
+  });
+
   registerJobHandler('calc', async (input, ctx) => {
     const { systemId } = input as { systemId: string };
     // Расчёт+подбор через Kimi+MCP — ориентир ~9 мин.

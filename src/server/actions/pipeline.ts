@@ -6,6 +6,9 @@
  * исполнение в одной сессии агента. Доступ — любой инженер.
  */
 import { requireUser } from '@/server/auth';
+import { requireWorkspace } from '@/server/workspace-db';
+import { enqueueJob } from '@/server/jobs/runner';
+import { ensureJobHandlers } from '@/server/jobs/handlers';
 import { startPipeline, runNextStep, getPipelineRun, type StepState } from '@/server/pipeline/runner';
 
 export interface RunView {
@@ -26,10 +29,17 @@ function shape(run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>): Ru
   };
 }
 
-/** Старт прогона из мастера: карточка «Входа» → создаёт PipelineRun. */
+/**
+ * Старт прогона из мастера: создаёт PipelineRun и ставит ФОНОВУЮ задачу, которая
+ * гонит все шаги в одной сессии агента. Страница прогона поллит прогресс —
+ * можно уйти со страницы, расчёт продолжится на сервере.
+ */
 export async function startPipelineRun(input: { typeCode: string; card: unknown }): Promise<{ id: string }> {
   await requireUser();
+  ensureJobHandlers();
+  const { workspaceId } = await requireWorkspace();
   const id = await startPipeline({ typeCode: input.typeCode, card: input.card });
+  await enqueueJob({ type: 'pipeline', label: `Расчёт: ${input.typeCode}`, input: { runId: id }, workspaceId });
   return { id };
 }
 
