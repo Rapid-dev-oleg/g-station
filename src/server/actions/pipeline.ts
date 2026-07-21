@@ -9,7 +9,7 @@ import { requireUser } from '@/server/auth';
 import { requireWorkspace } from '@/server/workspace-db';
 import { enqueueJob } from '@/server/jobs/runner';
 import { ensureJobHandlers } from '@/server/jobs/handlers';
-import { startPipeline, runNextStep, getPipelineRun, type StepState } from '@/server/pipeline/runner';
+import { startPipeline, runNextStep, getPipelineRun, type StepState, type RunSummary } from '@/server/pipeline/runner';
 
 export interface RunView {
   id: string;
@@ -17,6 +17,7 @@ export interface RunView {
   status: string;
   card: unknown;
   steps: StepState[];
+  summary: RunSummary | null;
 }
 
 function shape(run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>): RunView {
@@ -26,6 +27,7 @@ function shape(run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>): Ru
     status: run.status,
     card: run.card,
     steps: (run.steps as unknown as StepState[]) ?? [],
+    summary: (run.summary as unknown as RunSummary) ?? null,
   };
 }
 

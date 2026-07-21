@@ -9,6 +9,15 @@ import { db } from '@/server/db';
 import { runAgentStep } from '@/server/ai/session-runner';
 import { PIPELINE_STEPS, type StepDef } from './steps';
 
+/** Структурная сводка расчёта (для чистого экрана результата). */
+export interface RunSummary {
+  characteristics?: { Q?: string; H?: string; scheme?: string; pump?: string; power?: string; start?: string };
+  equipment?: { name: string; spec?: string; qty?: string }[];
+  estimate?: { rows?: { item: string; source?: string; cost?: number }[]; cost_total?: number; client_price?: number };
+  cipher?: string;
+  gates?: string[];
+}
+
 export interface StepState {
   key: string;
   label: string;
@@ -95,4 +104,34 @@ export async function runNextStep(
 
 export async function getPipelineRun(runId: string) {
   return db.pipelineRun.findUnique({ where: { id: runId } });
+}
+
+/**
+ * Финальный проход: агент (в ТОЙ ЖЕ сессии, со всем контекстом расчёта) отдаёт
+ * СТРОГИЙ JSON-сводку → чистый экран результата (характеристики/состав/смета/шифр).
+ * Best-effort: если не удалось — сводки просто нет, шаги остаются.
+ */
+export async function summarizeRun(runId: string, signal?: AbortSignal): Promise<void> {
+  const run = await db.pipelineRun.findUnique({ where: { id: runId } });
+  if (!run?.sessionId) return;
+  const prompt =
+    'На основе всего проведённого выше расчёта (шаги в этой сессии) выведи ОДИН ' +
+    'JSON-блок в ```json ... ``` со сводкой — без пояснений вне блока. Схема:\n' +
+    '{\n' +
+    '  "characteristics": {"Q":"<напр. 50 м³/ч>","H":"<40 м>","scheme":"<1/1>","pump":"<класс+мощность>","power":"<кВт>","start":"<тип пуска>"},\n' +
+    '  "equipment": [{"name":"<позиция>","spec":"<кратко>","qty":"<кол-во>"}],\n' +
+    '  "estimate": {"rows":[{"item":"<группа·позиция>","source":"<БД|оценка>","cost":<руб. закупка, число>}],"cost_total":<себестоимость, число>,"client_price":<цена клиенту, число>},\n' +
+    '  "cipher": "<шифр изделия>",\n' +
+    '  "gates": ["<что требует подтверждения инженера>"]\n' +
+    '}\n' +
+    'Значения бери из расчёта, не выдумывай. Числа в estimate — числами (рубли, без пробелов/₽).';
+  const { output } = await runAgentStep({ prompt, sessionId: run.sessionId, timeoutMs: 4 * 60 * 1000, signal });
+  const json = extractJson(output);
+  if (json) await db.pipelineRun.update({ where: { id: runId }, data: { summary: json as object } });
+}
+
+function extractJson(out: string): unknown | null {
+  const fence = out.match(/```json\s*([\s\S]*?)```/i);
+  const raw = fence ? fence[1] : out.match(/\{[\s\S]*\}/)?.[0] ?? '';
+  try { return JSON.parse(raw); } catch { return null; }
 }

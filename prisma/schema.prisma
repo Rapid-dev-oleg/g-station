@@ -195,6 +195,7 @@ model PipelineRun {
   card        Json // входная карточка (из шага «Вход»)
   state       Json? // накопленный результат (расчётное дело)
   steps       Json // [{ key, label, status, output, at }]
+  summary     Json? // структурная сводка (характеристики/состав/смета/шифр) — финальный проход
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 

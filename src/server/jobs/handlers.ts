@@ -6,7 +6,7 @@
 import { registerJobHandler, runWithEta } from './runner';
 import { calcSystemViaKimi } from '@/server/actions/kimi-calc';
 import { runParseJob, type ParsedFileInfo } from '@/server/actions/parse';
-import { runNextStep, getPipelineRun } from '@/server/pipeline/runner';
+import { runNextStep, getPipelineRun, summarizeRun } from '@/server/pipeline/runner';
 
 let registered = false;
 
@@ -57,6 +57,9 @@ export function ensureJobHandlers(): void {
       // фоновая задача, не HTTP → щедрый таймаут на шаг (Выход бывает ~11 мин)
       await runNextStep(runId, { timeoutMs: 15 * 60 * 1000, signal: ctx.signal });
     }
+    // финальная структурная сводка (best-effort — не валит расчёт при ошибке)
+    await ctx.progress(97, 'Сводка результата…');
+    await summarizeRun(runId, ctx.signal).catch(() => {});
     await ctx.progress(100, 'Готово');
     return { result: { runId } };
   });
