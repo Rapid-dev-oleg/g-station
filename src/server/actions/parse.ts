@@ -138,6 +138,34 @@ function isCardComplete(input: Partial<StationInput>, missing: string[]): boolea
 // ─── Основная точка входа: парсинг (+ возможный автосабмит) ──────────────
 
 /**
+ * Lean-парсинг для НОВОГО пайплайна (мастер /calc/new): только извлекает
+ * карточку из документов и заполняет схему — БЕЗ автосабмита, создания
+ * проекта/системы и редиректа в старый флоу. Инженер остаётся в мастере,
+ * правит схему, дальше — пайплайн. Синхронно (агент читает файлы).
+ */
+export async function parseToCard(formData: FormData): Promise<
+  | { ok: true; input: Partial<StationInput>; meta: Partial<Meta>; missing: string[]; typeCode: string }
+  | { ok: false; error: string }
+> {
+  await requireWorkspace(); // авторизация (данные не создаём)
+  let pkg: { dir: string; files: ParsedFileInfo[] };
+  try {
+    pkg = await stagePackageToDir(formData);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка приёма файлов' };
+  }
+  try {
+    const parsed = await parseDocumentViaAgent(pkg.dir, pkg.files.map((f) => f.filename));
+    const first = parsed.systems[0];
+    return { ok: true, input: first?.input ?? {}, meta: parsed.meta, missing: first?.missing ?? [], typeCode: first?.typeCode ?? '' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка разбора документа' };
+  } finally {
+    await rm(pkg.dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/**
  * Парсинг пакета документов ТЗ и, если карточка полная, автосабмит до расчёта.
  *
  * `ownerId` — обязательный аргумент для автосабмита: используется как

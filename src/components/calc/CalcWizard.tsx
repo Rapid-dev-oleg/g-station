@@ -12,7 +12,7 @@ import { Button, Card, Badge, Select, Input } from '@/components/ui';
 import { DynamicForm } from '@/components/schema/DynamicForm';
 import type { FieldSpec } from '@/lib/schema/types';
 import type { Meta } from '@/lib/dossier/types';
-import { parseUploadedDocument } from '@/server/actions/parse';
+import { parseToCard } from '@/server/actions/parse';
 import { startPipelineRun } from '@/server/actions/pipeline';
 
 interface TypeOpt { code: string; name: string; status: string; ready: boolean; fields: FieldSpec[] }
@@ -34,25 +34,22 @@ export function CalcWizard({ ownerId, types, projects }: { ownerId: string; type
   const [objectName, setObjectName] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [parsed, setParsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function parse() {
     if (!files.length) { setError('Добавьте файлы ТЗ'); return; }
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setParsed(false);
     const fd = new FormData();
     files.forEach((f) => fd.append('files', f));
-    if (projectId) fd.append('projectId', projectId);
-    const res = await parseUploadedDocument(fd, ownerId);
+    // lean-парс: заполняет СХЕМУ, без сабмита/редиректа — остаёмся в мастере
+    const res = await parseToCard(fd);
     setBusy(false);
     if (!res.ok) { setError(res.error); return; }
-    if (res.mode === 'redirect') { router.replace(res.redirect); router.refresh(); return; }
-    if (res.mode === 'review') {
-      const first = res.result.systems[0];
-      setInput(first?.input ?? {});
-      if (first?.systemName) setSystemName(first.systemName);
-      setMeta(res.result.meta);
-      if (res.result.meta.object_name) setObjectName(res.result.meta.object_name);
-    }
+    setInput(res.input as Record<string, unknown>);
+    setMeta(res.meta);
+    if (res.meta.object_name) setObjectName(res.meta.object_name);
+    setParsed(true);
   }
 
   async function next() {
@@ -131,7 +128,9 @@ export function CalcWizard({ ownerId, types, projects }: { ownerId: string; type
                 </div>
               )}
               <div><Button size="sm" disabled={busy || !files.length} onClick={parse}>{busy ? 'Разбираю…' : 'Разобрать ИИ → заполнить схему'}</Button></div>
-              <span style={{ fontSize: 12, color: 'var(--text-muted,#667)' }}>ИИ извлечёт карточку и заполнит схему ниже; поля получат метку источника (из ТЗ / допущение).</span>
+              {parsed
+                ? <span style={{ fontSize: 12.5, color: 'var(--ok,#1f9d63)', fontWeight: 500 }}>✓ ИИ разобрал документы и заполнил схему ниже — проверьте и поправьте, затем «Далее».</span>
+                : <span style={{ fontSize: 12, color: 'var(--text-muted,#667)' }}>ИИ извлечёт карточку и заполнит схему ниже; поля получат метку источника (из ТЗ / допущение). Остаётесь в мастере — без создания проекта.</span>}
             </div>
           )}
 
