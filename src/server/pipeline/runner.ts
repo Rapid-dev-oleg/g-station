@@ -27,14 +27,29 @@ export interface StepState {
   at: string | null;
 }
 
-/** Создаёт прогон конвейера. steps по умолчанию — PIPELINE_STEPS. */
+/**
+ * Создаёт прогон конвейера. Шаги берёт из ТИПА (TypeStep, kind≠input, по order);
+ * если у типа шагов нет — из PIPELINE_STEPS (fallback). Можно передать steps явно
+ * (для тестов).
+ */
 export async function startPipeline(input: {
   typeCode: string;
   card: unknown;
   systemId?: string;
   steps?: StepDef[];
 }): Promise<string> {
-  const defs = input.steps ?? PIPELINE_STEPS;
+  let defs: StepDef[];
+  if (input.steps) {
+    defs = input.steps;
+  } else {
+    const rows = await db.typeStep.findMany({
+      where: { typeCode: input.typeCode, kind: { not: 'input' } },
+      orderBy: { order: 'asc' },
+    });
+    defs = rows.length
+      ? rows.map((r) => ({ key: r.key, label: r.label, directive: r.directive ?? '' }))
+      : PIPELINE_STEPS;
+  }
   const steps: StepState[] = defs.map((s) => ({
     key: s.key, label: s.label, directive: s.directive, status: 'pending', output: null, at: null,
   }));

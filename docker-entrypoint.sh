@@ -20,5 +20,9 @@ fi
 echo "[entrypoint] prisma db push…"
 npx prisma db push --skip-generate --accept-data-loss
 
+# Шаги конвейера типов (TypeStep) — идемпотентно (не трогает, если уже есть).
+echo "[entrypoint] засев шагов типов…"
+npx tsx scripts/seed-type-steps.ts || echo "[entrypoint] seed шагов пропущен (не критично)"
+
 echo "[entrypoint] старт приложения…"
 exec npm run start

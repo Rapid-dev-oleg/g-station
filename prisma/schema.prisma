@@ -145,6 +145,29 @@ model SystemType {
   components  Json? // что считать компонентом станции, а не системой (string[])
   systems      System[]
   schemas      TypeSchema[]
+  steps        TypeStep[]
+}
+
+// Шаг расчётного конвейера типа — ДАННЫЕ (не хардкод). Инженер добавляет/удаляет/
+// переставляет шаги в типе; пайплайн идёт по ним по порядку. Каждый шаг = скил
+// (файл методики) + директива агенту. kind: input — это мастер «Вход» (не гонится
+// агентом); llm — агент считает; script — детерминир. скрипт; doc — генерация
+// документов. gate — пауза на инженера после шага.
+model TypeStep {
+  id        String     @id @default(cuid())
+  type      SystemType @relation(fields: [typeCode], references: [code], onDelete: Cascade)
+  typeCode  String
+  order     Int
+  key       String // стабильный ключ (calc, selection, …)
+  label     String // «Расчёт», «Подбор», …
+  kind      String     @default("llm") // input | llm | script | doc
+  directive String? // задача агенту (промпт шага)
+  file      String? // файл скила для редактирования (шаги/шагN.md)
+  gate      Boolean    @default(false) // пауза на инженера после шага
+  createdAt DateTime   @default(now())
+
+  @@unique([typeCode, key])
+  @@index([typeCode, order])
 }
 
 // Версионная схема ввода типа (field-spec) — «опросный лист как данные».

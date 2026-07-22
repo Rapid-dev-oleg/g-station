@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Расчёт — схема по шагам (макет)</title>
+<style>
+  :root{
+    --accent:#1668a8;--accent-deep:#0e4a78;--ground:#eef2f6;--surface:#fff;--surface-2:#f5f8fb;
+    --ink:#14202b;--muted:#5c6b7a;--faint:#8b98a5;--line:#dfe6ec;--line-soft:#eaeff4;
+    --ok:#1f9d63;--calc:#1668a8;--gate:#b7791f;--warn:#c0392b;--eq:#7a5bd0;
+    --shadow:0 1px 2px rgba(20,32,43,.05),0 8px 24px rgba(20,32,43,.07);--r:12px;
+    --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root{--ground:#0d141b;--surface:#141e28;--surface-2:#101922;--ink:#e6edf3;--muted:#93a2b1;--faint:#6a7987;--line:#23303c;--line-soft:#1a2530;--accent:#4b9fe0;--calc:#4b9fe0;--ok:#3fbb84;--gate:#d8a13f;--warn:#e0685c;--eq:#a48be0;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35)}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:22px 20px 60px}
+  h1{font-size:19px;font-weight:640;margin:0}
+  .sub{color:var(--muted);font-size:12.5px;margin:2px 0 16px}
+  .spin{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}}
+
+  .banner{display:flex;gap:10px;align-items:center;border-radius:var(--r);padding:11px 15px;font-size:13px;margin-bottom:14px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line))}
+  .banner .spin{border-color:color-mix(in srgb,var(--accent) 30%,transparent);border-top-color:var(--accent)}
+
+  /* аккордеон шагов */
+  .steps{display:flex;flex-direction:column;gap:10px}
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+  .step>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:13px;padding:14px 16px}
+  .step>summary::-webkit-details-marker{display:none}
+  .step .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12.5px;font-weight:700;color:#fff;flex:none;background:var(--line)}
+  .step.done .n{background:var(--ok)}.step.run .n{background:var(--accent)}
+  .step .tt{flex:1}
+  .step .tt b{font-size:14.5px;font-weight:600}
+  .step .tt small{font-size:12px;color:var(--muted);margin-left:8px}
+  .step.wait .tt b{color:var(--faint)}
+  .step .arrow{color:var(--faint);font-size:12px;transition:transform .15s}
+  .step[open] .arrow{transform:rotate(90deg)}
+  .step.wait{opacity:.75}
+
+  .rows{border-top:1px solid var(--line-soft)}
+  .prow{border-bottom:1px solid var(--line-soft)}
+  .prow:last-child{border-bottom:none}
+  .prow>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:11px 16px 11px 20px}
+  .prow>summary::-webkit-details-marker{display:none}
+  .prow .chev{color:var(--faint);font-size:11px;width:12px;text-align:center;transition:transform .15s}
+  .prow[open] .chev{transform:rotate(90deg)}
+  .prow .pname{flex:1;font-size:13.5px;color:var(--muted)}
+  .prow .pval{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+  .prow.noexp>summary{cursor:default}.prow.noexp .chev{visibility:hidden}
+  .how{padding:2px 16px 14px 44px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  .how b{color:var(--ink)} .how code{font-family:var(--mono);background:var(--surface-2);border-radius:5px;padding:1px 5px}
+  .how .rule{font-family:var(--mono);font-size:11.5px;color:var(--calc)}
+  .empty{padding:16px 20px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--line-soft)}
+
+  .tag{font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;font-weight:700;border-radius:999px;padding:2px 8px;flex:none}
+  .tag.tz{color:var(--calc);background:color-mix(in srgb,var(--calc) 13%,transparent)}
+  .tag.as{color:var(--gate);background:color-mix(in srgb,var(--gate) 15%,transparent)}
+  .tag.miss{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,transparent)}
+  .tag.calc{color:#fff;background:var(--calc)}
+  .tag.eq{color:#fff;background:var(--eq)}
+</style></head><body>
+<div class="wrap">
+  <h1>Расчёт · Пожаротушение АУПТ</h1>
+  <div class="sub">Схема — один документ; каждый шаг типа дописывает параметры. Разверни шаг → его параметры; у рассчитанного ▸ «как посчитано».</div>
+
+  <div class="banner"><span class="spin"></span><span>Идёт <b>шаг 3: Подбор</b> в фоне. Можно закрыть страницу.</span></div>
+
+  <div class="steps">
+
+    <!-- Вход -->
+    <details class="step done"><summary><span class="n">✓</span><span class="tt"><b>Вход</b><small>параметры из ТЗ · 4</small></span><span class="arrow">▸</span></summary>
+      <div class="rows">
+        <details class="prow noexp"><summary><span class="chev">▸</span><span class="pname">Назначение</span><span class="pval">АУПТ (спринклер)</span><span class="tag tz">из ТЗ</span></summary></details>
+        <details class="prow noexp"><summary><span class="chev">▸</span><span class="pname">Подача Q</span><span class="pval">47 м³/ч</span><span class="tag tz">из ТЗ</span></summary></details>
+        <details class="prow noexp"><summary><span class="chev">▸</span><span class="pname">Напор H</span><span class="pval">37 м</span><span class="tag tz">из ТЗ</span></summary></details>
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Схема резервирования</span><span class="pval">1/1</span><span class="tag as">допущение</span></summary><div class="how">В ТЗ не указана. Принято <b>1/1</b> (1 раб + 1 рез) по умолчанию. <span class="rule">правило 1.3</span></div></details>
+      </div>
+    </details>
+
+    <!-- Расчёт -->
+    <details class="step done"><summary><span class="n">✓</span><span class="tt"><b>Расчёт</b><small>рассчитанные параметры · 6</small></span><span class="arrow">▸</span></summary>
+      <div class="rows">
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Рабочая точка Q</span><span class="pval">50 м³/ч</span><span class="tag calc">рассчитано</span></summary><div class="how">Q_target = 47 (ТЗ), точка ТП с запасом +5–10 % и округлением вверх → <b>50 м³/ч</b>. <span class="rule">правила 2.1–2.6</span></div></details>
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Рабочая точка H</span><span class="pval">40 м</span><span class="tag calc">рассчитано</span></summary><div class="how"><code>H = 37 − 0</code> (напор на вводе не задан → 0, допущение) + запас → <b>40 м</b>.</div></details>
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">DN коллектора</span><span class="pval">всас 125 / напор 100</span><span class="tag calc">рассчитано</span></summary><div class="how">По расходу 50 м³/ч и скоростям (всас 0,8–1,5; напор 1,0–2,5 м/с). Всас крупнее напорного. ±1 типоразмер — уточнить по насосу. <span class="rule">правило 5.3 · СП 31.13330</span></div></details>
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Мощность двигателя</span><span class="pval">11 кВт</span><span class="tag calc">рассчитано</span></summary><div class="how"><code>P = 50·40/(367·0,7) ≈ 7,8 кВт</code> × k1,3 ≈ 10 → станд. ряд <b>11 кВт</b>.</div></details>
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Тип пуска</span><span class="pval">Прямой (ПП)</span><span class="tag calc">рассчитано</span></summary><div class="how">Пожарная → прямой по умолчанию; плавный только при ДГУ/слабой сети/ТУ. 11 &lt; 22 кВт → прямой. <span class="rule">шаг 2.6</span></div></details>
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Объём пож. запаса</span><span class="pval">≈ 47 м³</span><span class="tag calc">рассчитано</span></summary><div class="how"><code>V = расход × время</code>; АУПТ 60 мин → ~47 м³ (по группе помещений). <span class="rule">СП 485</span></div></details>
+      </div>
+    </details>
+
+    <!-- Подбор (идёт) -->
+    <details class="step run"><summary><span class="n"><span class="spin"></span></span><span class="tt"><b>Подбор</b><small>оборудование · идёт…</small></span><span class="arrow">▸</span></summary>
+      <div class="rows">
+        <details class="prow"><summary><span class="chev">▸</span><span class="pname">Основной насос</span><span class="pval">CDM65 · ×2</span><span class="tag eq">оборудование</span></summary><div class="how">По точке 50/40 — верт. многоступ., класс CDM65, ~11 кВт, число 2 (схема 1/1). Модель/бренд — инженер. <span class="rule">правило 3.4</span></div></details>
+        <details class="prow noexp"><summary><span class="chev">▸</span><span class="pname">Коллектор, ШУ, корпус…</span><span class="pval" style="font-weight:500;color:var(--muted)">подбираются…</span></summary></details>
+      </div>
+    </details>
+
+    <!-- Цена -->
+    <details class="step wait"><summary><span class="n">4</span><span class="tt"><b>Цена</b><small>смета · ждёт</small></span><span class="arrow">▸</span></summary><div class="empty">Шаг ещё не выполнен — появится BOM и цена клиенту.</div></details>
+
+    <!-- Выход -->
+    <details class="step wait"><summary><span class="n">5</span><span class="tt"><b>Выход</b><small>шифр, валидация · ждёт</small></span><span class="arrow">▸</span></summary><div class="empty">Шаг ещё не выполнен — появится шифр изделия.</div></details>
+
+  </div>
+</div>
+</body></html>
