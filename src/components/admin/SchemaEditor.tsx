@@ -225,7 +225,7 @@ function FieldRow({ field, siblings, onChange, onDelete, onUp, onDown, canUp, ca
 
 // ─── Список полей (рекурсивный) ────────────────────────────────────────────
 
-function FieldList({ fields, onChange, depth }: { fields: FieldSpec[]; onChange: (f: FieldSpec[]) => void; depth: number }) {
+export function FieldList({ fields, onChange, depth }: { fields: FieldSpec[]; onChange: (f: FieldSpec[]) => void; depth: number }) {
   const upd = (i: number, f: FieldSpec) => onChange(fields.map((x, j) => (j === i ? f : x)));
   const del = (i: number) => onChange(fields.filter((_, j) => j !== i));
   const move = (i: number, d: number) => {

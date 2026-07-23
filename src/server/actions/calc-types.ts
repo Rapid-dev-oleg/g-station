@@ -7,7 +7,7 @@
  * и чтение версий.
  */
 import { revalidatePath } from 'next/cache';
-import type { SystemTypeStatus } from '@prisma/client';
+import { Prisma, type SystemTypeStatus } from '@prisma/client';
 import { db } from '@/server/db';
 import { requireSuperAdmin } from '@/server/auth';
 import { runKimiAgent } from '@/server/ai/kimi-agent';
@@ -324,5 +324,92 @@ export async function proposeSchemaFields(
   if (!fields) return { ok: false, error: 'ИИ вернул результат не в формате списка полей — уточните запрос' };
   const err = validateFields(fields);
   if (err) return { ok: false, error: `ИИ предложил некорректные поля (${err}) — уточните запрос` };
+  return { ok: true, fields };
+}
+
+// ─── Схема СПЕЦИФИКАЦИИ (состав оборудования) — SystemType.specSchema ─────────
+// Тот же field-spec, что и схема ввода (группы позиций), но описывает ВЫХОД.
+// Хранится плоско в SystemType.specSchema (без версий) — правка сразу активна.
+
+const revalidateSpec = (code: string) => {
+  revalidatePath('/admin/types');
+  revalidatePath(`/admin/types/${code}/spec`);
+};
+
+export async function getSpecSchema(code: string): Promise<{
+  code: string;
+  name: string;
+  fields: FieldSpec[];
+}> {
+  await requireSuperAdmin();
+  const t = await db.systemType.findUnique({ where: { code }, select: { code: true, name: true, specSchema: true } });
+  if (!t) throw new Error('Тип не найден');
+  return { code: t.code, name: t.name, fields: (t.specSchema as unknown as FieldSpec[]) ?? [] };
+}
+
+/** Сохранить схему спецификации типа (валидируется тем же validateFields). */
+export async function saveSpecSchema(code: string, fields: FieldSpec[]): Promise<ActionResult> {
+  await requireSuperAdmin();
+  const err = validateFields(fields);
+  if (err) return { ok: false, error: err };
+  const t = await db.systemType.findUnique({ where: { code }, select: { code: true } });
+  if (!t) return { ok: false, error: 'Тип не найден' };
+  await db.systemType.update({ where: { code }, data: { specSchema: fields as object } });
+  revalidateSpec(code);
+  return { ok: true };
+}
+
+/** Очистить схему спецификации (specSchema → null). */
+export async function clearSpecSchema(code: string): Promise<ActionResult> {
+  await requireSuperAdmin();
+  await db.systemType.update({ where: { code }, data: { specSchema: Prisma.DbNull } });
+  revalidateSpec(code);
+  return { ok: true };
+}
+
+/**
+ * ИИ-помощник схемы спецификации. Инженер описывает словами (какие позиции/группы
+ * состава нужны), ИИ возвращает полный новый список групп-полей (FieldSpec[]).
+ * Ничего не сохраняет — редактор показывает результат для проверки.
+ */
+export async function proposeSpecSchema(
+  code: string,
+  instruction: string,
+  currentFields: FieldSpec[],
+): Promise<{ ok: true; fields: FieldSpec[] } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  if (!instruction.trim()) return { ok: false, error: 'Опишите, какие позиции нужны' };
+  const t = await db.systemType.findUnique({ where: { code } });
+  if (!t) return { ok: false, error: 'Тип не найден' };
+
+  const prompt =
+    'Ты — конструктор СХЕМЫ СПЕЦИФИКАЦИИ (состава оборудования) насосной станции. ' +
+    'Спецификация задаётся тем же форматом полей (FieldSpec), что и опросный лист, но ' +
+    'описывает ВЫХОД — позиции состава, сгруппированные по разделам. Тебе дают ИНСТРУКЦИЮ ' +
+    'инженера и ТЕКУЩИЙ список групп/полей (JSON). Верни ПОЛНЫЙ изменённый список — массив ' +
+    'JSON — между строками-маркерами <<<RESULT>>> и <<<END_RESULT>>> (каждый маркер на своей ' +
+    'строке). Меняй только то, что просит инструкция; остальное сохрани. Без пояснений вне маркеров.\n\n' +
+    'ФОРМАТ поля (FieldSpec):\n' +
+    '- key: латиница/цифры/подчёркивание, не с цифры, уникален на уровне.\n' +
+    '- label: подпись на русском.\n' +
+    '- dataType: "group" (раздел спецификации с вложенными позициями — fields[]), ' +
+    '"text", "textarea", "number", "measured" (unit — ед. изм.), "enum" (options [{value,label}]), "boolean".\n' +
+    '- Верхний уровень — обычно ГРУППЫ (dataType "group"), внутри fields[] — позиции.\n' +
+    '- hint — короткая подсказка (необязательно).\n\n' +
+    `ИНСТРУКЦИЯ ИНЖЕНЕРА:\n${instruction.trim()}\n\n` +
+    `=== ТЕКУЩАЯ СХЕМА СПЕЦИФИКАЦИИ (${currentFields.length} групп) ===\n` +
+    `${JSON.stringify(currentFields, null, 2)}\n=== КОНЕЦ ===`;
+
+  let output: string;
+  try {
+    ({ output } = await runKimiAgent({ prompt, timeoutMs: 3 * 60 * 1000 }));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка ИИ' };
+  }
+
+  const fields = extractFieldsJson(output);
+  if (!fields) return { ok: false, error: 'ИИ вернул результат не в формате списка полей — уточните запрос' };
+  const err = validateFields(fields);
+  if (err) return { ok: false, error: `ИИ предложил некорректную схему (${err}) — уточните запрос` };
   return { ok: true, fields };
 }
