@@ -17,14 +17,21 @@ const FIRE_STEPS: Step[] = [
   },
   {
     key: 'selection', label: 'Подбор', kind: 'llm', file: 'шаги/шаг3-подбор.md',
-    directive: 'Выполни ШАГ 3 (подбор оборудования) по рассчитанным характеристикам: основной насос ' +
-      '(класс/типоразмер/мощность — без точной модели, это решение инженера), жокей, коллектор (DN, материал), ' +
-      'ШУ, корпус/резервуары, доп.оборудование. Перечисли состав (equipment).',
+    directive: 'Выполни ШАГ 3 (подбор оборудования) по рассчитанным характеристикам. ИСТОЧНИКИ строго ' +
+      'по приоритету (реестр «Источники»): (1) наш каталог БД — MCP search_catalog / find_pump_by_sku / ' +
+      'find_collector / find_jockey_piping; (2) API-источник — MCP select_pump (Q/H рабочей точки → конкретные ' +
+      'насосы с ценой и наличием по складам; серии — list_pump_params); (3) доверенные сайты — MCP ' +
+      'list_trusted_catalogs, читай их через WebFetch; (4) свободный веб (WebSearch) — ТОЛЬКО если выше не ' +
+      'нашлось, помечай оценочным. Подбери: основной насос (класс/типоразмер/мощность; если каталог/API дал ' +
+      'конкретную модель с наличием — предложи её как рекомендуемую, финальное подтверждение за инженером), ' +
+      'жокей, коллектор (DN, материал), ШУ, корпус/резервуары, доп. Заполняй по схеме спецификации типа. ' +
+      'Перечисли состав (equipment) с источником каждой позиции.',
   },
   {
     key: 'pricing', label: 'Цена', kind: 'llm', file: 'шаги/шаг4-ценообразование.md', gate: true,
-    directive: 'Выполни ШАГ 4 (ценообразование): собери BOM по группам, оцени цены (насос CNP — по прайсу через ' +
-      'инструменты БД; прочее — оценочно, помечай «грубая оценка»), посчитай себестоимость и цену клиенту.',
+    directive: 'Выполни ШАГ 4 (ценообразование): собери BOM по группам. Цены — по приоритету источников: ' +
+      'сперва РЕАЛЬНЫЕ из каталога БД / API (select_pump и find_pump_by_sku дают price), затем оценочно ' +
+      '(помечай «грубая оценка»). Курсы валют — из Настроек. Посчитай себестоимость и цену клиенту.',
   },
   {
     key: 'output', label: 'Выход', kind: 'llm', file: 'шаги/шаг5-выход.md',
@@ -45,8 +52,26 @@ async function seedType(typeCode: string, steps: Step[]) {
   console.log(`${typeCode}: засеяно ${steps.length} шагов.`);
 }
 
+/**
+ * Обновляет директивы уже засеянных шагов до актуальных (реестр источников).
+ * Идемпотентно и БЕЗОПАСНО: обновляем директиву шага ТОЛЬКО если она отличается
+ * от новой И ещё не содержит новых MCP-инструментов (не затираем ручные правки,
+ * не трогаем уже обновлённые).
+ */
+async function refreshDirectives(typeCode: string, steps: Step[]) {
+  for (const s of steps) {
+    if (!s.directive) continue;
+    const existing = await db.typeStep.findUnique({ where: { typeCode_key: { typeCode, key: s.key } } });
+    if (!existing?.directive || existing.directive === s.directive) continue;
+    if (/select_pump|list_trusted_catalogs/.test(existing.directive)) continue; // уже обновлена
+    await db.typeStep.update({ where: { id: existing.id }, data: { directive: s.directive } });
+    console.log(`${typeCode}.${s.key}: директива обновлена под реестр источников.`);
+  }
+}
+
 async function main() {
   await seedType('fire', FIRE_STEPS);
+  await refreshDirectives('fire', FIRE_STEPS);
   await db.$disconnect();
 }
 main().catch((e) => { console.error(e); process.exit(1); });
