@@ -20,6 +20,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:${PATH}"
 RUN uv tool install kimi-cli && kimi --version
 
+# Claude Code CLI — РЕЗЕРВНЫЙ агент расчёта (автопереключение при исчерпании квоты
+# Kimi). Авторизация — OAuth-подписка Claude Pro/Max (`claude login` на сервере,
+# креды в /root/.claude, смонтирован томом). Тот же скил + MCP, что у Kimi.
+RUN npm install -g @anthropic-ai/claude-code && claude --version
+
 WORKDIR /app
 
 # Зависимости (react RC ⇒ legacy-peer-deps).

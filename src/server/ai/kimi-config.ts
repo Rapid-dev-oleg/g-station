@@ -69,7 +69,7 @@ export async function getCalcAgent(): Promise<'kimi' | 'claude'> {
 export function genericAgentError(detail: string): string {
   const d = detail.toLowerCase();
   if (/403|usage limit|quota|access_terminated|rate.?limit|429/.test(d)) {
-    return 'Превышен лимит запросов к сервису расчёта. Попробуйте позже или смените движок расчёта в Настройках.';
+    return 'Сервис расчёта упёрся в лимит, резервный движок тоже недоступен. Попробуйте позже.';
   }
   if (/таймаут|timeout|killed|убит/.test(d)) {
     return 'Расчёт занял слишком долго и был прерван. Попробуйте ещё раз.';

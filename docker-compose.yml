@@ -53,6 +53,9 @@ services:
       # Провайдер managed:kimi-code читает их (см. oauth-блок в kimi-agent.ts).
       # На хосте: /opt/kimi-home/.kimi (т.е. ../kimi-home/.kimi от compose-файла).
       - ${KIMI_HOME_HOST:-../kimi-home/.kimi}:/root/.kimi
+      # OAuth-креды Claude Code (резервный движок; `claude login` на сервере пишет
+      # сюда). ЗАПИСЫВАЕМЫЙ — CLI обновляет токен. На хосте: /opt/claude-home/.claude.
+      - ${CLAUDE_HOME_HOST:-../claude-home/.claude}:/root/.claude
 
 volumes:
   gstation-db-data:

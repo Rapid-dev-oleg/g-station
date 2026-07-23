@@ -180,6 +180,18 @@ export async function runKimiAgent(params: KimiAgentParams): Promise<KimiAgentRe
         .join(' | ');
       // Детали — только в лог; наружу нейтральное сообщение без упоминания движка.
       console.warn('[agent:kimi]', detail || (e as Error).message);
+      // Автопереключение на РЕЗЕРВНЫЙ движок Claude при упоре в квоту Kimi
+      // (403/квота/access_terminated). Динамический import — разрывает цикл модулей.
+      if (/403|usage limit|quota|access_terminated|rate.?limit|429/i.test(detail)) {
+        try {
+          console.warn('[agent] Kimi-квота исчерпана → резервный движок Claude');
+          const { runClaudeAgent } = await import('./claude-agent');
+          return await runClaudeAgent(params);
+        } catch (e2) {
+          console.warn('[agent:claude-fallback]', (e2 as Error).message);
+          // резерв тоже не смог — нейтральное сообщение по исходной причине
+        }
+      }
       throw new Error(genericAgentError(detail));
     }
   } finally {
