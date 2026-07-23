@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache';
 import type { SystemTypeStatus } from '@prisma/client';
 import { db } from '@/server/db';
 import { requireSuperAdmin } from '@/server/auth';
+import { runKimiAgent } from '@/server/ai/kimi-agent';
 import type { FieldSpec } from '@/lib/schema/types';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -250,4 +251,78 @@ export async function discardDraft(code: string): Promise<ActionResult> {
   await db.typeSchema.deleteMany({ where: { typeCode: code, status: 'draft' } });
   revalidateSchema(code);
   return { ok: true };
+}
+
+// ─── ИИ-помощник схемы: инженер описывает словами → ИИ предлагает поля ───────
+
+/** Достать JSON-массив полей из ответа агента (маркеры / ```json / первый […]). */
+function extractFieldsJson(out: string): FieldSpec[] | null {
+  const marked = out.match(/<<<RESULT>>>\n?([\s\S]*?)\n?<<<END_RESULT>>>/);
+  let raw = (marked ? marked[1] : out).trim();
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) raw = fence[1].trim();
+  if (raw[0] !== '[') {
+    const arr = raw.match(/\[[\s\S]*\]/);
+    if (arr) raw = arr[0];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as FieldSpec[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ИИ-помощник конструктора схемы. Инженер описывает словами, какие поля нужны
+ * (или как изменить текущие), ИИ возвращает ПОЛНЫЙ новый список полей (FieldSpec[]).
+ * Ничего не сохраняет — редактор показывает результат как несохранённый черновик,
+ * инженер проверяет и сам жмёт «Сохранить черновик»/«Опубликовать». Тот же
+ * рабочий CLI-агент, что и правка методики (proposeSkillEdit).
+ */
+export async function proposeSchemaFields(
+  code: string,
+  instruction: string,
+  currentFields: FieldSpec[],
+): Promise<{ ok: true; fields: FieldSpec[] } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  if (!instruction.trim()) return { ok: false, error: 'Опишите, какие поля нужны' };
+  const t = await db.systemType.findUnique({ where: { code } });
+  if (!t) return { ok: false, error: 'Тип не найден' };
+
+  const prompt =
+    'Ты — конструктор ОПРОСНОГО ЛИСТА (схемы полей ввода) для типа расчёта насосной ' +
+    'станции. Тебе дают ИНСТРУКЦИЮ инженера и ТЕКУЩИЙ список полей (JSON). Верни ПОЛНЫЙ ' +
+    'изменённый список полей — массив JSON — между строками-маркерами <<<RESULT>>> и ' +
+    '<<<END_RESULT>>> (каждый маркер на своей строке). Меняй только то, что просит ' +
+    'инструкция; остальные поля сохрани как есть (тот же порядок и ключи). Никаких ' +
+    'пояснений вне маркеров.\n\n' +
+    'СХЕМА одного поля (FieldSpec):\n' +
+    '- key: строка, латиница/цифры/подчёркивание, не начинается с цифры, уникальна на уровне (стабильный идентификатор в данных).\n' +
+    '- label: подпись на русском для формы.\n' +
+    '- dataType: одно из "measured" (число+единица, для Q/H/мощности), "number", ' +
+    '"enum" (выбор), "boolean" (да/нет), "text", "textarea", "group" (вложенный объект), "array" (повторяемый подсписок).\n' +
+    '- unit: единица для measured ("м³/ч", "м", "кВт", "л/с").\n' +
+    '- options: для enum — массив {"value":"код-латиницей","label":"подпись"}.\n' +
+    '- required: true если поле обязательное.\n' +
+    '- hint: короткая подсказка под полем (необязательно).\n' +
+    '- provenance: true для measured, если важен источник значения (из ТЗ/допущение).\n' +
+    '- visibleIf: {"field":"ключ-другого-поля","equals":[значение]} — показывать поле только при условии (необязательно).\n' +
+    '- fields: для group/array — вложенный массив полей по той же схеме.\n\n' +
+    `ИНСТРУКЦИЯ ИНЖЕНЕРА:\n${instruction.trim()}\n\n` +
+    `=== ТЕКУЩИЙ СПИСОК ПОЛЕЙ (${currentFields.length}) ===\n` +
+    `${JSON.stringify(currentFields, null, 2)}\n=== КОНЕЦ ===`;
+
+  let output: string;
+  try {
+    ({ output } = await runKimiAgent({ prompt, timeoutMs: 3 * 60 * 1000 }));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка ИИ' };
+  }
+
+  const fields = extractFieldsJson(output);
+  if (!fields) return { ok: false, error: 'ИИ вернул результат не в формате списка полей — уточните запрос' };
+  const err = validateFields(fields);
+  if (err) return { ok: false, error: `ИИ предложил некорректные поля (${err}) — уточните запрос` };
+  return { ok: true, fields };
 }
