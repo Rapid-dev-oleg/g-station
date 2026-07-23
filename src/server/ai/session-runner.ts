@@ -52,16 +52,23 @@ function mcpConfig(): string {
   });
 }
 
-function fail(tag: string, e: unknown): never {
+function detailOf(e: unknown): string {
   const err = e as { code?: number; killed?: boolean; stdout?: string; stderr?: string };
-  const detail = [
+  return [
     err.killed ? 'таймаут/убит' : err.code != null ? `exit ${err.code}` : '',
     (err.stderr || '').trim().slice(-500),
     (err.stdout || '').trim().slice(-300),
-  ].filter(Boolean).join(' | ');
-  console.warn(`[session:${tag}]`, detail || (e as Error).message);
+  ].filter(Boolean).join(' | ') || (e as Error).message;
+}
+
+function fail(tag: string, e: unknown): never {
+  const detail = detailOf(e);
+  console.warn(`[session:${tag}]`, detail);
   throw new Error(genericAgentError(detail));
 }
+
+/** Ошибка исчерпания квоты/доступа основного движка (403/квота) → повод на резерв. */
+const isQuota = (detail: string) => /403|usage limit|quota|access_terminated|rate.?limit|429/i.test(detail);
 
 /** Один шаг пайплайна в общей сессии. Диспетчит бэкенд как runKimiAgent. */
 export async function runAgentStep(params: StepParams): Promise<StepResult> {
@@ -88,7 +95,7 @@ async function runClaudeStep(p: StepParams): Promise<StepResult> {
     try {
       const { stdout } = await execFileAsync(bin, args, {
         timeout: p.timeoutMs ?? 10 * 60 * 1000, maxBuffer: 50 * 1024 * 1024,
-        cwd: workspace, env: { ...process.env }, signal: p.signal,
+        cwd: workspace, env: { ...process.env }, signal: p.signal, killSignal: 'SIGKILL',
       });
       const parsed = JSON.parse(stdout) as { result?: string; session_id?: string };
       return { output: (parsed.result ?? '').trim(), sessionId: parsed.session_id ?? '' };
@@ -120,10 +127,19 @@ async function runKimiStep(p: StepParams): Promise<StepResult> {
     try {
       const { stdout } = await execFileAsync(cfg.binPath, args, {
         timeout: p.timeoutMs ?? 10 * 60 * 1000, maxBuffer: 50 * 1024 * 1024,
-        cwd: workspace, env: { ...process.env }, signal: p.signal,
+        cwd: workspace, env: { ...process.env }, signal: p.signal, killSignal: 'SIGKILL',
       });
       return parseKimiStream(stdout);
-    } catch (e) { fail('kimi', e); }
+    } catch (e) {
+      const detail = detailOf(e);
+      // Автопереключение на РЕЗЕРВНЫЙ Claude при упоре в квоту Kimi (не при отмене).
+      if (isQuota(detail) && !p.signal?.aborted) {
+        console.warn('[session] Kimi-квота исчерпана → резервный движок Claude');
+        return runClaudeStep(p);
+      }
+      console.warn('[session:kimi]', detail);
+      throw new Error(genericAgentError(detail));
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
