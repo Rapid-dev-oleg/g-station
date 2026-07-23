@@ -7,23 +7,21 @@ import {
   IconBook,
   IconBuilding,
   IconFolder,
-  IconHome,
   IconPackage,
   IconSettings,
   IconSparkles,
 } from '@/components/ui';
 import styles from './Sidebar.module.css';
 
+// Дашборд / Нормы (/standards) / Методика скрыты из меню по просьбе — страницы
+// остаются доступны по прямой ссылке, но в навигации не показываются.
 const NAV = [
-  { href: '/', label: 'Дашборд', icon: <IconHome /> },
   { href: '/calc/new', label: 'Новый расчёт (β)', icon: <IconSparkles /> },
   { href: '/intake', label: 'Новый расчёт из ТЗ', icon: <IconSparkles /> },
   { href: '/clients', label: 'Клиенты', icon: <IconBuilding /> },
   { href: '/projects', label: 'Проекты', icon: <IconFolder /> },
   { href: '/jobs', label: 'Задачи', icon: <IconSparkles /> },
   { href: '/catalog', label: 'Каталог', icon: <IconPackage /> },
-  { href: '/standards', label: 'Нормы', icon: <IconBook /> },
-  { href: '/methodology', label: 'Методика', icon: <IconBook /> },
 ];
 
 export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
