@@ -25,7 +25,11 @@ const FIRE_STEPS: Step[] = [
       'нашлось, помечай оценочным. Подбери: основной насос (класс/типоразмер/мощность; если каталог/API дал ' +
       'конкретную модель с наличием — предложи её как рекомендуемую, финальное подтверждение за инженером), ' +
       'жокей, коллектор (DN, материал), ШУ, корпус/резервуары, доп. Заполняй по схеме спецификации типа. ' +
-      'Перечисли состав (equipment) с источником каждой позиции.',
+      'Перечисли состав (equipment) с источником каждой позиции. ' +
+      'ВАЖНО [искать-обязательно]: если БД и API ничего не дали — НЕ останавливайся на «решение инженера». ' +
+      'ОБЯЗАТЕЛЬНО найди конкретные модели-кандидаты: сперва доверенные сайты (list_trusted_catalogs → WebFetch ' +
+      'по адресам), затем WebSearch; предложи 1–3 варианта с ценой/наличием и пометкой источника. «Решение ' +
+      'инженера» — это финальное ПОДТВЕРЖДЕНИЕ выбора, а не повод не искать.',
   },
   {
     key: 'pricing', label: 'Цена', kind: 'llm', file: 'шаги/шаг4-ценообразование.md', gate: true,
@@ -63,7 +67,7 @@ async function refreshDirectives(typeCode: string, steps: Step[]) {
     if (!s.directive) continue;
     const existing = await db.typeStep.findUnique({ where: { typeCode_key: { typeCode, key: s.key } } });
     if (!existing?.directive || existing.directive === s.directive) continue;
-    if (/select_pump|list_trusted_catalogs/.test(existing.directive)) continue; // уже обновлена
+    if (existing.directive.includes('[искать-обязательно]')) continue; // уже актуальна
     await db.typeStep.update({ where: { id: existing.id }, data: { directive: s.directive } });
     console.log(`${typeCode}.${s.key}: директива обновлена под реестр источников.`);
   }
