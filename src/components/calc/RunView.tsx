@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, Button } from '@/components/ui';
-import { getRun, continuePipeline, applyStepEdit, type RunView as Run } from '@/server/actions/pipeline';
+import { getRun, continuePipeline, applyStepEdit, applyStepForm, type RunView as Run } from '@/server/actions/pipeline';
 import { CardRenderer } from '@/components/calc/CardRenderer';
+import { DynamicForm } from '@/components/schema/DynamicForm';
 
 type Step = Run['steps'][number];
 
@@ -21,6 +22,8 @@ export function RunView({ run: initial }: { run: Run }) {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [formDrafts, setFormDrafts] = useState<Record<string, Record<string, unknown>>>({});
+  const [rawOpen, setRawOpen] = useState<Record<string, boolean>>({});
 
   const steps = run.steps;
   const total = steps.length;
@@ -61,6 +64,14 @@ export function RunView({ run: initial }: { run: Run }) {
     setBusy(false);
     if (r.ok) { setEditKey(null); await refresh(); }
   }
+  async function saveForm(key: string, data: Record<string, unknown>) {
+    setBusy(true);
+    const r = await applyStepForm(run.id, key, data);
+    setBusy(false);
+    if (r.ok) await refresh();
+  }
+  const draftFor = (s: Step): Record<string, unknown> =>
+    formDrafts[s.key] ?? (s.data as Record<string, unknown> | null) ?? {};
 
   const cipher = allDone ? extractCipher(steps) : null;
 
@@ -121,11 +132,12 @@ export function RunView({ run: initial }: { run: Run }) {
           </Card>
         ) : null}
 
-      {/* Шаги — сворачиваемые, с правкой вывода на каждом шаге */}
+      {/* Шаги — каждый показывает РЕДАКТИРУЕМУЮ ФОРМУ; ответ LLM — в раскрывашке */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {steps.map((s) => {
           const open = openKey === s.key;
           const editing = editKey === s.key;
+          const hasForm = !!s.form && s.status === 'done';
           const badge = s.status === 'done' ? <Badge variant="success" withDot>готово</Badge>
             : s.key === runningKey ? <Badge variant="info" withDot>идёт…</Badge>
             : s.status === 'error' ? <Badge variant="danger" withDot>ошибка</Badge>
@@ -136,9 +148,41 @@ export function RunView({ run: initial }: { run: Run }) {
                 <strong style={{ flex: 1 }}>{s.label}</strong>
                 {s.edited && <Badge variant="warning">правка инженера</Badge>}
                 {badge}
-                {s.output && <span style={{ color: '#bbb', fontSize: 13 }}>{open ? '▲' : '▼'}</span>}
+                {(s.output || hasForm) && <span style={{ color: '#bbb', fontSize: 13 }}>{open ? '▲' : '▼'}</span>}
               </button>
-              {open && s.output && !editing && (
+
+              {open && hasForm && (
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {!s.data && (
+                    <div style={{ fontSize: 12.5, color: 'var(--gate,#b7791f)' }}>
+                      ⚠ Агент не вернул структуру для формы — заполните вручную или смотрите ответ ниже.
+                    </div>
+                  )}
+                  <DynamicForm
+                    fields={s.form!}
+                    value={draftFor(s)}
+                    onChange={(v) => setFormDrafts((d) => ({ ...d, [s.key]: v }))}
+                  />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Button size="sm" disabled={busy || running} onClick={() => saveForm(s.key, draftFor(s))}>Сохранить форму</Button>
+                    <span style={{ fontSize: 12, color: 'var(--text-faint,#8b98a5)' }}>Правка полей учтётся на следующем шаге (агент возьмёт её за истину).</span>
+                  </div>
+                  {s.output && (
+                    <div>
+                      <button onClick={() => setRawOpen((r) => ({ ...r, [s.key]: !r[s.key] }))}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--hydro,#1668a8)', fontSize: 12.5, padding: 0 }}>
+                        {rawOpen[s.key] ? '▾ Скрыть ответ агента (LLM)' : '▸ Ответ агента (LLM)'}
+                      </button>
+                      {rawOpen[s.key] && (
+                        <pre style={{ margin: '8px 0 0', fontSize: 12, whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text-muted,#556)', background: 'var(--surface-2,#f6f8fa)', borderRadius: 8, padding: '10px 12px', maxHeight: 360, overflow: 'auto' }}>{s.output}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Шаги без формы (fallback): текст + правка текстом */}
+              {open && !hasForm && s.output && !editing && (
                 <>
                   <pre style={{ margin: '12px 0 0', fontSize: 12.5, whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text,#14202b)', background: 'var(--surface-2,#f6f8fa)', borderRadius: 8, padding: '12px 14px', maxHeight: 460, overflow: 'auto' }}>{s.output}</pre>
                   {s.status === 'done' && !running && (
@@ -148,14 +192,13 @@ export function RunView({ run: initial }: { run: Run }) {
                   )}
                 </>
               )}
-              {open && editing && (
+              {open && !hasForm && editing && (
                 <div style={{ marginTop: 12 }}>
                   <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={12}
                     style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'var(--font-mono,monospace)', fontSize: 12.5, lineHeight: 1.5, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--line,#dde)', resize: 'vertical' }} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
                     <Button size="sm" disabled={busy} onClick={() => saveEdit(s.key)}>Сохранить правку</Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditKey(null)}>Отмена</Button>
-                    <span style={{ fontSize: 12, color: 'var(--text-faint,#8b98a5)' }}>Учтётся на следующем шаге (агент возьмёт эту версию за истину).</span>
                   </div>
                 </div>
               )}

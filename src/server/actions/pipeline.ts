@@ -10,15 +10,20 @@ import { requireWorkspace, scopedDb } from '@/server/workspace-db';
 import { enqueueJob } from '@/server/jobs/runner';
 import { ensureJobHandlers } from '@/server/jobs/handlers';
 import { db } from '@/server/db';
-import { startPipeline, runNextStep, getPipelineRun, saveStepEdit, type StepState, type RunSummary } from '@/server/pipeline/runner';
+import { startPipeline, runNextStep, getPipelineRun, saveStepEdit, saveStepData, type StepState, type RunSummary } from '@/server/pipeline/runner';
 import { coerceCardLayout, type CardLayout } from '@/lib/card/layout';
+import { stepForm } from '@/lib/pipeline/step-forms';
+import type { FieldSpec } from '@/lib/schema/types';
+
+/** Шаг прогона + схема его формы (для редактируемой формы в UI). */
+export type RunStep = StepState & { form: FieldSpec[] | null };
 
 export interface RunView {
   id: string;
   typeCode: string;
   status: string;
   card: unknown;
-  steps: StepState[];
+  steps: RunStep[];
   summary: RunSummary | null;
   /** Дизайн карточки результата (из типа; fallback — дизайн по умолчанию). */
   cardLayout: CardLayout;
@@ -27,13 +32,18 @@ export interface RunView {
 function shape(
   run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>,
   cardLayout: CardLayout,
+  specSchema: FieldSpec[] | null,
 ): RunView {
+  const steps = ((run.steps as unknown as StepState[]) ?? []).map((s) => ({
+    ...s,
+    form: stepForm(run.typeCode, s.key, specSchema),
+  }));
   return {
     id: run.id,
     typeCode: run.typeCode,
     status: run.status,
     card: run.card,
-    steps: (run.steps as unknown as StepState[]) ?? [],
+    steps,
     summary: (run.summary as unknown as RunSummary) ?? null,
     cardLayout,
   };
@@ -145,11 +155,22 @@ export async function applyStepEdit(runId: string, stepKey: string, text: string
   }
 }
 
+/** Сохранить правку инженера ФОРМЫ шага (структурированный результат). */
+export async function applyStepForm(runId: string, stepKey: string, data: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireUser();
+  try {
+    await saveStepData(runId, stepKey, data);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка сохранения формы' };
+  }
+}
+
 /** Текущее состояние прогона (для страницы прогона). */
 export async function getRun(runId: string): Promise<RunView | null> {
   await requireUser();
   const run = await getPipelineRun(runId);
   if (!run) return null;
-  const type = await db.systemType.findUnique({ where: { code: run.typeCode }, select: { cardLayout: true } });
-  return shape(run, coerceCardLayout(type?.cardLayout));
+  const type = await db.systemType.findUnique({ where: { code: run.typeCode }, select: { cardLayout: true, specSchema: true } });
+  return shape(run, coerceCardLayout(type?.cardLayout), (type?.specSchema as unknown as FieldSpec[] | null) ?? null);
 }

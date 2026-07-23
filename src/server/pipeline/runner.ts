@@ -8,6 +8,18 @@
 import { db } from '@/server/db';
 import { runAgentStep } from '@/server/ai/session-runner';
 import { PIPELINE_STEPS, type StepDef } from './steps';
+import { stepForm, stepJsonInstruction, parseStepData } from '@/lib/pipeline/step-forms';
+import type { FieldSpec } from '@/lib/schema/types';
+
+/** Схема ВЫВОДА шага (форма). selection — из specSchema типа; прочее — FIRE_STEP_FORMS (пилот fire). */
+export async function resolveStepForm(typeCode: string, stepKey: string): Promise<FieldSpec[] | null> {
+  let spec: FieldSpec[] | null = null;
+  if (stepKey === 'selection') {
+    const t = await db.systemType.findUnique({ where: { code: typeCode }, select: { specSchema: true } });
+    spec = (t?.specSchema as unknown as FieldSpec[] | null) ?? null;
+  }
+  return stepForm(typeCode, stepKey, spec);
+}
 
 /** Структурная сводка расчёта (для чистого экрана результата). */
 export interface RunSummary {
@@ -24,8 +36,10 @@ export interface StepState {
   directive: string;
   status: 'pending' | 'done' | 'error';
   output: string | null;
+  /** Структурированный результат шага (по схеме формы) — редактируемая форма в UI. */
+  data?: Record<string, unknown> | null;
   at: string | null;
-  /** Инженер вручную поправил вывод этого шага (учитывается дальше). */
+  /** Инженер вручную поправил результат этого шага (учитывается дальше). */
   edited?: boolean;
 }
 
@@ -102,7 +116,9 @@ export async function runNextStep(
   const base = anyDone
     ? step.directive
     : `Карточка станции (шаг «Вход» уже выполнен инженером):\n${JSON.stringify(run.card, null, 2)}\n\n${step.directive}`;
-  const prompt = base + editBlock;
+  // Форма шага: просим агента вернуть СТРУКТУРУ по схеме → редактируемая форма в UI.
+  const form = await resolveStepForm(run.typeCode, step.key);
+  const prompt = base + editBlock + (form ? stepJsonInstruction(form) : '');
 
   let res: { output: string; sessionId: string };
   try {
@@ -119,7 +135,8 @@ export async function runNextStep(
     throw e;
   }
 
-  steps[idx] = { ...step, status: 'done', output: res.output, at: new Date().toISOString() };
+  const data = form ? parseStepData(res.output) : null;
+  steps[idx] = { ...step, status: 'done', output: res.output, data, at: new Date().toISOString() };
   const remaining = steps.some((s) => s.status === 'pending');
   await db.pipelineRun.update({
     where: { id: runId },
@@ -150,6 +167,27 @@ export async function saveStepEdit(runId: string, stepKey: string, text: string)
   const state = (run.state as { pendingEdits?: PendingEdit[] } | null) ?? {};
   const pending = (state.pendingEdits ?? []).filter((e) => e.key !== stepKey);
   pending.push({ key: stepKey, label: steps[i].label, text });
+  await db.pipelineRun.update({
+    where: { id: runId },
+    data: { steps: steps as unknown as object, state: { ...state, pendingEdits: pending } as object },
+  });
+}
+
+/**
+ * Сохранить правку инженера ФОРМЫ шага (структурированный результат). Обновляет
+ * data шага и ставит правку в очередь на подмешивание в сессию перед следующим
+ * шагом (как истину). Шаг помечается edited.
+ */
+export async function saveStepData(runId: string, stepKey: string, data: Record<string, unknown>): Promise<void> {
+  const run = await db.pipelineRun.findUnique({ where: { id: runId } });
+  if (!run) throw new Error('Прогон конвейера не найден');
+  const steps = run.steps as unknown as StepState[];
+  const i = steps.findIndex((s) => s.key === stepKey);
+  if (i === -1) throw new Error('Шаг не найден');
+  steps[i] = { ...steps[i], data, edited: true };
+  const state = (run.state as { pendingEdits?: PendingEdit[] } | null) ?? {};
+  const pending = (state.pendingEdits ?? []).filter((e) => e.key !== stepKey);
+  pending.push({ key: stepKey, label: steps[i].label, text: JSON.stringify(data, null, 2) });
   await db.pipelineRun.update({
     where: { id: runId },
     data: { steps: steps as unknown as object, state: { ...state, pendingEdits: pending } as object },
