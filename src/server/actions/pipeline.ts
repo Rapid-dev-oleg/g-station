@@ -6,7 +6,7 @@
  * исполнение в одной сессии агента. Доступ — любой инженер.
  */
 import { requireUser } from '@/server/auth';
-import { requireWorkspace } from '@/server/workspace-db';
+import { requireWorkspace, scopedDb } from '@/server/workspace-db';
 import { enqueueJob } from '@/server/jobs/runner';
 import { ensureJobHandlers } from '@/server/jobs/handlers';
 import { db } from '@/server/db';
@@ -44,12 +44,59 @@ function shape(
  * гонит все шаги в одной сессии агента. Страница прогона поллит прогресс —
  * можно уйти со страницы, расчёт продолжится на сервере.
  */
-export async function startPipelineRun(input: { typeCode: string; card: unknown }): Promise<{ id: string }> {
+export async function startPipelineRun(input: {
+  typeCode: string;
+  card: unknown;
+  /** Привязать прогон к System (Фаза A: результат пишется обратно в неё). */
+  systemId?: string;
+  projectId?: string;
+}): Promise<{ id: string }> {
   await requireUser();
   ensureJobHandlers();
   const { workspaceId } = await requireWorkspace();
-  const id = await startPipeline({ typeCode: input.typeCode, card: input.card });
-  await enqueueJob({ type: 'pipeline', label: `Расчёт: ${input.typeCode}`, input: { runId: id }, workspaceId });
+  const id = await startPipeline({ typeCode: input.typeCode, card: input.card, systemId: input.systemId });
+  await enqueueJob({
+    type: 'pipeline',
+    label: `Расчёт: ${input.typeCode}`,
+    input: { runId: id },
+    systemId: input.systemId,
+    projectId: input.projectId,
+    workspaceId,
+  });
+  return { id };
+}
+
+/**
+ * Старт конвейерного расчёта ДЛЯ существующей системы (Фаза A: мост System↔прогон).
+ * Карточку берём из dossier системы (первая станция), тип — из System.typeCode.
+ * Прогон привязывается к System (systemId) → по готовности результат пишется в неё.
+ */
+export async function startSystemPipeline(systemId: string): Promise<{ id: string }> {
+  await requireUser();
+  ensureJobHandlers();
+  const { workspaceId } = await requireWorkspace();
+  const wdb = scopedDb(workspaceId);
+  const system = await wdb.system.findUnique({
+    where: { id: systemId },
+    include: { project: true },
+  });
+  if (!system) throw new Error('Система не найдена в вашем воркспейсе');
+  const dossier = system.dossier as { stations?: { input?: unknown }[]; meta?: { object_name?: string } } | null;
+  const station = dossier?.stations?.[0];
+  const card = {
+    станция: system.name,
+    объект: dossier?.meta?.object_name ?? system.project?.objectName ?? undefined,
+    input: station?.input ?? {},
+  };
+  const id = await startPipeline({ typeCode: system.typeCode, card, systemId });
+  await enqueueJob({
+    type: 'pipeline',
+    label: `Расчёт: ${system.name}`,
+    input: { runId: id },
+    systemId,
+    projectId: system.projectId,
+    workspaceId,
+  });
   return { id };
 }
 

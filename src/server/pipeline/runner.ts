@@ -122,6 +122,30 @@ export async function getPipelineRun(runId: string) {
 }
 
 /**
+ * Пишет результат прогона обратно в привязанную System (если есть systemId):
+ * ссылка на прогон + зеркало сметы (totalCost/clientPrice) + статус CALCULATED.
+ * System = durable-запись, PipelineRun = журнал исполнения. Best-effort — не
+ * валит расчёт, если System нет. Прогоны без systemId (из /calc/new) пропускаются.
+ */
+export async function finalizePipelineToSystem(runId: string): Promise<void> {
+  const run = await db.pipelineRun.findUnique({ where: { id: runId } });
+  if (!run?.systemId) return;
+  const summary = (run.summary as unknown as RunSummary | null) ?? null;
+  const est = summary?.estimate;
+  await db.system
+    .update({
+      where: { id: run.systemId },
+      data: {
+        pipelineRunId: runId,
+        status: 'CALCULATED',
+        ...(typeof est?.cost_total === 'number' ? { totalCost: est.cost_total } : {}),
+        ...(typeof est?.client_price === 'number' ? { clientPrice: est.client_price } : {}),
+      },
+    })
+    .catch(() => {});
+}
+
+/**
  * Финальный проход: агент (в ТОЙ ЖЕ сессии, со всем контекстом расчёта) отдаёт
  * СТРОГИЙ JSON-сводку → чистый экран результата (характеристики/состав/смета/шифр).
  * Best-effort: если не удалось — сводки просто нет, шаги остаются.

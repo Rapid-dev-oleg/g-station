@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge, Button, IconArrowLeft } from '@/components/ui';
 import { SystemFlow } from '@/components/system/SystemFlow';
+import { SystemPipelinePanel } from '@/components/system/SystemPipelinePanel';
 import { systemStatusLabel } from '@/lib/format/labels';
 import { getSystem } from '@/server/services/systems';
 
@@ -41,6 +42,9 @@ export default async function SystemPage({
           </>
         }
       />
+      <div style={{ marginBottom: 16 }}>
+        <SystemPipelinePanel systemId={sid} pipelineRunId={system.pipelineRunId ?? null} />
+      </div>
       <SystemFlow
         systemId={sid}
         projectId={id}
