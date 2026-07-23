@@ -26,6 +26,8 @@ export interface SourceRow {
   baseUrl: string | null;
   token: string | null;
   config: unknown;
+  /** Список адресов каталогов на сайтах (для kind='web_trusted'). */
+  catalogUrls: string[];
   priority: number;
   trustScore: number;
   active: boolean;
@@ -37,9 +39,16 @@ export interface SourceInput {
   kind: string;
   baseUrl?: string;
   token?: string;
+  /** Адреса каталогов на доверенных сайтах (kind='web_trusted'). */
+  catalogUrls?: string[];
   priority?: number;
   trustScore?: number;
   note?: string;
+}
+
+function catalogUrlsOf(config: unknown): string[] {
+  const c = config as { catalogUrls?: unknown } | null;
+  return Array.isArray(c?.catalogUrls) ? c!.catalogUrls.filter((u): u is string => typeof u === 'string' && u.trim() !== '') : [];
 }
 
 export async function listSources(): Promise<SourceRow[]> {
@@ -47,18 +56,23 @@ export async function listSources(): Promise<SourceRow[]> {
   const rows = await db.source.findMany({ orderBy: [{ priority: 'asc' }, { name: 'asc' }] });
   return rows.map((s) => ({
     id: s.id, name: s.name, kind: s.kind, baseUrl: s.baseUrl, token: s.token,
-    config: s.config ?? null, priority: s.priority, trustScore: s.trustScore, active: s.active, note: s.note,
+    config: s.config ?? null, catalogUrls: catalogUrlsOf(s.config), priority: s.priority, trustScore: s.trustScore, active: s.active, note: s.note,
   }));
 }
 
 function validate(input: SourceInput): string | null {
   if (!input.name?.trim()) return 'Укажите название источника';
   if (!SOURCE_KINDS.includes(input.kind as SourceKind)) return 'Неизвестный тип источника';
-  if (input.kind !== 'catalog_db' && !input.baseUrl?.trim()) return 'Для API/сайта укажите базовый URL';
+  if (input.kind === 'api' && !input.baseUrl?.trim()) return 'Для API укажите базовый URL';
+  if (input.kind === 'web_trusted' && !(input.catalogUrls ?? []).some((u) => u.trim())) {
+    return 'Добавьте хотя бы один адрес каталога';
+  }
   const ts = input.trustScore;
   if (ts != null && (ts < 1 || ts > 10)) return 'Скоринг доверия — от 1 до 10';
   return null;
 }
+
+const cleanUrls = (urls?: string[]): string[] => (urls ?? []).map((u) => u.trim()).filter(Boolean);
 
 export async function createSource(input: SourceInput): Promise<ActionResult> {
   await requireSuperAdmin();
@@ -68,6 +82,7 @@ export async function createSource(input: SourceInput): Promise<ActionResult> {
     data: {
       name: input.name.trim(), kind: input.kind,
       baseUrl: input.baseUrl?.trim() || null, token: input.token?.trim() || null,
+      config: input.kind === 'web_trusted' ? { catalogUrls: cleanUrls(input.catalogUrls) } : undefined,
       priority: input.priority ?? 100, trustScore: input.trustScore ?? 5, note: input.note?.trim() || null,
     },
   });
@@ -78,11 +93,18 @@ export async function updateSource(id: string, input: SourceInput): Promise<Acti
   await requireSuperAdmin();
   const err = validate(input);
   if (err) return { ok: false, error: err };
+  const existing = await db.source.findUnique({ where: { id }, select: { config: true } });
+  // web_trusted: пишем список URL в config (сохраняя прочие ключи); иначе config не трогаем.
+  const config =
+    input.kind === 'web_trusted'
+      ? { ...((existing?.config as object) ?? {}), catalogUrls: cleanUrls(input.catalogUrls) }
+      : undefined;
   await db.source.update({
     where: { id },
     data: {
       name: input.name.trim(), kind: input.kind,
       baseUrl: input.baseUrl?.trim() || null, token: input.token?.trim() || null,
+      ...(config ? { config } : {}),
       priority: input.priority ?? 100, trustScore: input.trustScore ?? 5, note: input.note?.trim() || null,
     },
   });

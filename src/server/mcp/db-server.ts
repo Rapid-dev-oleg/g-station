@@ -35,6 +35,12 @@ async function activeApiSource() {
   });
 }
 
+/** Адреса каталогов из config источника (kind='web_trusted'). */
+function catalogUrlsOf(config: unknown): string[] {
+  const c = config as { catalogUrls?: unknown } | null;
+  return Array.isArray(c?.catalogUrls) ? (c!.catalogUrls as unknown[]).filter((u): u is string => typeof u === 'string' && u.trim() !== '') : [];
+}
+
 (async () => {
   const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
@@ -165,6 +171,25 @@ async function activeApiSource() {
       const src = await activeApiSource();
       if (!src) return json({ status: 'error', error: 'нет активного API-источника подбора' });
       return json({ source: src.name, ...(await wellmixParameters({ baseUrl: src.baseUrl, token: src.token, config: src.config }) as object) });
+    },
+  );
+
+  server.registerTool(
+    'list_trusted_catalogs',
+    {
+      description:
+        'Доверенные сайты-каталоги (адреса) из реестра «Источники». Используй эти URL для ' +
+        'веб-поиска оборудования (WebFetch/WebSearch) ПЕРЕД свободным интернетом (#14). ' +
+        'Возвращает сайты с адресами каталогов и скорингом доверия по приоритету.',
+      inputSchema: {},
+    },
+    async () => {
+      const rows = await db.source.findMany({
+        where: { kind: 'web_trusted', active: true },
+        orderBy: [{ priority: 'asc' }, { trustScore: 'desc' }],
+      });
+      const sites = rows.map((s) => ({ name: s.name, trustScore: s.trustScore, urls: catalogUrlsOf(s.config) }));
+      return json({ count: sites.length, sites });
     },
   );
 

@@ -41,6 +41,14 @@ const SOURCES: SeedSource[] = [
     trustScore: 10,
     note: 'Наш каталог CatalogItem — MCP search_catalog / find_pump_by_sku.',
   },
+  {
+    name: 'Доверенные сайты-каталоги',
+    kind: 'web_trusted',
+    config: { catalogUrls: [] as string[] },
+    priority: 50,
+    trustScore: 7,
+    note: 'Впишите адреса каталогов на доверенных сайтах (список). Агент ищет по ним перед свободным вебом.',
+  },
 ];
 
 async function main() {
