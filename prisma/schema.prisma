@@ -144,6 +144,7 @@ model SystemType {
   purposes    Json? // допустимые назначения станции этого типа (string[])
   components  Json? // что считать компонентом станции, а не системой (string[])
   cardLayout  Json? // дизайн карточки результата (CardLayout — список блоков; null → дефолт)
+  specSchema  Json? // схема спецификации (состав оборудования) — FieldSpec[] групп позиций
   systems      System[]
   schemas      TypeSchema[]
   steps        TypeStep[]

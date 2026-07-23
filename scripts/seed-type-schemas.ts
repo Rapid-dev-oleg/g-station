@@ -15,6 +15,12 @@
 import { db } from '@/server/db';
 import type { FieldSpec } from '@/lib/schema/types';
 import { POWER_FIELDS, WATER_FIELDS, LNS_FIELDS, KNS_FIELDS } from '@/lib/schema/starter-fields';
+import { FIRE_SPEC_FIELDS } from '@/lib/schema/fire-spec-fields';
+
+/** Стартовые СХЕМЫ СПЕЦИФИКАЦИИ (состав) по типам — храним в SystemType.specSchema. */
+const SPEC_SCHEMAS: Record<string, FieldSpec[]> = {
+  fire: FIRE_SPEC_FIELDS,
+};
 
 interface SeedType {
   code: string;
@@ -96,8 +102,18 @@ async function seedType(t: SeedType): Promise<void> {
   console.log(`${t.code}: заведён тип + активная схема v${version} (${t.fields.length} полей).`);
 }
 
+/** Засев стартовой схемы спецификации в тип (идемпотентно: только если пусто). */
+async function seedSpec(typeCode: string, fields: FieldSpec[]): Promise<void> {
+  const t = await db.systemType.findUnique({ where: { code: typeCode }, select: { specSchema: true } });
+  if (!t) { console.log(`spec ${typeCode}: типа нет — пропуск.`); return; }
+  if (t.specSchema != null) { console.log(`spec ${typeCode}: уже есть — не трогаю (правки целы).`); return; }
+  await db.systemType.update({ where: { code: typeCode }, data: { specSchema: fields as object } });
+  console.log(`spec ${typeCode}: засеяна схема спецификации (${fields.length} групп).`);
+}
+
 async function main() {
   for (const t of TYPES) await seedType(t);
+  for (const [code, fields] of Object.entries(SPEC_SCHEMAS)) await seedSpec(code, fields);
   console.log('✓ Засев семейств продукции завершён.');
 }
 
