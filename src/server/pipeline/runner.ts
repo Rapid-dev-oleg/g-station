@@ -25,7 +25,12 @@ export interface StepState {
   status: 'pending' | 'done' | 'error';
   output: string | null;
   at: string | null;
+  /** Инженер вручную поправил вывод этого шага (учитывается дальше). */
+  edited?: boolean;
 }
+
+/** Правка инженера, ожидающая подмешивания в сессию на следующем шаге. */
+interface PendingEdit { key: string; label: string; text: string }
 
 /**
  * Создаёт прогон конвейера. Шаги берёт из ТИПА (TypeStep, kind≠input, по order);
@@ -84,9 +89,20 @@ export async function runNextStep(
 
   const step = steps[idx];
   const anyDone = steps.some((s) => s.status !== 'pending');
-  const prompt = anyDone
+
+  // Подмешиваем правки инженера предыдущих шагов (супервизинг): агент обязан
+  // считать их истиной. После использования правки очищаются.
+  const state = (run.state as { pendingEdits?: PendingEdit[] } | null) ?? {};
+  const edits = state.pendingEdits ?? [];
+  const editBlock = edits.length
+    ? `\n\n⚠ ИНЖЕНЕР СКОРРЕКТИРОВАЛ предыдущие шаги — считай эти версии ИСТИНОЙ, ` +
+      `пересчёт делай от них:\n${edits.map((e) => `— Шаг «${e.label}»:\n${e.text}`).join('\n\n')}`
+    : '';
+
+  const base = anyDone
     ? step.directive
     : `Карточка станции (шаг «Вход» уже выполнен инженером):\n${JSON.stringify(run.card, null, 2)}\n\n${step.directive}`;
+  const prompt = base + editBlock;
 
   let res: { output: string; sessionId: string };
   try {
@@ -111,10 +127,33 @@ export async function runNextStep(
       steps: steps as unknown as object,
       sessionId: res.sessionId || run.sessionId,
       currentStep: idx + 1,
-      status: remaining ? 'running' : 'done',
+      // Пошаговый управляемый режим: после шага — ПАУЗА для проверки/правки инженером.
+      status: remaining ? 'paused' : 'done',
+      state: { ...state, pendingEdits: [] } as object,
     },
   });
   return { done: !remaining, step: steps[idx], sessionId: res.sessionId };
+}
+
+/**
+ * Сохранить правку инженера для вывода шага (пошаговый контроль). Обновляет
+ * показанный вывод и ставит правку в очередь на подмешивание в сессию перед
+ * следующим шагом (runNextStep). Шаг помечается edited.
+ */
+export async function saveStepEdit(runId: string, stepKey: string, text: string): Promise<void> {
+  const run = await db.pipelineRun.findUnique({ where: { id: runId } });
+  if (!run) throw new Error('Прогон конвейера не найден');
+  const steps = run.steps as unknown as StepState[];
+  const i = steps.findIndex((s) => s.key === stepKey);
+  if (i === -1) throw new Error('Шаг не найден');
+  steps[i] = { ...steps[i], output: text, edited: true };
+  const state = (run.state as { pendingEdits?: PendingEdit[] } | null) ?? {};
+  const pending = (state.pendingEdits ?? []).filter((e) => e.key !== stepKey);
+  pending.push({ key: stepKey, label: steps[i].label, text });
+  await db.pipelineRun.update({
+    where: { id: runId },
+    data: { steps: steps as unknown as object, state: { ...state, pendingEdits: pending } as object },
+  });
 }
 
 export async function getPipelineRun(runId: string) {

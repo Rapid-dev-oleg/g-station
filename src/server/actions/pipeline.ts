@@ -10,7 +10,7 @@ import { requireWorkspace, scopedDb } from '@/server/workspace-db';
 import { enqueueJob } from '@/server/jobs/runner';
 import { ensureJobHandlers } from '@/server/jobs/handlers';
 import { db } from '@/server/db';
-import { startPipeline, runNextStep, getPipelineRun, type StepState, type RunSummary } from '@/server/pipeline/runner';
+import { startPipeline, runNextStep, getPipelineRun, saveStepEdit, type StepState, type RunSummary } from '@/server/pipeline/runner';
 import { coerceCardLayout, type CardLayout } from '@/lib/card/layout';
 
 export interface RunView {
@@ -110,6 +110,38 @@ export async function runPipelineStep(
     return { ok: true, done: r.done, step: r.step ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Ошибка выполнения шага' };
+  }
+}
+
+/**
+ * «Далее»: выполнить СЛЕДУЮЩИЙ шаг (пошаговый контроль). Ставит фоновую задачу на
+ * один шаг — после него прогон снова встанет на паузу для проверки инженером.
+ */
+export async function continuePipeline(runId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireUser();
+  ensureJobHandlers();
+  const { workspaceId } = await requireWorkspace();
+  const run = await getPipelineRun(runId);
+  if (!run) return { ok: false, error: 'Прогон не найден' };
+  if (!run.steps || !(run.steps as unknown[]).some((s) => (s as StepState).status === 'pending')) {
+    return { ok: false, error: 'Все шаги уже выполнены' };
+  }
+  await db.pipelineRun.update({ where: { id: runId }, data: { status: 'running' } });
+  await enqueueJob({
+    type: 'pipeline', label: `Расчёт: ${run.typeCode}`, input: { runId },
+    systemId: run.systemId ?? undefined, workspaceId,
+  });
+  return { ok: true };
+}
+
+/** Сохранить правку инженера для вывода шага (учтётся на следующем шаге). */
+export async function applyStepEdit(runId: string, stepKey: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireUser();
+  try {
+    await saveStepEdit(runId, stepKey, text);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Ошибка сохранения правки' };
   }
 }
 

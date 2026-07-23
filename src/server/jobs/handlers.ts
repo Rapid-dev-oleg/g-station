@@ -43,26 +43,36 @@ export function ensureJobHandlers(): void {
   // Конвейер «шаг = скил»: гонит шаги ПОСЛЕДОВАТЕЛЬНО в одной сессии агента
   // (runNextStep персистит каждый шаг в PipelineRun). Страница прогона поллит
   // PipelineRun → живой прогресс по шагам. Прогресс задачи — грубый по шагам.
+  // Пошаговый управляемый режим: одна задача = ОДИН шаг, затем ПАУЗА для проверки/
+  // правки инженером (runNextStep ставит status='paused'). «Далее» ставит новую
+  // задачу на следующий шаг. Финализация (сводка + запись в System) — на последнем.
   registerJobHandler('pipeline', async (input, ctx) => {
     const { runId } = input as { runId: string };
-    for (;;) {
-      if (ctx.signal.aborted) throw new Error('Остановлено');
-      const run = await getPipelineRun(runId);
-      if (!run) throw new Error('Прогон конвейера не найден');
-      const steps = (run.steps as { key: string; label: string; status: string }[]) ?? [];
-      const nextIdx = steps.findIndex((s) => s.status === 'pending');
-      if (nextIdx === -1) break; // все шаги пройдены
-      const doneCount = steps.filter((s) => s.status === 'done').length;
-      await ctx.progress(Math.round((doneCount / steps.length) * 95), `Шаг ${nextIdx + 1}/${steps.length}: ${steps[nextIdx].label}`);
-      // фоновая задача, не HTTP → щедрый таймаут на шаг (Выход бывает ~11 мин)
-      await runNextStep(runId, { timeoutMs: 15 * 60 * 1000, signal: ctx.signal });
+    if (ctx.signal.aborted) throw new Error('Остановлено');
+    const run = await getPipelineRun(runId);
+    if (!run) throw new Error('Прогон конвейера не найден');
+    const steps = (run.steps as { key: string; label: string; status: string }[]) ?? [];
+    const nextIdx = steps.findIndex((s) => s.status === 'pending');
+    if (nextIdx === -1) {
+      // шагов не осталось — только финализация
+      await ctx.progress(90, 'Сводка результата…');
+      await summarizeRun(runId, ctx.signal).catch(() => {});
+      await finalizePipelineToSystem(runId).catch(() => {});
+      await ctx.progress(100, 'Готово');
+      return { result: { runId } };
     }
-    // финальная структурная сводка (best-effort — не валит расчёт при ошибке)
-    await ctx.progress(97, 'Сводка результата…');
-    await summarizeRun(runId, ctx.signal).catch(() => {});
-    // мост в System: пишем результат в привязанную систему (если systemId есть)
-    await finalizePipelineToSystem(runId).catch(() => {});
-    await ctx.progress(100, 'Готово');
+    await ctx.progress(30, `Шаг ${nextIdx + 1}/${steps.length}: ${steps[nextIdx].label}`);
+    // фоновая задача, не HTTP → щедрый таймаут на шаг (Выход бывает ~11 мин)
+    const res = await runNextStep(runId, { timeoutMs: 15 * 60 * 1000, signal: ctx.signal });
+    if (res.done) {
+      // это был последний шаг → структурная сводка + мост в System
+      await ctx.progress(90, 'Сводка результата…');
+      await summarizeRun(runId, ctx.signal).catch(() => {});
+      await finalizePipelineToSystem(runId).catch(() => {});
+      await ctx.progress(100, 'Готово');
+    } else {
+      await ctx.progress(100, 'Шаг готов — пауза для проверки инженером');
+    }
     return { result: { runId } };
   });
 

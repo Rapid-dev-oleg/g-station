@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Card, Badge } from '@/components/ui';
-import { getRun, type RunView as Run } from '@/server/actions/pipeline';
+import { Card, Badge, Button } from '@/components/ui';
+import { getRun, continuePipeline, applyStepEdit, type RunView as Run } from '@/server/actions/pipeline';
 import { CardRenderer } from '@/components/calc/CardRenderer';
 
 type Step = Run['steps'][number];
@@ -18,6 +18,9 @@ function extractCipher(steps: Step[]): string | null {
 export function RunView({ run: initial }: { run: Run }) {
   const [run, setRun] = useState<Run>(initial);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const steps = run.steps;
   const total = steps.length;
@@ -25,21 +28,39 @@ export function RunView({ run: initial }: { run: Run }) {
   const nextIdx = steps.findIndex((s) => s.status === 'pending');
   const hasError = run.status === 'error' || steps.some((s) => s.status === 'error');
   const allDone = total > 0 && doneCount === total;
-  const active = !allDone && !hasError; // задача в фоне гонит шаги
-  const runningKey = active && nextIdx !== -1 ? steps[nextIdx].key : null;
+  const running = run.status === 'running' && !hasError; // фон исполняет один шаг
+  const paused = !allDone && !hasError && !running; // ждёт «Далее» инженера
+  const runningKey = running && nextIdx !== -1 ? steps[nextIdx].key : null;
+  const lastDoneKey = doneCount > 0 ? steps.filter((s) => s.status === 'done').slice(-1)[0].key : null;
 
-  // Поллим прогресс, пока идёт (фоновая задача обновляет PipelineRun).
+  // Поллим, пока фон исполняет шаг ИЛИ пока после последнего шага считается сводка.
+  const pollActive = running || (allDone && !run.summary);
   useEffect(() => {
-    if (!active) return;
+    if (!pollActive) return;
     let alive = true;
     const t = setInterval(async () => {
       const fresh = await getRun(run.id);
       if (alive && fresh) setRun(fresh);
     }, 3500);
     return () => { alive = false; clearInterval(t); };
-  }, [active, run.id]);
+  }, [pollActive, run.id]);
 
-  useEffect(() => { if (allDone) setOpenKey('output'); }, [allDone]);
+  useEffect(() => { if (allDone) setOpenKey('output'); else if (lastDoneKey) setOpenKey(lastDoneKey); }, [allDone, lastDoneKey]);
+
+  const refresh = async () => { const f = await getRun(run.id); if (f) setRun(f); };
+
+  async function next() {
+    setBusy(true);
+    const r = await continuePipeline(run.id);
+    setBusy(false);
+    if (r.ok) { setRun({ ...run, status: 'running' }); }
+  }
+  async function saveEdit(key: string) {
+    setBusy(true);
+    const r = await applyStepEdit(run.id, key, editText);
+    setBusy(false);
+    if (r.ok) { setEditKey(null); await refresh(); }
+  }
 
   const cipher = allDone ? extractCipher(steps) : null;
 
@@ -64,15 +85,24 @@ export function RunView({ run: initial }: { run: Run }) {
         })}
       </div>
 
-      {/* Баннер состояния */}
-      {active ? (
+      {/* Баннер состояния (пошаговый управляемый режим) */}
+      {running ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 12, padding: '13px 16px', fontSize: 13.5, background: 'color-mix(in srgb, var(--hydro,#1668a8) 8%, var(--surface,#fff))', border: '1px solid color-mix(in srgb, var(--hydro,#1668a8) 26%, var(--border,#dfe6ec))' }}>
           <Spinner dark />
-          <span>Считается в фоне — <b>шаг {doneCount + 1} из {total}{runningKey ? `: ${steps[nextIdx].label.replace(/^\d+ · /, '')}` : ''}</b>. Можно закрыть страницу — расчёт идёт на сервере, вернётесь к готовому.</span>
+          <span>Идёт <b>шаг {doneCount + 1} из {total}{runningKey ? `: ${steps[nextIdx].label.replace(/^\d+ · /, '')}` : ''}</b>… Можно закрыть страницу — вернётесь к результату.</span>
         </div>
       ) : hasError ? (
         <div style={{ borderRadius: 12, padding: '13px 16px', fontSize: 13.5, background: 'rgba(200,60,50,.1)', color: '#c33', border: '1px solid rgba(200,60,50,.3)' }}>
           Шаг завершился ошибкой (часто таймаут на длинном шаге). Запустите новый расчёт.
+        </div>
+      ) : paused ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderRadius: 12, padding: '13px 16px', fontSize: 13.5, background: 'color-mix(in srgb, var(--gate,#b7791f) 9%, var(--surface,#fff))', border: '1px solid color-mix(in srgb, var(--gate,#b7791f) 30%, var(--border,#dfe6ec))' }}>
+          <span style={{ flex: 1, minWidth: 240 }}>◆ <b>Шаг {doneCount} из {total} готов.</b> Проверьте вывод; при необходимости поправьте — правка учтётся на следующем шаге. Затем «Далее».</span>
+          {nextIdx !== -1 && (
+            <Button disabled={busy} onClick={next}>
+              {busy ? 'Запускаю…' : `Далее: шаг ${doneCount + 1} — ${steps[nextIdx].label.replace(/^\d+ · /, '')}`}
+            </Button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderRadius: 12, padding: '13px 16px', fontSize: 13.5, background: 'color-mix(in srgb, var(--ok,#1f9d63) 10%, var(--surface,#fff))', border: '1px solid color-mix(in srgb, var(--ok,#1f9d63) 30%, var(--border,#dfe6ec))' }}>
@@ -91,10 +121,11 @@ export function RunView({ run: initial }: { run: Run }) {
           </Card>
         ) : null}
 
-      {/* Шаги — сворачиваемые (детали агента) */}
+      {/* Шаги — сворачиваемые, с правкой вывода на каждом шаге */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {steps.map((s) => {
           const open = openKey === s.key;
+          const editing = editKey === s.key;
           const badge = s.status === 'done' ? <Badge variant="success" withDot>готово</Badge>
             : s.key === runningKey ? <Badge variant="info" withDot>идёт…</Badge>
             : s.status === 'error' ? <Badge variant="danger" withDot>ошибка</Badge>
@@ -103,11 +134,30 @@ export function RunView({ run: initial }: { run: Run }) {
             <Card key={s.key}>
               <button onClick={() => setOpenKey(open ? null : s.key)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: 'none', background: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>
                 <strong style={{ flex: 1 }}>{s.label}</strong>
+                {s.edited && <Badge variant="warning">правка инженера</Badge>}
                 {badge}
                 {s.output && <span style={{ color: '#bbb', fontSize: 13 }}>{open ? '▲' : '▼'}</span>}
               </button>
-              {open && s.output && (
-                <pre style={{ margin: '12px 0 0', fontSize: 12.5, whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text,#14202b)', background: 'var(--surface-2,#f6f8fa)', borderRadius: 8, padding: '12px 14px', maxHeight: 460, overflow: 'auto' }}>{s.output}</pre>
+              {open && s.output && !editing && (
+                <>
+                  <pre style={{ margin: '12px 0 0', fontSize: 12.5, whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text,#14202b)', background: 'var(--surface-2,#f6f8fa)', borderRadius: 8, padding: '12px 14px', maxHeight: 460, overflow: 'auto' }}>{s.output}</pre>
+                  {s.status === 'done' && !running && (
+                    <div style={{ marginTop: 8 }}>
+                      <Button size="sm" variant="ghost" onClick={() => { setEditKey(s.key); setEditText(s.output ?? ''); }}>✏ Править вывод</Button>
+                    </div>
+                  )}
+                </>
+              )}
+              {open && editing && (
+                <div style={{ marginTop: 12 }}>
+                  <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={12}
+                    style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'var(--font-mono,monospace)', fontSize: 12.5, lineHeight: 1.5, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--line,#dde)', resize: 'vertical' }} />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                    <Button size="sm" disabled={busy} onClick={() => saveEdit(s.key)}>Сохранить правку</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditKey(null)}>Отмена</Button>
+                    <span style={{ fontSize: 12, color: 'var(--text-faint,#8b98a5)' }}>Учтётся на следующем шаге (агент возьмёт эту версию за истину).</span>
+                  </div>
+                </div>
               )}
             </Card>
           );
