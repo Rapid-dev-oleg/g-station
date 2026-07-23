@@ -348,6 +348,27 @@ model Norm {
   @@index([status])
 }
 
+// Источник подбора оборудования (реестр, редактируемый из UI). Тип задаёт
+// способ доступа: catalog_db (наш каталог), api (внешний API, напр. Wellmix),
+// web_trusted (доверенный сайт для веб-поиска). Агент ходит по активным
+// источникам через MCP по приоритету (#14: сначала доверенные, потом веб; #11 скоринг).
+model Source {
+  id         String   @id @default(cuid())
+  name       String
+  kind       String // 'catalog_db' | 'api' | 'web_trusted'
+  baseUrl    String? // база API / URL сайта
+  token      String? // секрет (api-токен) — хранится как ключи в Settings
+  config     Json? // { provider, endpoints, paramMap, … } — маппинг под конкретный API
+  priority   Int      @default(100) // меньше = выше приоритет
+  trustScore Int      @default(5) // 1..10, порог доверия (#11)
+  active     Boolean  @default(true)
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([kind])
+}
+
 // Декларативные правила расчёта (триггеры материала, карта аналогов,
 // матрица класса насоса и т.п.). Формулы остаются в TS — здесь только
 // условия выбора. Снапшот версии в Dossier = id записи.

@@ -85,6 +85,17 @@ export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
             Нормы
           </Link>
         )}
+        {isSuperAdmin && (
+          <Link
+            href="/admin/sources"
+            className={clsx(styles.link, pathname.startsWith('/admin/sources') && styles.linkActive)}
+          >
+            <span className={styles.linkIcon}>
+              <IconPackage />
+            </span>
+            Источники подбора
+          </Link>
+        )}
         <Link
           href="/settings"
           className={clsx(styles.link, pathname.startsWith('/settings') && styles.linkActive)}

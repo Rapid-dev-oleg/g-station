@@ -29,5 +29,9 @@ npx tsx scripts/seed-type-schemas.ts || echo "[entrypoint] seed семейств
 echo "[entrypoint] засев шагов типов…"
 npx tsx scripts/seed-type-steps.ts || echo "[entrypoint] seed шагов пропущен (не критично)"
 
+# Реестр источников подбора (Source: Wellmix API, каталог БД) — идемпотентно.
+echo "[entrypoint] засев источников…"
+npx tsx scripts/seed-sources.ts || echo "[entrypoint] seed источников пропущен (не критично)"
+
 echo "[entrypoint] старт приложения…"
 exec npm run start

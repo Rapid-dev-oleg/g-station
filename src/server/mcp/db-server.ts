@@ -23,8 +23,17 @@ import {
   findPumpInDbBySku,
 } from '@/server/pricing/equipment';
 import { findCollectorPrice } from '@/lib/pricing/collectors';
+import { wellmixSelectPumps, wellmixParameters } from '@/server/pricing/wellmix';
 
 const json = (v: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(v) }] });
+
+/** Активный API-источник подбора (реестр Source) по приоритету; null — если нет. */
+async function activeApiSource() {
+  return db.source.findFirst({
+    where: { kind: 'api', active: true },
+    orderBy: [{ priority: 'asc' }, { trustScore: 'desc' }],
+  });
+}
 
 (async () => {
   const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
@@ -113,6 +122,49 @@ const json = (v: unknown) => ({ content: [{ type: 'text' as const, text: JSON.st
         take: Math.min(a.limit ?? 10, 50),
       });
       return json({ count: rows.length, items: rows });
+    },
+  );
+
+  server.registerTool(
+    'select_pump',
+    {
+      description:
+        'Подобрать НАСОСЫ по рабочей точке через активный API-источник (реестр «Источники», ' +
+        'напр. Wellmix). Вход: расход Q (м³/ч) и напор H (м) из расчёта. Возвращает варианты ' +
+        'насосов с ЦЕНОЙ и НАЛИЧИЕМ по складам + характеристики. Используй на шаге «Подбор» ' +
+        'ПЕРЕД веб-поиском. Если ошибка про серию — сперва вызови list_pump_params и передай series.',
+      inputSchema: {
+        q: z.number().describe('расход Q, м³/ч (рабочая точка из расчёта)'),
+        h: z.number().describe('напор H, м (рабочая точка из расчёта)'),
+        power_from: z.number().optional().describe('мощность двигателя от, кВт'),
+        power_to: z.number().optional().describe('мощность двигателя до, кВт'),
+        number_of_pumps: z.number().optional().describe('параллельно работающих насосов, 1–8'),
+        series: z.string().optional().describe('серия(и) насосов, напр. "313" или "152,125,174" (из list_pump_params)'),
+      },
+    },
+    async (a) => {
+      const src = await activeApiSource();
+      if (!src) return json({ status: 'error', error: 'нет активного API-источника подбора (заведите в реестре «Источники»)' });
+      const r = await wellmixSelectPumps(
+        { baseUrl: src.baseUrl, token: src.token, config: src.config },
+        { q: a.q, h: a.h, powerFrom: a.power_from, powerTo: a.power_to, numberOfPumps: a.number_of_pumps, series: a.series },
+      );
+      return json({ source: src.name, ...r });
+    },
+  );
+
+  server.registerTool(
+    'list_pump_params',
+    {
+      description:
+        'Справочники активного API-источника подбора (серии насосов, DN и т.п.) — для выбора ' +
+        'series перед select_pump. Возвращает перечень доступных параметров.',
+      inputSchema: {},
+    },
+    async () => {
+      const src = await activeApiSource();
+      if (!src) return json({ status: 'error', error: 'нет активного API-источника подбора' });
+      return json({ source: src.name, ...(await wellmixParameters({ baseUrl: src.baseUrl, token: src.token, config: src.config }) as object) });
     },
   );
 
