@@ -20,6 +20,11 @@ fi
 echo "[entrypoint] prisma db push…"
 npx prisma db push --skip-generate --accept-data-loss
 
+# Семейства продукции G-* (SystemType + стартовая схема) — идемпотентно
+# (пропуск, если у типа уже есть активная схема; правки инженера целы).
+echo "[entrypoint] засев семейств продукции…"
+npx tsx scripts/seed-type-schemas.ts || echo "[entrypoint] seed семейств пропущен (не критично)"
+
 # Шаги конвейера типов (TypeStep) — идемпотентно (не трогает, если уже есть).
 echo "[entrypoint] засев шагов типов…"
 npx tsx scripts/seed-type-steps.ts || echo "[entrypoint] seed шагов пропущен (не критично)"
