@@ -143,6 +143,7 @@ model SystemType {
   triggers    Json? // ключевые слова идентификации типа из ТЗ (string[])
   purposes    Json? // допустимые назначения станции этого типа (string[])
   components  Json? // что считать компонентом станции, а не системой (string[])
+  cardLayout  Json? // дизайн карточки результата (CardLayout — список блоков; null → дефолт)
   systems      System[]
   schemas      TypeSchema[]
   steps        TypeStep[]

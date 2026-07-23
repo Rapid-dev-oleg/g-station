@@ -9,7 +9,9 @@ import { requireUser } from '@/server/auth';
 import { requireWorkspace } from '@/server/workspace-db';
 import { enqueueJob } from '@/server/jobs/runner';
 import { ensureJobHandlers } from '@/server/jobs/handlers';
+import { db } from '@/server/db';
 import { startPipeline, runNextStep, getPipelineRun, type StepState, type RunSummary } from '@/server/pipeline/runner';
+import { coerceCardLayout, type CardLayout } from '@/lib/card/layout';
 
 export interface RunView {
   id: string;
@@ -18,9 +20,14 @@ export interface RunView {
   card: unknown;
   steps: StepState[];
   summary: RunSummary | null;
+  /** Дизайн карточки результата (из типа; fallback — дизайн по умолчанию). */
+  cardLayout: CardLayout;
 }
 
-function shape(run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>): RunView {
+function shape(
+  run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>,
+  cardLayout: CardLayout,
+): RunView {
   return {
     id: run.id,
     typeCode: run.typeCode,
@@ -28,6 +35,7 @@ function shape(run: NonNullable<Awaited<ReturnType<typeof getPipelineRun>>>): Ru
     card: run.card,
     steps: (run.steps as unknown as StepState[]) ?? [],
     summary: (run.summary as unknown as RunSummary) ?? null,
+    cardLayout,
   };
 }
 
@@ -62,5 +70,7 @@ export async function runPipelineStep(
 export async function getRun(runId: string): Promise<RunView | null> {
   await requireUser();
   const run = await getPipelineRun(runId);
-  return run ? shape(run) : null;
+  if (!run) return null;
+  const type = await db.systemType.findUnique({ where: { code: run.typeCode }, select: { cardLayout: true } });
+  return shape(run, coerceCardLayout(type?.cardLayout));
 }

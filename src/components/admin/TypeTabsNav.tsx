@@ -6,14 +6,17 @@ import { Tabs } from '@/components/ui';
 const TABS = [
   { key: 'schema', label: 'Схема', suffix: '/schema' },
   { key: 'steps', label: 'Шаги', suffix: '/steps' },
+  { key: 'card', label: 'Карточка', suffix: '/card' },
 ] as const;
 
-/** Таб-навигация страницы типа: Схема (ввод) + Шаги (шаг-скилы). */
+/** Таб-навигация страницы типа: Схема (ввод) + Шаги (шаг-скилы) + Карточка (дизайн результата). */
 export function TypeTabsNav({ code }: { code: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const base = `/admin/types/${code}`;
-  const active = pathname.startsWith(base + '/steps') ? 'steps' : 'schema';
+  const active = pathname.startsWith(base + '/steps') ? 'steps'
+    : pathname.startsWith(base + '/card') ? 'card'
+    : 'schema';
 
   return (
     <Tabs
