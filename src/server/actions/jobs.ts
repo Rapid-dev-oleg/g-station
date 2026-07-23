@@ -22,6 +22,8 @@ export interface JobView {
   error: string | null;
   projectId: string | null;
   systemId: string | null;
+  /** id прогона конвейера (для задач type='pipeline') — ссылка на /calc/runs/[id]. */
+  runId: string | null;
   result: unknown;
   createdAt: string;
   finishedAt: string | null;
@@ -30,11 +32,17 @@ export interface JobView {
 function toView(j: {
   id: string; type: string; status: string; progress: number; message: string | null;
   label: string | null; error: string | null; projectId: string | null; systemId: string | null;
-  result: unknown; createdAt: Date; finishedAt: Date | null;
+  input?: unknown; result: unknown; createdAt: Date; finishedAt: Date | null;
 }): JobView {
+  // runId живёт в input сразу при постановке; после готовности — и в result.
+  const runId =
+    (j.input as { runId?: string } | null)?.runId ??
+    (j.result as { runId?: string } | null)?.runId ??
+    null;
   return {
     id: j.id, type: j.type, status: j.status, progress: j.progress, message: j.message,
     label: j.label, error: j.error, projectId: j.projectId, systemId: j.systemId,
+    runId,
     result: j.result ?? null,
     createdAt: j.createdAt.toISOString(), finishedAt: j.finishedAt?.toISOString() ?? null,
   };

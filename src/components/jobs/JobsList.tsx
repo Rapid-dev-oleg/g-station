@@ -12,7 +12,7 @@ const STATUS: Record<string, { label: string; color: string }> = {
   error: { label: 'ошибка', color: '#dc2626' },
   cancelled: { label: 'остановлено', color: '#b45309' },
 };
-const TYPE: Record<string, string> = { parse: 'Парсинг ТЗ', calc: 'Расчёт станции' };
+const TYPE: Record<string, string> = { parse: 'Парсинг ТЗ', calc: 'Расчёт станции', pipeline: 'Расчёт (конвейер)' };
 
 export function JobsList({ initial }: { initial: JobView[] }) {
   const [jobs, setJobs] = useState<JobView[]>(initial);
@@ -44,7 +44,10 @@ export function JobsList({ initial }: { initial: JobView[] }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {jobs.map((j) => {
           const st = STATUS[j.status] ?? { label: j.status, color: '#64748b' };
-          const link = j.systemId && j.projectId ? `/projects/${j.projectId}/systems/${j.systemId}` : j.projectId ? `/projects/${j.projectId}` : null;
+          // Пайплайн-расчёт → страница прогона (можно вернуться к живому/готовому).
+          const link = j.type === 'pipeline' && j.runId ? `/calc/runs/${j.runId}`
+            : j.systemId && j.projectId ? `/projects/${j.projectId}/systems/${j.systemId}`
+            : j.projectId ? `/projects/${j.projectId}` : null;
           const row = (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', borderRadius: 8, background: '#f8fafc' }}>
               <span style={{ fontSize: 12, color: st.color, fontWeight: 600, minWidth: 96 }}>{st.label}</span>
